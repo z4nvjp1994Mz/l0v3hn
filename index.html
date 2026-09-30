@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V29 VERIFIED STRUCTURES</small>
+  <small>GitHub → Netlify · BUILD V30 RESTORE SITE 3D</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V29 loại toàn bộ công trình phụ trợ đặt theo ước lượng. Chỉ giữ các khối đã bám tọa độ masterplan; các hạng mục phụ sẽ chỉ được dựng khi có tọa độ pixel xác nhận.</p>
+  <p>Bản V30 khôi phục lại toàn bộ lớp 3D phụ trợ đã có ở V28, nhưng tách riêng thành supportGroup để tiếp tục căn từng hạng mục theo blueprint mà không ảnh hưởng nhà xưởng và cây.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -34,13 +34,13 @@
   <h2>Da Loc 3D</h2>
   <p>Khối nhà dùng cùng hệ tọa độ pixel 1616×2048 với bản đồ 2D, vì vậy Top View có thể dùng để kiểm tra trực tiếp độ khớp.</p>
   <div class="stats">
-    <div class="stat"><b>38</b><span>verified main building blocks</span></div>
+    <div class="stat"><b>38 + site</b><span>factories + restored site structures</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
     <div class="stat"><b>Strict map trees</b><span>detected points only</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">STRICT MODE: no guessed support structures</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V30: support 3D restored · ready for alignment</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -249,6 +249,135 @@ TREE_POINTS.forEach(([x,y,scale],i)=>{
 });
 
 
+
+
+// ---- V30: Khôi phục lớp công trình phụ trợ 3D, tách riêng để căn chỉnh tiếp ----
+const supportGroup=new THREE.Group();
+supportGroup.name='supportGroup';
+world.add(supportGroup);
+
+const supportWallMat=new THREE.MeshStandardMaterial({color:0xf0eee8,roughness:.72});
+const supportRoofMat=new THREE.MeshStandardMaterial({color:0xd8d1c4,roughness:.62});
+const darkRoofMat=new THREE.MeshStandardMaterial({color:0x6d716d,roughness:.58});
+const glassMat=new THREE.MeshStandardMaterial({color:0x8fb1c4,roughness:.22,metalness:.08});
+const asphaltMat=new THREE.MeshStandardMaterial({color:0x6f7471,roughness:1});
+const concreteMat=new THREE.MeshStandardMaterial({color:0xc7c9c3,roughness:1});
+const plazaMat=new THREE.MeshStandardMaterial({color:0xd9d1c2,roughness:1});
+const fenceMat=new THREE.MeshStandardMaterial({color:0x9a9f9b,roughness:.75,metalness:.18});
+
+function addSupportBuilding(cx,cy,Lpx,Dpx,angle=0,h=3.2,roof="light",glass=false){
+  const p=mapPx(cx,cy),g=new THREE.Group();
+  g.position.set(p.x,.07,p.z);
+  g.rotation.y=THREE.MathUtils.degToRad(-angle);
+  supportGroup.add(g);
+
+  const pad=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S+0.7,.12,Dpx*S+0.7),concreteMat);
+  pad.position.y=.06; g.add(pad);
+
+  const body=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S,h,Dpx*S),supportWallMat);
+  body.position.y=h/2+.14; body.castShadow=true; body.receiveShadow=true; g.add(body);
+
+  const rm=roof==="dark"?darkRoofMat:(roof==="blue"?blueMat:supportRoofMat);
+  const r=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S+.2,.2,Dpx*S+.2),rm);
+  r.position.y=h+.22; r.castShadow=true; g.add(r);
+
+  if(glass){
+    const gl=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S*.55,h*.34,.08),glassMat);
+    gl.position.set(0,h*.60,Dpx*S/2+.05); g.add(gl);
+  }
+  return g;
+}
+
+function addParkingCanopy(cx,cy,Lpx,Dpx,angle=0,count=6){
+  const p=mapPx(cx,cy),g=new THREE.Group();
+  g.position.set(p.x,.08,p.z);
+  g.rotation.y=THREE.MathUtils.degToRad(-angle);
+  supportGroup.add(g);
+
+  const slab=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S,.08,Dpx*S),asphaltMat);
+  slab.position.y=.05; g.add(slab);
+
+  for(let i=0;i<count;i++){
+    const x=(-.42+i/(Math.max(1,count-1))*.84)*Lpx*S;
+    const col=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,1.6,6),fenceMat);
+    col.position.set(x,.8,0); g.add(col);
+  }
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S,0.14,Dpx*S*.82),darkRoofMat);
+  roof.position.y=1.62; g.add(roof);
+}
+
+function addGate(cx,cy,angle=0,widthPx=42){
+  const p=mapPx(cx,cy),g=new THREE.Group();
+  g.position.set(p.x,.05,p.z);
+  g.rotation.y=THREE.MathUtils.degToRad(-angle);
+  supportGroup.add(g);
+
+  const w=widthPx*S;
+  const postGeo=new THREE.BoxGeometry(.55,3.3,.55);
+  const p1=new THREE.Mesh(postGeo,supportWallMat),p2=p1.clone();
+  p1.position.set(-w/2,1.65,0); p2.position.set(w/2,1.65,0);
+  const beam=new THREE.Mesh(new THREE.BoxGeometry(w+1.1,.45,.65),supportRoofMat);
+  beam.position.y=3.15;
+  g.add(p1,p2,beam);
+}
+
+function addRoundPlaza(cx,cy,rPx){
+  const p=mapPx(cx,cy);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(rPx*S,rPx*S,.12,48),plazaMat);
+  base.position.set(p.x,.08,p.z); supportGroup.add(base);
+
+  const inner=new THREE.Mesh(new THREE.CylinderGeometry(rPx*S*.42,rPx*S*.42,.10,48),lawnMat);
+  inner.position.set(p.x,.16,p.z); supportGroup.add(inner);
+}
+
+function addPond3D(cx,cy,rxPx,ryPx,angle=0){
+  const p=mapPx(cx,cy);
+  const geo=new THREE.CircleGeometry(1,64);
+  geo.scale(rxPx*S,ryPx*S,1);
+  const m=new THREE.Mesh(geo,waterMat);
+  m.rotation.x=-Math.PI/2;
+  m.rotation.z=THREE.MathUtils.degToRad(angle);
+  m.position.set(p.x,.20,p.z);
+  supportGroup.add(m);
+}
+
+// Khôi phục các khối phụ trợ của V28
+[
+  [917,787,58,38,37,4.4,"light",true],
+  [972,844,44,34,37,3.8,"dark",true],
+  [1042,748,36,26,37,3.1,"light",false],
+  [1088,831,34,24,37,3.0,"light",false],
+  [1130,960,44,28,37,3.2,"light",false],
+  [1210,1020,40,26,37,3.0,"light",false],
+  [495,865,42,24,37,2.8,"light",false],
+  [381,1338,36,22,37,2.6,"light",false],
+  [574,1582,38,22,37,2.7,"light",false],
+  [1285,528,38,24,37,2.8,"light",false],
+  [1350,758,36,24,80,2.8,"light",false]
+].forEach(v=>addSupportBuilding(...v));
+
+[
+  [1020,350,92,26,37,8],
+  [1205,575,72,24,37,6],
+  [548,1000,74,24,-53,6],
+  [690,1440,70,22,-53,6]
+].forEach(v=>addParkingCanopy(...v));
+
+addPond3D(1042,914,22,15,-8);
+addRoundPlaza(970,865,24);
+addRoundPlaza(1096,895,18);
+
+[
+  [788,286,37,42],
+  [1400,876,80,40],
+  [608,1698,37,38],
+  [274,1118,-53,36]
+].forEach(v=>addGate(...v));
+
+[
+  [900,720,14],[1010,725,11],[1128,805,12],[1165,925,12],
+  [475,1125,11],[558,1285,11],[705,1180,12]
+].forEach(([cx,cy,r])=>addRoundPlaza(cx,cy,r));
 
 // Views
 function tween(pos,tgt){
