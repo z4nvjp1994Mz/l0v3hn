@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V26 DENSE LANDSCAPE</small>
+  <small>GitHub → Netlify · BUILD V27 STRICT MAP TREES</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>Bản này dùng trực tiếp asset masterplan nằm trong cùng GitHub/Netlify project để tránh lỗi proxy và bảo đảm blueprint luôn tải được.</p>
 </div>
@@ -34,9 +34,9 @@
   <h2>Da Loc 3D</h2>
   <p>Khối nhà dùng cùng hệ tọa độ pixel 1616×2048 với bản đồ 2D, vì vậy Top View có thể dùng để kiểm tra trực tiếp độ khớp.</p>
   <div class="stats">
-    <div class="stat"><b>50+</b><span>3D buildings + utilities</span></div>
+    <div class="stat"><b>38</b><span>verified main building blocks</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>Dense landscape</b><span>map-aligned trees + gardens</span></div>
+    <div class="stat"><b>Strict map trees</b><span>detected points only</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
@@ -84,7 +84,7 @@ function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
 
 // Exact same 2D masterplan family as the uploaded 1616×2048 source.
 const texLoader=new THREE.TextureLoader();
-const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.66,side:THREE.DoubleSide,depthWrite:true});
+const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.72,side:THREE.DoubleSide,depthWrite:true});
 const blueprint=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),blueprintMat);
 blueprint.rotation.x=-Math.PI/2;blueprint.position.y=.22;blueprint.renderOrder=-10;world.add(blueprint);
 const bpBadge=document.createElement('div');
@@ -196,15 +196,15 @@ function addTree(px, py, scale = 1, flowering = false) {
 
   const m1 = flowering ? flowerLeafMat : treeLeafMat;
   const m2 = flowering ? flowerLeafMat : treeLeafMat2;
-  const crown1 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.88 * scale, 1), m1);
+  const crown1 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.76 * scale, 1), m1);
   crown1.position.set(-0.12*scale, 2.02 * scale, 0.05*scale);
   crown1.castShadow = true;
 
-  const crown2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.68 * scale, 1), m2);
+  const crown2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.58 * scale, 1), m2);
   crown2.position.set(0.28 * scale, 2.68 * scale, -0.12 * scale);
   crown2.castShadow = true;
 
-  const crown3 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.54 * scale, 1), flowering ? flowerLeafMat : treeLeafMat3);
+  const crown3 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.46 * scale, 1), flowering ? flowerLeafMat : treeLeafMat3);
   crown3.position.set(-0.34 * scale, 2.54 * scale, 0.16 * scale);
   crown3.castShadow = true;
 
@@ -229,117 +229,33 @@ const TREE_POINTS = [
 ];
 
 TREE_POINTS.forEach(([x,y,scale],i)=>{
-  const baseScale=Math.max(1.05,scale*1.12);
-  addTree(x,y,baseScale,i%17===0);
-  // Add nearby companion trees so landscaped strips read as continuous green belts.
+  // Only use locations already detected from the 2D masterplan.
+  // Densification stays within ~1-2 px around each validated point,
+  // so trees do not spill onto roads, factory pads or empty land.
+  const baseScale=Math.max(1.16,scale*1.18);
+  addTree(x,y,baseScale,i%23===0);
+
   if(i%2===0){
-    const dx=Math.sin(i*1.731)*4.2, dy=Math.cos(i*1.417)*4.2;
-    addTree(x+dx,y+dy,baseScale*.82,i%19===0);
+    const dx=Math.sin(i*1.731)*1.7;
+    const dy=Math.cos(i*1.417)*1.7;
+    addTree(x+dx,y+dy,baseScale*.88,false);
   }
-  if(i%5===0){
-    const dx=Math.cos(i*.913)*6.0, dy=Math.sin(i*1.103)*6.0;
-    addTree(x+dx,y+dy,baseScale*.74,false);
-  }
-});
 
-
-// ---- Additional 3D buildings detected from small utility/admin footprints on the masterplan ----
-const extraWallMat=new THREE.MeshStandardMaterial({color:0xf1f2ec,roughness:.72});
-const extraRoofMat=new THREE.MeshStandardMaterial({color:0xd8d3c8,roughness:.62});
-const glassMat=new THREE.MeshStandardMaterial({color:0x9bb8c8,roughness:.22,metalness:.08});
-
-function addUtilityBuilding(cx,cy,Lpx,Dpx,angle=0,h=3.0,accent=false){
-  const p=mapPx(cx,cy),g=new THREE.Group();
-  g.position.set(p.x,.06,p.z);
-  g.rotation.y=THREE.MathUtils.degToRad(-angle);
-  world.add(g);
-
-  const pad=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S+0.7,.13,Dpx*S+0.7),padMat);
-  pad.position.y=.07;g.add(pad);
-
-  const body=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S,h,Dpx*S),extraWallMat);
-  body.position.y=h/2+.15;body.castShadow=true;body.receiveShadow=true;g.add(body);
-
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S+.18,.18,Dpx*S+.18),accent?blueMat:extraRoofMat);
-  roof.position.y=h+.23;roof.castShadow=true;g.add(roof);
-
-  if(accent){
-    const front=new THREE.Mesh(new THREE.BoxGeometry(Lpx*S*.55,h*.38,.08),glassMat);
-    front.position.set(0,h*.62,Dpx*S/2+.05);g.add(front);
-  }
-  buildings.push(g);
-  return g;
-}
-
-// Central/admin/service buildings that were missing from the initial 38 roof strips.
-[
-  [934,852,58,46,37,4.2,true],
-  [1006,828,42,31,37,3.5,true],
-  [1039,780,40,27,37,3.2,false],
-  [1112,874,40,28,37,3.0,false],
-  [1198,988,43,30,37,3.0,false],
-  [1130,1033,46,30,37,3.2,false],
-  [1342,755,44,29,80,3.0,false],
-  [1262,522,46,28,37,3.0,false],
-  [902,598,38,26,37,3.0,false],
-  [516,876,48,28,37,3.0,false],
-  [413,1330,42,28,37,3.0,false],
-  [586,1602,44,27,37,3.0,false]
-].forEach(v=>addUtilityBuilding(...v));
-
-// Roadside/boulevard trees around each factory footprint. This deliberately follows the
-// building orientation so every block gets the richer landscaping seen in the render reference.
-function addBuildingBoulevard(cx,cy,Lpx,Spx,angle,index){
-  const rad=THREE.MathUtils.degToRad(angle);
-  const ux=Math.cos(rad), uy=Math.sin(rad);
-  const vx=-Math.sin(rad), vy=Math.cos(rad);
-  const longHalf=Lpx*.48;
-  const sideOffset=Math.max(24,Spx*1.65);
-  const count=Math.max(3,Math.min(8,Math.round(Lpx/32)));
-
-  for(let side=-1;side<=1;side+=2){
-    for(let i=0;i<count;i++){
-      const t=count===1?0:(i/(count-1)-.5)*2;
-      const x=cx+ux*(longHalf*t)+vx*(sideOffset*side);
-      const y=cy+uy*(longHalf*t)+vy*(sideOffset*side);
-      // Only add a light boulevard layer; flowering accents alternate along primary roads.
-      if(x>120&&x<1490&&y>180&&y<1800) addTree(x,y,.82+(index%3)*.05,(i+index)%7===0);
-    }
-  }
-}
-roofs.forEach((r,i)=>addBuildingBoulevard(r[0],r[1],r[2],r[3],r[4],i));
-
-// Premium landscaped core inspired by the reference render.
-function addGardenRing(cx,cy,radius,count,flowerEvery=3){
-  for(let i=0;i<count;i++){
-    const a=i/count*Math.PI*2;
-    addTree(cx+Math.cos(a)*radius,cy+Math.sin(a)*radius,.92,i%flowerEvery===0);
-  }
-}
-addGardenRing(1038,835,38,18,4);
-addGardenRing(945,875,31,14,3);
-addGardenRing(1180,910,42,16,3);
-
-// A few dense garden pockets matching the triangular landscaped areas.
-[
-  [1120,720,10],[1160,745,10],[1200,775,10],[1230,805,10],
-  [1160,925,8],[1200,955,8],[1240,985,8],
-  [335,1160,8],[360,1200,8],[390,1240,8],
-  [385,1430,8],[420,1470,8],[450,1510,8]
-].forEach(([cx,cy,n],k)=>{
-  for(let i=0;i<n;i++){
-    const a=i/n*Math.PI*2;
-    const rr=8+(i%4)*4;
-    addTree(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,.72+(i%3)*.06,(i+k)%5===0);
+  if(i%4===0){
+    const dx=Math.cos(i*.913)*2.4;
+    const dy=Math.sin(i*1.103)*2.4;
+    addTree(x+dx,y+dy,baseScale*.78,false);
   }
 });
+
+
 // Views
 function tween(pos,tgt){
   const a=camera.position.clone(),b=controls.target.clone();let t=0;
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),bp=document.getElementById('bp');
-v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');blueprintMat.opacity=.66;tween(new THREE.Vector3(190,185,230),new THREE.Vector3(0,0,3))};
+v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');blueprintMat.opacity=.72;tween(new THREE.Vector3(190,185,230),new THREE.Vector3(0,0,3))};
 vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
 let bpOn=true;
 ground.visible=false;
