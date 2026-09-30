@@ -19,9 +19,9 @@
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V15 MODEL SPACE</small><h1>Da Loc Industrial Cluster</h1><p>Bản V15 chỉ đọc đúng *MODEL_SPACE của DWG, bỏ toàn bộ PAPER_SPACE/title block trước khi dựng blueprint CAD.</p></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V16 LEFT SITE</small><h1>Da Loc Industrial Cluster</h1><p>Bản V16 chỉ đọc *MODEL_SPACE và ưu tiên cụm khu đất bên trái, đúng vị trí dự án bạn xác nhận trong DWG FastView.</p></div>
 <div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
-<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>DWG được lọc về *MODEL_SPACE trước khi render. Điều này loại các bảng biểu, title block và layout lặp lại đã làm preview sai ở các bản trước.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
+<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>DWG được lọc về *MODEL_SPACE, sau đó tách geometry theo trục ngang và chọn cụm bên trái làm khu đất dự án; cụm bảng biểu bên phải bị loại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div><div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
@@ -323,19 +323,43 @@ async function loadDwgAsBlueprint(file){
     const p90Size=Math.max(qtile(infos.map(o=>o.size),.90),medSize);
     let candidates=infos.filter(o=>o.size<=Math.max(p90Size*6,medSize*120));
 
-    // Step 2: find the dense center cluster from primitive centers.
-    const mx=med(candidates.map(o=>o.cx)), my=med(candidates.map(o=>o.cy));
-    const adx=candidates.map(o=>Math.abs(o.cx-mx)), ady=candidates.map(o=>Math.abs(o.cy-my));
-    const sx=Math.max(qtile(adx,.75),medSize*10,1);
-    const sy=Math.max(qtile(ady,.75),medSize*10,1);
-    candidates=candidates.filter(o=>Math.abs(o.cx-mx)<=sx*4 && Math.abs(o.cy-my)<=sy*4);
+    // Step 2: split model-space geometry into two horizontal clusters.
+    // From the verified DWG viewer, the actual project/site is the LEFT cluster;
+    // the schedule/table geometry is on the RIGHT.
+    function split2(items){
+      if(items.length<20) return [items,[]];
+      let c1=Math.min(...items.map(o=>o.cx)), c2=Math.max(...items.map(o=>o.cx));
+      let a=[],b=[];
+      for(let iter=0;iter<24;iter++){
+        a=[];b=[];
+        for(const o of items){
+          (Math.abs(o.cx-c1)<=Math.abs(o.cx-c2)?a:b).push(o);
+        }
+        const n1=a.length?a.reduce((z,o)=>z+o.cx,0)/a.length:c1;
+        const n2=b.length?b.reduce((z,o)=>z+o.cx,0)/b.length:c2;
+        if(Math.abs(n1-c1)+Math.abs(n2-c2)<1e-6) break;
+        c1=n1;c2=n2;
+      }
+      return c1<=c2?[a,b]:[b,a];
+    }
 
-    // Step 3: trim extreme remaining centers using 95th percentile distances.
+    let [leftCluster,rightCluster]=split2(candidates);
+    const leftMean=leftCluster.length?leftCluster.reduce((z,o)=>z+o.cx,0)/leftCluster.length:Infinity;
+    const rightMean=rightCluster.length?rightCluster.reduce((z,o)=>z+o.cx,0)/rightCluster.length:-Infinity;
+    const sep=Math.abs(rightMean-leftMean);
+
+    // Only force the left cluster when there is a meaningful spatial separation and it is not tiny.
+    if(rightCluster.length>20 && leftCluster.length>=Math.max(20,candidates.length*.08) && sep>medSize*30){
+      candidates=leftCluster;
+    }
+
+    // Step 3: trim remaining outliers inside the chosen left-side site cluster.
+    const mx=med(candidates.map(o=>o.cx)), my=med(candidates.map(o=>o.cy));
     const dx=candidates.map(o=>Math.abs(o.cx-mx)),dy=candidates.map(o=>Math.abs(o.cy-my));
-    const lx=Math.max(qtile(dx,.95)*1.35,medSize*50,1);
-    const ly=Math.max(qtile(dy,.95)*1.35,medSize*50,1);
+    const lx=Math.max(qtile(dx,.985)*1.20,medSize*80,1);
+    const ly=Math.max(qtile(dy,.985)*1.20,medSize*80,1);
     const selected=candidates.filter(o=>Math.abs(o.cx-mx)<=lx && Math.abs(o.cy-my)<=ly);
-    if(selected.length<20) throw new Error('Không tìm được cụm bản vẽ chính đủ lớn');
+    if(selected.length<20) throw new Error('Không tìm được cụm khu đất bên trái đủ lớn');
 
     const selectedSet=new Set(selected.map(o=>o.p));
     let minX=Math.min(...selected.map(o=>o.minx)),maxX=Math.max(...selected.map(o=>o.maxx));
