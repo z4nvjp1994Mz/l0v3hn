@@ -17,14 +17,15 @@
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V6</small><h1>Da Loc Industrial Cluster</h1><p>Bản này dùng trực tiếp bản vẽ quy hoạch chính xác bạn vừa upload làm nền 2D để so sánh với mô hình 3D; không còn dùng bản vẽ procedural tự dựng.</p></div>
-<div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="reset">Reset</button></div>
-<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Nền 2D hiện lấy trực tiếp từ bản vẽ bạn vừa upload và đã đổi asset mới để tránh cache. Nếu texture tải thành công, Top View sẽ thấy rõ ảnh quy hoạch bên dưới các khối 3D.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V7 CAD</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
+<div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
+<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Bạn có thể dùng nền ảnh hiện tại hoặc bấm Load DWG để đọc bản CAD trực tiếp bằng LibreDWG WebAssembly. Khi DWG parse thành công, lớp CAD sẽ thay thế blueprint hiện tại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Dwg_File_Type, LibreDwg } from 'https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/dist/libredwg-web.js';
 const scene=new THREE.Scene();scene.background=new THREE.Color(0xa7c08e);scene.fog=new THREE.FogExp2(0xa7c08e,.0015);
 const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,1500);camera.position.set(195,185,225);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;document.getElementById('canvas').appendChild(renderer.domElement);
@@ -58,7 +59,7 @@ function drawBlueprint(){
 const wall=new THREE.MeshStandardMaterial({color:0xeff2ee,roughness:.72}),roof=new THREE.MeshStandardMaterial({color:0xf9faf7,roughness:.55}),solar=new THREE.MeshStandardMaterial({color:0x4e73bd,roughness:.34,metalness:.2}),pad=new THREE.MeshStandardMaterial({color:0xd8ddd4,roughness:1});
 const roofs=[[954.16,368.34,130.79,30.12,-53.26],[1204.58,412.06,118.2,34.6,36.87],[1137.14,441.98,189.8,32.6,36.87],[1100.01,491.83,189.83,32.72,37.03],[1063.52,542.14,191.03,32.58,37.06],[844.82,561.27,82.46,24.53,36.57],[1278.41,589.1,86.32,33.99,-7.85],[1026.4,592.3,191,32.8,36.87],[988.81,642.92,191.23,34.24,37.03],[1289.66,663.72,85.97,33.22,-6.98],[773.71,695.55,102.21,15.37,37.02],[728.1,751.86,108.43,15.26,37.12],[697.22,819.57,150.99,15.46,37.13],[1349.48,831.78,109.54,24.73,80.27],[1297.78,840.03,109.8,27.72,80.98],[1052.35,842.73,52.42,50.76,33.69],[651.72,875.54,156.62,15.6,36.71],[606.14,931.47,162.82,15.5,37.06],[866.22,946.71,51.27,15.32,37.23],[381.91,981.17,135.56,39.5,-53.34],[925.74,992,110.85,15.41,37.18],[844.6,1021.2,105.6,15.2,36.87],[436.64,1022.46,136.38,39.4,-53.25],[496.34,1057.38,120.6,39.8,-53.13],[906.44,1067.89,63.02,15.14,37.09],[822.64,1095.33,159.83,15.5,37.12],[551.1,1098.7,120.2,39.4,-53.13],[303.28,1108.11,69.85,20.07,37.15],[669.88,1180.16,107.2,39.6,-53.13],[416.15,1192.97,156.57,20.17,37.01],[731.92,1227.43,108.4,39.44,-53.29],[365.65,1259.96,156.98,20.31,37.09],[798.99,1267.67,91.51,39.53,-52.82],[583.11,1296.6,91.13,39.4,-53.47],[649.94,1336.96,108.83,39.95,-52.99],[712.28,1383.96,108.4,39.6,-53.13],[527.15,1424.96,85.04,20.04,37.03],[622.8,1497.1,85.4,20,36.87],[465.98,1506.51,85.76,20.1,37.09],[561.7,1578.9,85.4,20.2,36.87]];
 const bpStatus=document.createElement('div');
-bpStatus.textContent='Blueprint: loading…';
+bpStatus.textContent='Blueprint image: loading…';
 Object.assign(bpStatus.style,{position:'fixed',left:'18px',bottom:'18px',zIndex:'20',padding:'7px 10px',borderRadius:'9px',font:'700 11px Arial',background:'rgba(7,18,12,.82)',color:'#d9fbe8',border:'1px solid rgba(255,255,255,.12)'});
 document.body.appendChild(bpStatus);
 
@@ -77,13 +78,13 @@ blueprintLoader.load(
     tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
     blueprintMat.map=tex;
     blueprintMat.needsUpdate=true;
-    bpStatus.textContent='Blueprint: loaded ✓';
+    bpStatus.textContent='Blueprint image: loaded ✓';
     bpStatus.style.color='#85edb4';
     setTimeout(()=>bpStatus.style.opacity='.25',2500);
   },
   undefined,
   (err)=>{
-    bpStatus.textContent='Blueprint: load error';
+    bpStatus.textContent='Blueprint image: load error';
     bpStatus.style.color='#ff9b9b';
     console.error('Blueprint texture failed',err);
   }
@@ -170,6 +171,82 @@ treeLine([560,786],[884,1040],34,.90,1.5);
 treeLine([433,908],[808,1192],38,.90,1.5);
 treeLine([334,1063],[730,1368],36,.90,1.5);
 treeLine([450,1408],[645,1561],10,.58,1.0);
+
+
+let cadLibre=null;
+let cadObjectUrl=null;
+async function getCadLibre(){
+  if(cadLibre) return cadLibre;
+  bpStatus.style.opacity='1';
+  bpStatus.textContent='DWG engine: loading…';
+  cadLibre=await LibreDwg.create('https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/wasm/');
+  bpStatus.textContent='DWG engine: ready ✓';
+  return cadLibre;
+}
+async function loadDwgAsBlueprint(file){
+  try{
+    bpStatus.style.opacity='1';
+    bpStatus.style.color='#d9fbe8';
+    bpStatus.textContent='DWG: reading '+file.name+'…';
+    const buffer=await file.arrayBuffer();
+    const lib=await getCadLibre();
+    bpStatus.textContent='DWG: parsing geometry…';
+    const dwg=lib.dwg_read_data(buffer,Dwg_File_Type.DWG);
+    const db=lib.convert(dwg);
+    const svgString=lib.dwg_to_svg(db);
+    lib.dwg_free(dwg);
+
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(svgString,'image/svg+xml');
+    const svg=doc.documentElement;
+    let viewBox=svg.getAttribute('viewBox');
+    let vbW=1,vbH=1;
+    if(viewBox){
+      const nums=viewBox.trim().split(/\s+/).map(Number);
+      if(nums.length===4&&nums[2]>0&&nums[3]>0){vbW=nums[2];vbH=nums[3];}
+    }else{
+      vbW=parseFloat(svg.getAttribute('width'))||1;
+      vbH=parseFloat(svg.getAttribute('height'))||1;
+    }
+
+    if(cadObjectUrl) URL.revokeObjectURL(cadObjectUrl);
+    cadObjectUrl=URL.createObjectURL(new Blob([svgString],{type:'image/svg+xml'}));
+    const tex=await new THREE.TextureLoader().loadAsync(cadObjectUrl);
+    tex.colorSpace=THREE.SRGBColorSpace;
+    tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+
+    blueprintMat.map=tex;
+    blueprintMat.color.setHex(0xffffff);
+    blueprintMat.needsUpdate=true;
+
+    const targetH=304;
+    const targetW=targetH*(vbW/vbH);
+    blueprint.geometry.dispose();
+    blueprint.geometry=new THREE.PlaneGeometry(targetW,targetH);
+    blueprint.visible=true;
+    bpOn=true;
+    if(bp){bp.classList.add('active');bp.textContent='Blueprint On';}
+
+    bpStatus.textContent='DWG loaded ✓ '+file.name;
+    bpStatus.style.color='#85edb4';
+    setTimeout(()=>bpStatus.style.opacity='.35',3500);
+
+    vt.click();
+  }catch(err){
+    console.error('DWG load failed',err);
+    bpStatus.style.opacity='1';
+    bpStatus.style.color='#ff9b9b';
+    bpStatus.textContent='DWG load error — mở Console để xem chi tiết';
+  }
+}
+
+const cadBtn=document.getElementById('cadBtn');
+const cadFile=document.getElementById('cadFile');
+cadBtn.onclick=()=>cadFile.click();
+cadFile.onchange=e=>{
+  const file=e.target.files?.[0];
+  if(file) loadDwgAsBlueprint(file);
+};
 
 function tween(pos,tgt){const a=camera.position.clone(),b=controls.target.clone();let t=0;const go=()=>{t=Math.min(1,t+.03);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go()}
 const v3=document.getElementById('v3'),vt=document.getElementById('vt');v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');tween(new THREE.Vector3(195,185,225),new THREE.Vector3(0,0,5))};vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};let bpOn=true;const bp=document.getElementById('bp');
