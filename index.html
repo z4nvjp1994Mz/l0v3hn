@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V38 FACTORY DETAIL PASS</small>
+  <small>GitHub → Netlify · BUILD V39 RUNTIME FIX</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V38 giữ tỷ lệ vật lý công nghiệp và bổ sung lại chi tiết nhà xưởng theo module thực tế: facade panels, dock bays, cửa người, canopy, cửa sổ, roof vents, đường nội bộ và sân dịch vụ, nhưng không dựng lại hàng rào/cổng sai.</p>
+  <p>Bản V39 sửa lỗi runtime của V38 khiến scene trắng hoàn toàn. Toàn bộ detail nhà xưởng của V38 được giữ nguyên và Detail View được gắn đúng sau khi các nút UI đã khởi tạo.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -40,7 +40,7 @@
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V38: industrial factory detail restored at correct scale</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V39: V38 detail restored · runtime order fixed</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -804,8 +804,7 @@ roofs.forEach((r,idx)=>{
   }
 });
 
-// Detail view targets the industrial core at a readable human-scale camera distance.
-vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.12;tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
+// Detail view handler is attached later, after UI button references are initialized.
 // ---------------------------------------------------------------------------
 // Views
 function tween(pos,tgt){
@@ -815,6 +814,7 @@ function tween(pos,tgt){
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),vd=document.getElementById('vd'),bp=document.getElementById('bp');
 v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.42;tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
 vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
+vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.12;tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
 
 let bpOn=true;
 ground.visible=false;
