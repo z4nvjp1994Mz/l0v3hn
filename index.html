@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V21 FORCE BLUEPRINT</small>
+  <small>GitHub → Netlify · BUILD V22 CANVAS BLUEPRINT</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>Bản này dùng trực tiếp asset masterplan nằm trong cùng GitHub/Netlify project để tránh lỗi proxy và bảo đảm blueprint luôn tải được.</p>
 </div>
@@ -92,27 +92,38 @@ bpBadge.textContent='Blueprint: loading old masterplan…';
 Object.assign(bpBadge.style,{position:'fixed',left:'16px',bottom:'16px',zIndex:'20',padding:'7px 10px',borderRadius:'9px',font:'700 11px Arial',background:'rgba(7,18,12,.82)',color:'#d9fbe8',border:'1px solid rgba(255,255,255,.12)'});
 document.body.appendChild(bpBadge);
 
-texLoader.load(
-  '/assets/masterplan-exact-v2.jpg?v=20',
-  t=>{
-    t.colorSpace=THREE.SRGBColorSpace;
-    t.anisotropy=renderer.capabilities.getMaxAnisotropy();
-    t.minFilter=THREE.LinearMipmapLinearFilter;
-    t.magFilter=THREE.LinearFilter;
-    blueprintMat.map=t;
-    blueprintMat.opacity=1;
-    blueprintMat.needsUpdate=true;
-    bpBadge.textContent='Blueprint: local asset loaded ✓ · ground hidden';
-    bpBadge.style.color='#85edb4';
-    setTimeout(()=>bpBadge.style.opacity='.28',2600);
-  },
-  undefined,
-  err=>{
-    console.error('Local blueprint load failed',err);
-    bpBadge.textContent='Blueprint: local asset error';
-    bpBadge.style.color='#ff9b9b';
-  }
-);
+const bpImg=new Image();
+bpImg.decoding='async';
+bpImg.src='/assets/masterplan-exact-v2.jpg?v=22';
+bpImg.onload=()=>{
+  const c=document.createElement('canvas');
+  c.width=bpImg.naturalWidth;
+  c.height=bpImg.naturalHeight;
+  const ctx=c.getContext('2d',{alpha:false});
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,c.width,c.height);
+  ctx.drawImage(bpImg,0,0,c.width,c.height);
+
+  const canvasTex=new THREE.CanvasTexture(c);
+  canvasTex.colorSpace=THREE.SRGBColorSpace;
+  canvasTex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  canvasTex.minFilter=THREE.LinearMipmapLinearFilter;
+  canvasTex.magFilter=THREE.LinearFilter;
+  canvasTex.needsUpdate=true;
+
+  blueprintMat.map=canvasTex;
+  blueprintMat.color.setHex(0xffffff);
+  blueprintMat.needsUpdate=true;
+
+  bpBadge.textContent='Blueprint: canvas texture loaded ✓';
+  bpBadge.style.color='#85edb4';
+  setTimeout(()=>bpBadge.style.opacity='.28',2600);
+};
+bpImg.onerror=(err)=>{
+  console.error('Blueprint image decode failed',err);
+  bpBadge.textContent='Blueprint: image decode error';
+  bpBadge.style.color='#ff9b9b';
+};
 
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(560,560),new THREE.MeshStandardMaterial({color:0x91ad79,roughness:1}));
 ground.rotation.x=-Math.PI/2;ground.position.y=-.18;ground.receiveShadow=true;scene.add(ground);
