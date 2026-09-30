@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V31 IMAGE-VERIFIED SUPPORTS</small>
+  <small>GitHub → Netlify · BUILD V32 DIORAMA DETAIL</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V31 bỏ toàn bộ khối phụ trợ đặt bằng mắt. Các công trình phụ màu be/nâu được dựng lại từ chính footprint màu trên masterplan 1616×2048 để khớp vị trí 2D.</p>
+  <p>Bản V32 chuyển sang phong cách diorama chi tiết: giữ footprint chính xác, chỉ giữ các support footprint tin cậy, đồng thời bổ sung môi trường xung quanh, rừng, nhà dân, xe, mây và chi tiết nhà xưởng.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -34,13 +34,13 @@
   <h2>Da Loc 3D</h2>
   <p>Khối nhà dùng cùng hệ tọa độ pixel 1616×2048 với bản đồ 2D, vì vậy Top View có thể dùng để kiểm tra trực tiếp độ khớp.</p>
   <div class="stats">
-    <div class="stat"><b>38 + 21</b><span>main + image-verified support blocks</span></div>
+    <div class="stat"><b>38 + site</b><span>factories + verified support structures</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>Strict map trees</b><span>detected points only</span></div>
+    <div class="stat"><b>Diorama detail</b><span>trees + village + vehicles</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V31: support footprints sampled from masterplan colors</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V32: detailed diorama environment + verified support footprints</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -252,77 +252,231 @@ TREE_POINTS.forEach(([x,y,scale],i)=>{
 
 
 
-// ---- V31: Công trình phụ được lấy từ footprint màu thật trên masterplan ----
+
+// ---- V32: Support footprints tin cậy + diorama chi tiết ----
 const verifiedSupportGroup=new THREE.Group();
 verifiedSupportGroup.name='verifiedSupportGroup';
 world.add(verifiedSupportGroup);
 
-const supportWallMat=new THREE.MeshStandardMaterial({color:0xf2efe7,roughness:.74});
-const supportRoofMat=new THREE.MeshStandardMaterial({color:0xd9c8b8,roughness:.63});
-const brownRoofMat=new THREE.MeshStandardMaterial({color:0x9a6f62,roughness:.66});
-const supportPadMat=new THREE.MeshStandardMaterial({color:0xcfd0cb,roughness:1});
+const supportWallMat=new THREE.MeshStandardMaterial({color:0xf0eee7,roughness:.72});
+const supportRoofMat=new THREE.MeshStandardMaterial({color:0xd9c7b7,roughness:.62});
+const brownRoofMat=new THREE.MeshStandardMaterial({color:0xa16f5e,roughness:.64});
+const glassMat=new THREE.MeshStandardMaterial({color:0x94b9c9,roughness:.18,metalness:.12});
+const supportPadMat=new THREE.MeshStandardMaterial({color:0xc9cbc5,roughness:1});
 
-function addVerifiedSupport(cx,cy,wPx,hPx,cvAngle,h=2.9,roofMat=supportRoofMat){
-  // cv2 minAreaRect angle -> Three.js world angle.
-  let L=wPx, D=hPx, a=cvAngle;
-  if(D>L){ const t=L;L=D;D=t; a+=90; }
-
+function addVerifiedSupport(cx,cy,wPx,hPx,cvAngle,h=2.7,roofMat=supportRoofMat,glass=false){
+  let L=wPx,D=hPx,a=cvAngle;
+  if(D>L){const t=L;L=D;D=t;a+=90;}
   const p=mapPx(cx,cy);
   const g=new THREE.Group();
-  g.position.set(p.x,.06,p.z);
+  g.position.set(p.x,.08,p.z);
   g.rotation.y=THREE.MathUtils.degToRad(-a);
   verifiedSupportGroup.add(g);
 
-  const pad=new THREE.Mesh(new THREE.BoxGeometry(L*S+.34,.10,D*S+.34),supportPadMat);
-  pad.position.y=.05; g.add(pad);
+  const pad=new THREE.Mesh(new THREE.BoxGeometry(L*S+.20,.08,D*S+.20),supportPadMat);
+  pad.position.y=.04;g.add(pad);
 
   const body=new THREE.Mesh(new THREE.BoxGeometry(L*S,h,D*S),supportWallMat);
-  body.position.y=h/2+.12;
-  body.castShadow=true; body.receiveShadow=true; g.add(body);
+  body.position.y=h/2+.10;body.castShadow=true;body.receiveShadow=true;g.add(body);
 
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(L*S+.10,.16,D*S+.10),roofMat);
-  roof.position.y=h+.20; roof.castShadow=true; g.add(roof);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(L*S+.06,.16,D*S+.06),roofMat);
+  roof.position.y=h+.18;roof.castShadow=true;g.add(roof);
+
+  if(glass){
+    const pane=new THREE.Mesh(new THREE.BoxGeometry(L*S*.46,h*.30,.05),glassMat);
+    pane.position.set(0,h*.57,D*S/2+.03);g.add(pane);
+  }
   return g;
 }
 
-// Light peach/beige roof components measured directly from the HD masterplan image.
-// [centerX, centerY, widthPx, heightPx, cv2Angle, height]
-const VERIFIED_SUPPORTS=[
-  [364.80,1326.24,24.68,96.83,-51.34,3.0],
-  [984.24,965.62,23.58,56.34,-57.72,3.1],
-  [1023.50,912.00,23.30,54.08,-56.31,3.1],
-  [1035.35,307.15,29.02,59.01,-76.33,3.0],
-  [907.38,444.69,22.02,38.36,-58.67,2.8],
-  [1033.30,279.54,17.71,49.08,-78.41,2.8],
-  [464.00,1118.68,12.28,50.80,-53.97,2.6],
-  [921.86,746.86,25.23,19.56,-57.53,2.7],
-  [834.88,681.92,12.20,42.99,-56.31,2.7],
-  [503.97,1607.91,14.37,42.35,-48.37,2.6],
-  [454.31,1568.89,14.95,31.99,-53.75,2.6],
-  [1303.00,539.00,38.00,14.00,-90.00,2.6],
-  [779.25,638.75,15.05,27.78,-60.95,2.6],
-  [547.78,1640.04,14.21,31.92,-50.91,2.6],
-  [1279.00,545.50,25.00,12.00,-90.00,2.5],
-  [495.58,880.38,24.96,10.26,-56.31,2.5],
-  [856.83,528.11,13.27,22.31,-87.27,2.5],
-  [892.07,721.44,31.06,12.84,-52.70,2.5],
-  [777.85,1321.23,10.54,18.31,-56.31,2.4],
-  [516.90,1156.70,9.39,27.28,-63.43,2.4]
+// Chỉ giữ các footprint low-saturation/roof-color rõ nhất trên masterplan.
+// Các box nhiễu ở ranh đỏ/cây/annotation đã bị loại bỏ.
+[
+  [911.31,885.04,21.91,46.59,-56.31,3.5,brownRoofMat,true],
+  [990.24,971.40,14.67,31.20,-68.20,2.8,supportRoofMat,false],
+  [968.60,955.30,17.89,15.65,-63.43,2.6,supportRoofMat,false],
+  [897.65,439.09,15.28,9.22,-14.04,2.5,supportRoofMat,false],
+  [1054.50,306.00,10.00,15.00,-90.00,2.5,supportRoofMat,false],
+  [1303.25,532.14,9.20,24.31,-15.95,2.6,supportRoofMat,false],
+  [839.94,685.08,8.20,13.60,-53.13,2.4,supportRoofMat,false]
+].forEach(v=>addVerifiedSupport(...v));
+
+// -------- Factory detail layer: vents, loading doors, small parked vehicles --------
+const metalMat=new THREE.MeshStandardMaterial({color:0xb7bdc0,roughness:.42,metalness:.35});
+const darkMat=new THREE.MeshStandardMaterial({color:0x4f5657,roughness:.7});
+const doorMat=new THREE.MeshStandardMaterial({color:0xbac3c4,roughness:.62});
+const truckWhiteMat=new THREE.MeshStandardMaterial({color:0xf3f3ef,roughness:.55});
+const truckBlueMat=new THREE.MeshStandardMaterial({color:0x496ca5,roughness:.48});
+const tireMat=new THREE.MeshStandardMaterial({color:0x222625,roughness:.95});
+
+function addVehicle(parent,x,z,scale=.8,blue=false){
+  const g=new THREE.Group();g.position.set(x,.26,z);parent.add(g);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.8*scale,.55*scale,.78*scale),blue?truckBlueMat:truckWhiteMat);
+  body.position.y=.34*scale;body.castShadow=true;g.add(body);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(.65*scale,.68*scale,.78*scale),blue?truckWhiteMat:truckBlueMat);
+  cab.position.set(.95*scale,.40*scale,0);g.add(cab);
+  for(const sx of [-.55,.55]){
+    for(const sz of [-.33,.33]){
+      const wh=new THREE.Mesh(new THREE.CylinderGeometry(.12*scale,.12*scale,.12*scale,8),tireMat);
+      wh.rotation.x=Math.PI/2;wh.position.set(sx*scale,.12*scale,sz*scale);g.add(wh);
+    }
+  }
+  return g;
+}
+
+buildings.forEach((g,idx)=>{
+  const body=g.children.find(o=>o.geometry?.type==='BoxGeometry' && o.position.y>1);
+  if(!body)return;
+  const p=body.geometry.parameters;
+  const L=p.width,D=p.depth,H=p.height;
+
+  // roof vents / HVAC
+  const ventCount=Math.max(2,Math.min(6,Math.round(L/7)));
+  for(let i=0;i<ventCount;i++){
+    const vent=new THREE.Mesh(new THREE.BoxGeometry(.55,.28,.55),metalMat);
+    vent.position.set((-0.35+i/Math.max(1,ventCount-1)*.70)*L,H+.62,(i%2?-.18:.18)*D);
+    vent.castShadow=true;g.add(vent);
+  }
+
+  // loading doors on one long facade
+  const bays=Math.max(2,Math.min(6,Math.round(L/6)));
+  for(let i=0;i<bays;i++){
+    const d=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.4,L/bays*.55),1.6,.08),doorMat);
+    d.position.set((-0.38+i/Math.max(1,bays-1)*.76)*L,1.05,D/2+.05);
+    g.add(d);
+  }
+
+  if(idx%3===0) addVehicle(g,-L*.18,D/2+1.25,.72,idx%2===0);
+  if(idx%7===0) addVehicle(g,L*.20,D/2+1.35,.65,true);
+});
+
+// -------- Outer diorama environment inspired by the uploaded Netlify reference --------
+const diorama=new THREE.Group();
+diorama.name='dioramaEnvironment';
+scene.add(diorama);
+
+const outerGrassMat=new THREE.MeshStandardMaterial({color:0x6f9a5b,roughness:1});
+const soilMat=new THREE.MeshStandardMaterial({color:0x8e633f,roughness:1});
+const roadMat=new THREE.MeshStandardMaterial({color:0x575d5d,roughness:.95});
+const roadEdgeMat=new THREE.MeshStandardMaterial({color:0xb8bab4,roughness:1});
+const houseWallMats=[
+  new THREE.MeshStandardMaterial({color:0xf1e3c7,roughness:.75}),
+  new THREE.MeshStandardMaterial({color:0xe6d1bd,roughness:.75}),
+  new THREE.MeshStandardMaterial({color:0xdde4d3,roughness:.75}),
+  new THREE.MeshStandardMaterial({color:0xe9ddd0,roughness:.75})
 ];
-VERIFIED_SUPPORTS.forEach(v=>addVerifiedSupport(...v));
+const houseRoofMats=[
+  new THREE.MeshStandardMaterial({color:0xa64b3c,roughness:.75}),
+  new THREE.MeshStandardMaterial({color:0x7a523f,roughness:.75}),
+  new THREE.MeshStandardMaterial({color:0x425f52,roughness:.75})
+];
 
-// Central brown-roof administration/pavilion footprint measured separately from the map.
-addVerifiedSupport(910.12,884.08,23.30,48.54,-56.31,3.5,brownRoofMat);
+// thick base for the diorama feel
+const base=new THREE.Mesh(new THREE.BoxGeometry(430,8,470),soilMat);
+base.position.set(0,-4.7,0);base.receiveShadow=true;diorama.add(base);
+const topField=new THREE.Mesh(new THREE.PlaneGeometry(430,470),outerGrassMat);
+topField.rotation.x=-Math.PI/2;topField.position.y=-.64;topField.receiveShadow=true;diorama.add(topField);
 
-// Make supports visually legible in perspective without changing their XY footprint.
-verifiedSupportGroup.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+// deterministic random
+let seed=73921;
+function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
+function rr(a,b){return a+(b-a)*rnd();}
+
+// Instanced conifer forest around the industrial-cluster presentation slab.
+const forestCount=520;
+const trunkGeo=new THREE.CylinderGeometry(.18,.28,2.1,6);
+const crownGeo=new THREE.ConeGeometry(1.05,3.7,8);
+const forestTrunkMat=new THREE.MeshStandardMaterial({color:0x65452f,roughness:1});
+const forestLeafMat=new THREE.MeshStandardMaterial({color:0x2f6940,roughness:1});
+const trunks=new THREE.InstancedMesh(trunkGeo,forestTrunkMat,forestCount);
+const crowns=new THREE.InstancedMesh(crownGeo,forestLeafMat,forestCount);
+trunks.castShadow=crowns.castShadow=true;trunks.receiveShadow=crowns.receiveShadow=true;
+const dm=new THREE.Object3D();
+let fi=0;
+while(fi<forestCount){
+  const x=rr(-205,205),z=rr(-222,222);
+  // Keep the exact masterplan/project presentation area unobstructed.
+  if(Math.abs(x)<PLANE_W*.58 && Math.abs(z)<PLANE_H*.58) continue;
+  const sc=rr(.72,1.45);
+  dm.position.set(x,.38,z);dm.scale.set(sc,sc,sc);dm.rotation.y=rr(0,Math.PI*2);dm.updateMatrix();trunks.setMatrixAt(fi,dm.matrix);
+  dm.position.set(x,2.45*sc,z);dm.scale.set(sc,sc,sc);dm.updateMatrix();crowns.setMatrixAt(fi,dm.matrix);
+  fi++;
+}
+diorama.add(trunks,crowns);
+
+// external roads
+function addRoad(x,z,w,l,rot=0){
+  const g=new THREE.Group();g.position.set(x,-.53,z);g.rotation.y=rot;diorama.add(g);
+  const edge=new THREE.Mesh(new THREE.BoxGeometry(w+2,.12,l+2),roadEdgeMat);g.add(edge);
+  const rd=new THREE.Mesh(new THREE.BoxGeometry(w,.15,l),roadMat);rd.position.y=.08;g.add(rd);
+}
+addRoad(155,20,12,390,-.13);
+addRoad(-120,145,11,300,.95);
+addRoad(0,195,11,350,Math.PI/2);
+
+// village houses outside the project
+function addHouse(x,z,rot=0,sc=1){
+  const g=new THREE.Group();g.position.set(x,-.52,z);g.rotation.y=rot;diorama.add(g);
+  const w=rr(3.0,5.2)*sc,d=rr(2.5,4.2)*sc,h=rr(2.1,3.4)*sc;
+  const wall=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),houseWallMats[Math.floor(rnd()*houseWallMats.length)]);
+  wall.position.y=h/2;wall.castShadow=true;g.add(wall);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*.72,1.55*sc,4),houseRoofMats[Math.floor(rnd()*houseRoofMats.length)]);
+  roof.rotation.y=Math.PI/4;roof.position.y=h+.72*sc;roof.castShadow=true;g.add(roof);
+  const door=new THREE.Mesh(new THREE.BoxGeometry(.65*sc,1.15*sc,.08),darkMat);
+  door.position.set(0,.6*sc,d/2+.05);g.add(door);
+}
+for(let i=0;i<42;i++) addHouse(rr(-188,-115),rr(80,188),rr(-.4,.4),rr(.78,1.12));
+for(let i=0;i<34;i++) addHouse(rr(120,185),rr(-155,130),rr(-.3,.3),rr(.76,1.08));
+
+// scattered deciduous trees around village edges
+function addOuterTree(x,z,sc=1){
+  const g=new THREE.Group();g.position.set(x,-.55,z);diorama.add(g);
+  const tr=new THREE.Mesh(new THREE.CylinderGeometry(.15*sc,.22*sc,1.7*sc,6),forestTrunkMat);
+  tr.position.y=.85*sc;g.add(tr);
+  const cr=new THREE.Mesh(new THREE.IcosahedronGeometry(.9*sc,1),treeLeafMat2);
+  cr.position.y=2.15*sc;cr.castShadow=true;g.add(cr);
+}
+for(let i=0;i<130;i++){
+  const side=i%2===0?-1:1;
+  addOuterTree(side*rr(118,195),rr(-190,190),rr(.7,1.3));
+}
+
+// simple cloud clusters for the model-railway / diorama feeling
+const cloudMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.95});
+function addCloud(x,y,z,sc=1){
+  const g=new THREE.Group();g.position.set(x,y,z);diorama.add(g);
+  [[0,0,0,1.0],[1.1,.18,.1,.72],[-1.0,.1,.15,.68],[.25,.48,0,.82]].forEach(([dx,dy,dz,k])=>{
+    const m=new THREE.Mesh(new THREE.IcosahedronGeometry(1.5*sc*k,1),cloudMat);
+    m.position.set(dx*sc,dy*sc,dz*sc);g.add(m);
+  });
+}
+for(let i=0;i<11;i++) addCloud(rr(-175,175),rr(32,58),rr(-195,195),rr(.8,1.6));
+
+// park furniture at the central landscape: benches + light poles
+const woodMat=new THREE.MeshStandardMaterial({color:0x8b6245,roughness:.86});
+const poleMat=new THREE.MeshStandardMaterial({color:0x4b5253,roughness:.5,metalness:.3});
+function addBenchPx(px,py,angle=0){
+  const p=mapPx(px,py),g=new THREE.Group();g.position.set(p.x,.2,p.z);g.rotation.y=angle;world.add(g);
+  const seat=new THREE.Mesh(new THREE.BoxGeometry(1.5,.16,.42),woodMat);seat.position.y=.45;g.add(seat);
+  const back=new THREE.Mesh(new THREE.BoxGeometry(1.5,.55,.12),woodMat);back.position.set(0,.75,-.18);g.add(back);
+}
+[[930,900,0],[955,930,.6],[1080,875,1.2],[1110,905,.2]].forEach(v=>addBenchPx(...v));
+
+function addLampPx(px,py){
+  const p=mapPx(px,py);
+  const g=new THREE.Group();g.position.set(p.x,.18,p.z);world.add(g);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.07,2.6,7),poleMat);pole.position.y=1.3;g.add(pole);
+  const lamp=new THREE.Mesh(new THREE.SphereGeometry(.14,8,8),cloudMat);lamp.position.y=2.65;g.add(lamp);
+}
+[[900,860],[940,840],[990,850],[1040,865],[1090,890],[1140,920]].forEach(v=>addLampPx(...v));
+
 // Views
 function tween(pos,tgt){
   const a=camera.position.clone(),b=controls.target.clone();let t=0;
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),bp=document.getElementById('bp');
-v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');blueprintMat.opacity=.72;tween(new THREE.Vector3(190,185,230),new THREE.Vector3(0,0,3))};
+v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');blueprintMat.opacity=.56;tween(new THREE.Vector3(215,170,245),new THREE.Vector3(0,0,2))};
 vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
 let bpOn=true;
 ground.visible=false;
