@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V19 OLD BLUEPRINT</small>
+  <small>GitHub → Netlify · BUILD V20 LOCAL BLUEPRINT</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản này giữ mô hình 3D dựng từ 2D, đồng thời khôi phục đúng lớp masterplan nền đã hiển thị ở bản demo cũ.</p>
+  <p>Bản này dùng trực tiếp asset masterplan nằm trong cùng GitHub/Netlify project để tránh lỗi proxy và bảo đảm blueprint luôn tải được.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -86,28 +86,30 @@ function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
 const texLoader=new THREE.TextureLoader();
 const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1,side:THREE.DoubleSide});
 const blueprint=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),blueprintMat);
-blueprint.rotation.x=-Math.PI/2;blueprint.position.y=.015;blueprint.renderOrder=0;world.add(blueprint);
+blueprint.rotation.x=-Math.PI/2;blueprint.position.y=.08;blueprint.renderOrder=0;world.add(blueprint);
 const bpBadge=document.createElement('div');
 bpBadge.textContent='Blueprint: loading old masterplan…';
 Object.assign(bpBadge.style,{position:'fixed',left:'16px',bottom:'16px',zIndex:'20',padding:'7px 10px',borderRadius:'9px',font:'700 11px Arial',background:'rgba(7,18,12,.82)',color:'#d9fbe8',border:'1px solid rgba(255,255,255,.12)'});
 document.body.appendChild(bpBadge);
 
 texLoader.load(
-  '/old-masterplan.jpg?v=19',
+  '/assets/masterplan-exact-v2.jpg?v=20',
   t=>{
     t.colorSpace=THREE.SRGBColorSpace;
     t.anisotropy=renderer.capabilities.getMaxAnisotropy();
+    t.minFilter=THREE.LinearMipmapLinearFilter;
+    t.magFilter=THREE.LinearFilter;
     blueprintMat.map=t;
-    blueprintMat.opacity=.96;
+    blueprintMat.opacity=1;
     blueprintMat.needsUpdate=true;
-    bpBadge.textContent='Blueprint: original loaded ✓';
+    bpBadge.textContent='Blueprint: local asset loaded ✓';
     bpBadge.style.color='#85edb4';
     setTimeout(()=>bpBadge.style.opacity='.28',2600);
   },
   undefined,
   err=>{
-    console.error('Original blueprint load failed',err);
-    bpBadge.textContent='Blueprint: load error';
+    console.error('Local blueprint load failed',err);
+    bpBadge.textContent='Blueprint: local asset error';
     bpBadge.style.color='#ff9b9b';
   }
 );
