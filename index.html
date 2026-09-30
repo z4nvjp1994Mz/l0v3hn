@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V20 LOCAL BLUEPRINT</small>
+  <small>GitHub → Netlify · BUILD V21 FORCE BLUEPRINT</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>Bản này dùng trực tiếp asset masterplan nằm trong cùng GitHub/Netlify project để tránh lỗi proxy và bảo đảm blueprint luôn tải được.</p>
 </div>
@@ -84,9 +84,9 @@ function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
 
 // Exact same 2D masterplan family as the uploaded 1616×2048 source.
 const texLoader=new THREE.TextureLoader();
-const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1,side:THREE.DoubleSide});
+const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:false,opacity:1,side:THREE.DoubleSide});
 const blueprint=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),blueprintMat);
-blueprint.rotation.x=-Math.PI/2;blueprint.position.y=.08;blueprint.renderOrder=0;world.add(blueprint);
+blueprint.rotation.x=-Math.PI/2;blueprint.position.y=.22;blueprint.renderOrder=-10;world.add(blueprint);
 const bpBadge=document.createElement('div');
 bpBadge.textContent='Blueprint: loading old masterplan…';
 Object.assign(bpBadge.style,{position:'fixed',left:'16px',bottom:'16px',zIndex:'20',padding:'7px 10px',borderRadius:'9px',font:'700 11px Arial',background:'rgba(7,18,12,.82)',color:'#d9fbe8',border:'1px solid rgba(255,255,255,.12)'});
@@ -102,7 +102,7 @@ texLoader.load(
     blueprintMat.map=t;
     blueprintMat.opacity=1;
     blueprintMat.needsUpdate=true;
-    bpBadge.textContent='Blueprint: local asset loaded ✓';
+    bpBadge.textContent='Blueprint: local asset loaded ✓ · ground hidden';
     bpBadge.style.color='#85edb4';
     setTimeout(()=>bpBadge.style.opacity='.28',2600);
   },
@@ -213,8 +213,9 @@ const v3=document.getElementById('v3'),vt=document.getElementById('vt'),bp=docum
 v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');tween(new THREE.Vector3(190,185,230),new THREE.Vector3(0,0,3))};
 vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
 let bpOn=true;
-bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;bp.classList.add('active');bp.textContent='Blueprint On';v3.click()};
+ground.visible=false;
+bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';v3.click()};
 
 (function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)})();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
