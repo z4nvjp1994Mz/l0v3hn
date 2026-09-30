@@ -19,7 +19,7 @@
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V9 CAD RASTER</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V10 CAD CROP</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
 <div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
 <div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Bạn có thể dùng nền ảnh hiện tại hoặc bấm Load DWG để đọc bản CAD trực tiếp bằng LibreDWG WebAssembly. Khi DWG parse thành công, lớp CAD sẽ thay thế blueprint hiện tại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div><div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
@@ -222,21 +222,55 @@ async function loadDwgAsBlueprint(file){
     const parser=new DOMParser();
     const doc=parser.parseFromString(svgString,'image/svg+xml');
     const svg=doc.documentElement;
-    let viewBox=svg.getAttribute('viewBox');
-    let vbW=1,vbH=1;
-    if(viewBox){
-      const nums=viewBox.trim().split(/\s+/).map(Number);
-      if(nums.length===4&&nums[2]>0&&nums[3]>0){vbW=nums[2];vbH=nums[3];}
-    }else{
-      vbW=parseFloat(svg.getAttribute('width'))||1;
-      vbH=parseFloat(svg.getAttribute('height'))||1;
+    if(svg.nodeName.toLowerCase()!=='svg') throw new Error('SVG output không hợp lệ');
+
+    // LibreDWG may preserve CAD colors such as ACI 7 as white.
+    // On a white preview those entities become invisible, so normalize them to dark CAD lines.
+    const graphics=[...svg.querySelectorAll('path,line,polyline,polygon,circle,ellipse,rect,text,tspan')];
+    let visibleCount=0;
+    for(const el of graphics){
+      const tag=el.tagName.toLowerCase();
+      const stroke=(el.getAttribute('stroke')||'').toLowerCase();
+      const fill=(el.getAttribute('fill')||'').toLowerCase();
+      if(tag==='text'||tag==='tspan'){
+        el.setAttribute('fill','#111827');
+        if(stroke && stroke!=='none') el.setAttribute('stroke','#111827');
+      }else{
+        if(!stroke || stroke==='#fff'||stroke==='#ffffff'||stroke==='white'||stroke==='rgb(255, 255, 255)') el.setAttribute('stroke','#111827');
+        if(fill==='#fff'||fill==='#ffffff'||fill==='white'||fill==='rgb(255, 255, 255)') el.setAttribute('fill','none');
+      }
+      el.setAttribute('vector-effect','non-scaling-stroke');
+      visibleCount++;
     }
 
-    if(cadObjectUrl) URL.revokeObjectURL(cadObjectUrl);
-    cadObjectUrl=URL.createObjectURL(new Blob([svgString],{type:'image/svg+xml'}));
+    // Mount offscreen so the browser can calculate the real graphic bounds.
+    const holder=document.createElement('div');
+    Object.assign(holder.style,{position:'fixed',left:'-20000px',top:'-20000px',width:'1200px',height:'1200px',visibility:'hidden',pointerEvents:'none'});
+    document.body.appendChild(holder);
+    svg.removeAttribute('width'); svg.removeAttribute('height');
+    svg.setAttribute('width','1200'); svg.setAttribute('height','1200');
+    holder.appendChild(svg);
 
-    // Rasterize the generated SVG into a white canvas first.
-    // This avoids transparent/unsupported SVG rendering in WebGL textures.
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    let box;
+    try{ box=svg.getBBox(); }catch{ box=null; }
+    if(!box || !isFinite(box.width) || !isFinite(box.height) || box.width<=0 || box.height<=0){
+      holder.remove();
+      throw new Error('SVG có '+visibleCount+' phần tử nhưng không có bounding box hiển thị');
+    }
+
+    const padX=Math.max(box.width*.025,1);
+    const padY=Math.max(box.height*.025,1);
+    const cropX=box.x-padX,cropY=box.y-padY,cropW=box.width+padX*2,cropH=box.height+padY*2;
+    svg.setAttribute('viewBox',cropX+' '+cropY+' '+cropW+' '+cropH);
+    svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+    svg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    holder.remove();
+
+    const normalizedSvg=new XMLSerializer().serializeToString(svg);
+    if(cadObjectUrl) URL.revokeObjectURL(cadObjectUrl);
+    cadObjectUrl=URL.createObjectURL(new Blob([normalizedSvg],{type:'image/svg+xml'}));
+
     cadPreviewImg.src=cadObjectUrl;
     cadPreviewBtn.style.display='inline-block';
 
@@ -246,7 +280,7 @@ async function loadDwgAsBlueprint(file){
     await img.decode();
 
     const maxSide=2048;
-    const aspect=(img.naturalWidth||vbW)/(img.naturalHeight||vbH||1);
+    const aspect=cropW/cropH;
     let cw,ch;
     if(aspect>=1){cw=maxSide;ch=Math.max(512,Math.round(maxSide/aspect));}
     else{ch=maxSide;cw=Math.max(512,Math.round(maxSide*aspect));}
@@ -285,7 +319,7 @@ async function loadDwgAsBlueprint(file){
     vt.classList.add('active');
     v3.classList.remove('active');
 
-    bpStatus.textContent='DWG visible ✓ '+file.name+' · '+cw+'×'+ch;
+    bpStatus.textContent='DWG visible ✓ '+visibleCount+' entities · '+Math.round(cropW)+'×'+Math.round(cropH);
     bpStatus.style.color='#85edb4';
     bpStatus.style.opacity='1';
     setTimeout(()=>bpStatus.style.opacity='.35',5000);
