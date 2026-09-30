@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V35 CORRECTED GAME DETAIL</small>
+  <small>GitHub → Netlify · BUILD V36 PHYSICAL SCALE</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V35 loại bỏ hàng rào/cổng đặt sai, giữ chỉ các chi tiết gắn trực tiếp với footprint nhà xưởng và tăng độ hiển thị của dock, cửa, mái, vạch sân, đèn, parking để kiểm tra rõ ở cự ly gần.</p>
+  <p>Bản V36 hiệu chỉnh lại tỷ lệ vật lý toàn khu theo quy mô 61,83 ha: nhà xưởng trở về kích thước công nghiệp hàng chục–hàng trăm mét, đồng thời gỡ các chi tiết cửa/dock/parking suy đoán sai để không làm sai masterplan.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -32,15 +32,15 @@
 <div class="ui info">
   <div class="eyebrow">Project overview</div>
   <h2>Da Loc 3D</h2>
-  <p>Khối nhà dùng cùng hệ tọa độ pixel 1616×2048 với bản đồ 2D, vì vậy Top View có thể dùng để kiểm tra trực tiếp độ khớp.</p>
+  <p>Hệ tọa độ 1616×2048 đã được quy đổi sang mét theo diện tích dự án 61,83 ha. Các nhà xưởng lớn hiện dài khoảng 100–150 m, rộng khoảng 30–50 m và cao khoảng 9–12 m.</p>
   <div class="stats">
-    <div class="stat"><b>38 + detail</b><span>factory-attached game props</span></div>
+    <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>Corrected detail</b><span>docks / doors / roof / parking</span></div>
+    <div class="stat"><b>Industrial scale</b><span>~50–150 m factory lengths</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V35: bad fence/gates removed · factory detail enlarged</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V36: physical scale calibrated · guessed factory details removed</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,10 +48,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
-scene.fog=new THREE.FogExp2(0xa9c390,.0012);
+scene.fog=new THREE.FogExp2(0xa9c390,.00022);
 
-const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,1500);
-camera.position.set(155,125,175);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,6000);
+camera.position.set(820,620,900);
 
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -65,23 +65,23 @@ document.getElementById('canvas').appendChild(renderer.domElement);
 
 const controls=new OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;
-controls.minDistance=65;
-controls.maxDistance=500;
+controls.minDistance=120;
+controls.maxDistance=2600;
 controls.maxPolarAngle=Math.PI/2.02;
 controls.target.set(0,0,3);
 
 scene.add(new THREE.HemisphereLight(0xf7fbff,0x4d6744,2.4));
 const sun=new THREE.DirectionalLight(0xfff4df,3.4);
-sun.position.set(-150,220,140);
+sun.position.set(-700,1100,650);
 sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
-sun.shadow.camera.left=-240;sun.shadow.camera.right=240;sun.shadow.camera.top=240;sun.shadow.camera.bottom=-240;
+sun.shadow.camera.left=-1100;sun.shadow.camera.right=1100;sun.shadow.camera.top=1100;sun.shadow.camera.bottom=-1100;
 scene.add(sun);
 
 const world=new THREE.Group();scene.add(world);
 
 const IMG_W=1616,IMG_H=2048;
-const PLANE_H=304,PLANE_W=PLANE_H*(IMG_W/IMG_H),S=PLANE_W/IMG_W;
+const S=0.782,PLANE_W=IMG_W*S,PLANE_H=IMG_H*S;
 function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
 
 // Exact same 2D masterplan family as the uploaded 1616×2048 source.
@@ -127,7 +127,7 @@ bpImg.onerror=(err)=>{
   bpBadge.style.color='#ff9b9b';
 };
 
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(560,560),new THREE.MeshStandardMaterial({color:0x91ad79,roughness:1}));
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(2200,2300),new THREE.MeshStandardMaterial({color:0x91ad79,roughness:1}));
 ground.rotation.x=-Math.PI/2;ground.position.y=-.18;ground.receiveShadow=true;scene.add(ground);
 
 const roofs=[
@@ -155,23 +155,23 @@ for(const [cx,cy,Lpx,Spx,a] of roofs){
   // Blue band in the masterplan represents the roof strip; the white factory footprint is wider.
   const footprintFactor=Spx<18?2.35:Spx<26?1.9:Spx<38?1.52:1.30;
   const D=Spx*S*footprintFactor;
-  const h=Math.max(3.6,Math.min(7.4,D*.48));
+  const h=Math.max(8.5,Math.min(12.0,7.4+D*.065));
   const g=new THREE.Group();
   g.position.set(p.x,.04,p.z);
   g.rotation.y=THREE.MathUtils.degToRad(-a);
   world.add(g);
 
-  const pad=new THREE.Mesh(new THREE.BoxGeometry(L+1.0,.16,D+1.0),padMat);
-  pad.position.y=.08;pad.receiveShadow=true;g.add(pad);
+  const pad=new THREE.Mesh(new THREE.BoxGeometry(L+2.4,.22,D+2.4),padMat);
+  pad.position.y=.11;pad.receiveShadow=true;g.add(pad);
 
   const body=new THREE.Mesh(new THREE.BoxGeometry(L,h,D),wallMat);
-  body.position.y=h/2+.16;body.castShadow=true;body.receiveShadow=true;g.add(body);
+  body.position.y=h/2+.22;body.castShadow=true;body.receiveShadow=true;g.add(body);
 
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(L+.24,.24,D+.24),roofMat);
-  roof.position.y=h+.26;roof.castShadow=true;g.add(roof);
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(L+.55,.32,D+.55),roofMat);
+  roof.position.y=h+.38;roof.castShadow=true;g.add(roof);
 
   const band=new THREE.Mesh(new THREE.BoxGeometry(L*.90,.12,Math.max(.7,Spx*S*.95)),blueMat);
-  band.position.y=h+.45;band.castShadow=true;g.add(band);
+  band.position.y=h+.60;band.castShadow=true;g.add(band);
 
   buildings.push(g);
 }
@@ -190,24 +190,24 @@ function addTree(px, py, scale = 1, flowering = false) {
   const g = new THREE.Group();
 
   const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.16 * scale, 0.24 * scale, 1.75 * scale, 7),
+    new THREE.CylinderGeometry(0.22 * scale, 0.34 * scale, 4.2 * scale, 8),
     treeTrunkMat
   );
-  trunk.position.y = 0.88 * scale;
+  trunk.position.y = 2.10 * scale;
   trunk.castShadow = true;
 
   const m1 = flowering ? flowerLeafMat : treeLeafMat;
   const m2 = flowering ? flowerLeafMat : treeLeafMat2;
-  const crown1 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.76 * scale, 1), m1);
-  crown1.position.set(-0.12*scale, 2.02 * scale, 0.05*scale);
+  const crown1 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.55 * scale, 1), m1);
+  crown1.position.set(-0.20*scale, 5.10 * scale, 0.10*scale);
   crown1.castShadow = true;
 
-  const crown2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.58 * scale, 1), m2);
-  crown2.position.set(0.28 * scale, 2.68 * scale, -0.12 * scale);
+  const crown2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.20 * scale, 1), m2);
+  crown2.position.set(0.48 * scale, 6.20 * scale, -0.20 * scale);
   crown2.castShadow = true;
 
-  const crown3 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.46 * scale, 1), flowering ? flowerLeafMat : treeLeafMat3);
-  crown3.position.set(-0.34 * scale, 2.54 * scale, 0.16 * scale);
+  const crown3 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95 * scale, 1), flowering ? flowerLeafMat : treeLeafMat3);
+  crown3.position.set(-0.58 * scale, 5.85 * scale, 0.28 * scale);
   crown3.castShadow = true;
 
   g.add(trunk, crown1, crown2, crown3);
@@ -432,54 +432,9 @@ function addVerifiedSupport(cx,cy,wPx,hPx,cvAngle,h=2.7,roofMat=supportRoofMat,g
   [839.94,685.08,8.20,13.60,-53.13,2.4,supportRoofMat,false]
 ].forEach(v=>addVerifiedSupport(...v));
 
-// -------- Factory detail layer: vents, loading doors, small parked vehicles --------
-const metalMat=new THREE.MeshStandardMaterial({color:0xb7bdc0,roughness:.42,metalness:.35});
-const darkMat=new THREE.MeshStandardMaterial({color:0x4f5657,roughness:.7});
-const doorMat=new THREE.MeshStandardMaterial({color:0xbac3c4,roughness:.62});
-const truckWhiteMat=new THREE.MeshStandardMaterial({color:0xf3f3ef,roughness:.55});
-const truckBlueMat=new THREE.MeshStandardMaterial({color:0x496ca5,roughness:.48});
-const tireMat=new THREE.MeshStandardMaterial({color:0x222625,roughness:.95});
-
-function addVehicle(parent,x,z,scale=.8,blue=false){
-  const g=new THREE.Group();g.position.set(x,.26,z);parent.add(g);
-  const body=new THREE.Mesh(new THREE.BoxGeometry(1.8*scale,.55*scale,.78*scale),blue?truckBlueMat:truckWhiteMat);
-  body.position.y=.34*scale;body.castShadow=true;g.add(body);
-  const cab=new THREE.Mesh(new THREE.BoxGeometry(.65*scale,.68*scale,.78*scale),blue?truckWhiteMat:truckBlueMat);
-  cab.position.set(.95*scale,.40*scale,0);g.add(cab);
-  for(const sx of [-.55,.55]){
-    for(const sz of [-.33,.33]){
-      const wh=new THREE.Mesh(new THREE.CylinderGeometry(.12*scale,.12*scale,.12*scale,8),tireMat);
-      wh.rotation.x=Math.PI/2;wh.position.set(sx*scale,.12*scale,sz*scale);g.add(wh);
-    }
-  }
-  return g;
-}
-
-buildings.forEach((g,idx)=>{
-  const body=g.children.find(o=>o.geometry?.type==='BoxGeometry' && o.position.y>1);
-  if(!body)return;
-  const p=body.geometry.parameters;
-  const L=p.width,D=p.depth,H=p.height;
-
-  // roof vents / HVAC
-  const ventCount=Math.max(2,Math.min(6,Math.round(L/7)));
-  for(let i=0;i<ventCount;i++){
-    const vent=new THREE.Mesh(new THREE.BoxGeometry(.55,.28,.55),metalMat);
-    vent.position.set((-0.35+i/Math.max(1,ventCount-1)*.70)*L,H+.62,(i%2?-.18:.18)*D);
-    vent.castShadow=true;g.add(vent);
-  }
-
-  // loading doors on one long facade
-  const bays=Math.max(2,Math.min(6,Math.round(L/6)));
-  for(let i=0;i<bays;i++){
-    const d=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.4,L/bays*.55),1.6,.08),doorMat);
-    d.position.set((-0.38+i/Math.max(1,bays-1)*.76)*L,1.05,D/2+.05);
-    g.add(d);
-  }
-
-  if(idx%3===0) addVehicle(g,-L*.18,D/2+1.25,.72,idx%2===0);
-  if(idx%7===0) addVehicle(g,L*.20,D/2+1.35,.65,true);
-});
+// -------- Factory detail deferred in V36 --------
+// Building footprints and physical scale are now prioritized.
+// Doors, docks, parking and facade modules will be rebuilt only after their 2D / architectural positions are verified.
 
 // -------- Outer diorama environment inspired by the uploaded Netlify reference --------
 const diorama=new THREE.Group();
@@ -503,9 +458,9 @@ const houseRoofMats=[
 ];
 
 // thick base for the diorama feel
-const base=new THREE.Mesh(new THREE.BoxGeometry(430,8,470),soilMat);
-base.position.set(0,-4.7,0);base.receiveShadow=true;diorama.add(base);
-const topField=new THREE.Mesh(new THREE.PlaneGeometry(430,470),outerGrassMat);
+const base=new THREE.Mesh(new THREE.BoxGeometry(2100,10,2250),soilMat);
+base.position.set(0,-5.7,0);base.receiveShadow=true;diorama.add(base);
+const topField=new THREE.Mesh(new THREE.PlaneGeometry(2100,2250),outerGrassMat);
 topField.rotation.x=-Math.PI/2;topField.position.y=-.64;topField.receiveShadow=true;diorama.add(topField);
 
 // deterministic random
@@ -514,7 +469,7 @@ function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
 function rr(a,b){return a+(b-a)*rnd();}
 
 // Instanced conifer forest around the industrial-cluster presentation slab.
-const forestCount=520;
+const forestCount=900;
 const trunkGeo=new THREE.CylinderGeometry(.18,.28,2.1,6);
 const crownGeo=new THREE.ConeGeometry(1.05,3.7,8);
 const forestTrunkMat=new THREE.MeshStandardMaterial({color:0x65452f,roughness:1});
@@ -525,7 +480,7 @@ trunks.castShadow=crowns.castShadow=true;trunks.receiveShadow=crowns.receiveShad
 const dm=new THREE.Object3D();
 let fi=0;
 while(fi<forestCount){
-  const x=rr(-205,205),z=rr(-222,222);
+  const x=rr(-980,980),z=rr(-1040,1040);
   // Keep the exact masterplan/project presentation area unobstructed.
   if(Math.abs(x)<PLANE_W*.58 && Math.abs(z)<PLANE_H*.58) continue;
   const sc=rr(.72,1.45);
@@ -541,9 +496,9 @@ function addRoad(x,z,w,l,rot=0){
   const edge=new THREE.Mesh(new THREE.BoxGeometry(w+2,.12,l+2),roadEdgeMat);g.add(edge);
   const rd=new THREE.Mesh(new THREE.BoxGeometry(w,.15,l),roadMat);rd.position.y=.08;g.add(rd);
 }
-addRoad(155,20,12,390,-.13);
-addRoad(-120,145,11,300,.95);
-addRoad(0,195,11,350,Math.PI/2);
+addRoad(760,20,18,1700,-.10);
+addRoad(-720,620,16,1250,.92);
+addRoad(0,900,16,1650,Math.PI/2);
 
 // village houses outside the project
 function addHouse(x,z,rot=0,sc=1){
@@ -556,8 +511,8 @@ function addHouse(x,z,rot=0,sc=1){
   const door=new THREE.Mesh(new THREE.BoxGeometry(.65*sc,1.15*sc,.08),darkMat);
   door.position.set(0,.6*sc,d/2+.05);g.add(door);
 }
-for(let i=0;i<42;i++) addHouse(rr(-188,-115),rr(80,188),rr(-.4,.4),rr(.78,1.12));
-for(let i=0;i<34;i++) addHouse(rr(120,185),rr(-155,130),rr(-.3,.3),rr(.76,1.08));
+for(let i=0;i<58;i++) addHouse(rr(-920,-690),rr(260,930),rr(-.4,.4),rr(.9,1.35));
+for(let i=0;i<54;i++) addHouse(rr(690,930),rr(-820,720),rr(-.3,.3),rr(.88,1.30));
 
 // scattered deciduous trees around village edges
 function addOuterTree(x,z,sc=1){
@@ -569,7 +524,7 @@ function addOuterTree(x,z,sc=1){
 }
 for(let i=0;i<130;i++){
   const side=i%2===0?-1:1;
-  addOuterTree(side*rr(118,195),rr(-190,190),rr(.7,1.3));
+  addOuterTree(side*rr(680,970),rr(-900,900),rr(.85,1.45));
 }
 
 // simple cloud clusters for the model-railway / diorama feeling
@@ -581,7 +536,7 @@ function addCloud(x,y,z,sc=1){
     m.position.set(dx*sc,dy*sc,dz*sc);g.add(m);
   });
 }
-for(let i=0;i<11;i++) addCloud(rr(-175,175),rr(32,58),rr(-195,195),rr(.8,1.6));
+for(let i=0;i<14;i++) addCloud(rr(-850,850),rr(90,170),rr(-900,900),rr(2.0,4.0));
 
 // park furniture at the central landscape: benches + light poles
 const woodMat=new THREE.MeshStandardMaterial({color:0x8b6245,roughness:.86});
@@ -663,122 +618,13 @@ Gate complexes from V34 were also based on unverified points.
 They are hidden until gate footprints are derived from the blueprint itself.
 */
 
-// ---------- detailed factory yards / docks / service equipment ----------
-function addFactoryDetail(g,idx){
-  const body=g.children.find(o=>o.geometry?.type==='BoxGeometry' && o.position.y>1);
-  if(!body)return;
-  const prm=body.geometry.parameters;
-  const L=prm.width,D=prm.depth,H=prm.height;
+// ---------- detailed factory props deferred in V36 ----------
+/*
+V35's generic loading docks, doors, parking bays and labels were visually misleading
+at the wrong physical scale. They are intentionally removed here.
+*/
 
-  // apron in front of loading facade
-  const apron=new THREE.Mesh(new THREE.BoxGeometry(L*.92,.10,Math.max(3.6,D*.34)),asphaltDarkMat);
-  apron.position.set(0,.06,D/2+Math.max(2.0,D*.20));
-  apron.receiveShadow=true;g.add(apron);
-
-  // sidewalk on opposite side
-  const walk=new THREE.Mesh(new THREE.BoxGeometry(L*.90,.10,.85),sidewalkMat);
-  walk.position.set(0,.07,-D/2-.60);g.add(walk);
-
-  // loading docks
-  const bays=Math.max(2,Math.min(6,Math.floor(L/4.8)));
-  for(let i=0;i<bays;i++){
-    const x=(-.38+i/Math.max(1,bays-1)*.76)*L;
-
-    const deck=new THREE.Mesh(new THREE.BoxGeometry(Math.min(2.0,L/bays*.68),.44,1.35),dockDeckMat);
-    deck.position.set(x,.24,D/2+.54);g.add(deck);
-
-    const door=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.55,L/bays*.58),2.15,.10),doorMat);
-    door.position.set(x,1.28,D/2+.06);g.add(door);
-
-    const bumper1=new THREE.Mesh(new THREE.BoxGeometry(.16,.52,.15),dockRubberMat);
-    const bumper2=bumper1.clone();
-    bumper1.position.set(x-.72,.42,D/2+.14);
-    bumper2.position.set(x+.72,.42,D/2+.14);
-    g.add(bumper1,bumper2);
-  }
-
-  // side personnel door + canopy
-  const sideDoor=new THREE.Mesh(new THREE.BoxGeometry(.86,1.95,.08),darkMat);
-  sideDoor.position.set(L/2+.04,.93,-D*.12);sideDoor.rotation.y=Math.PI/2;g.add(sideDoor);
-  const canopy=new THREE.Mesh(new THREE.BoxGeometry(1.5,.12,1.05),guardRoofMat);
-  canopy.position.set(L/2+.35,1.95,-D*.12);g.add(canopy);
-  // visible office/window strip on one long facade
-  const winStrip=new THREE.Mesh(new THREE.BoxGeometry(L*.38,.72,.07),glassDarkMat);
-  winStrip.position.set(0,H*.58,-D/2-.04);
-  g.add(winStrip);
-
-
-  // roof HVAC + vents + tanks
-  const hvacCount=Math.max(2,Math.min(5,Math.floor(L/8)));
-  for(let i=0;i<hvacCount;i++){
-    const x=(-.34+i/Math.max(1,hvacCount-1)*.68)*L;
-    const hvac=new THREE.Mesh(new THREE.BoxGeometry(1.15,.52,.80),utilityMat);
-    hvac.position.set(x,H+.63,(i%2?-.2:.2)*D);hvac.castShadow=true;g.add(hvac);
-    const fan=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.08,12),darkMat);
-    fan.rotation.x=Math.PI/2;fan.position.set(x,H+.86,(i%2?-.2:.2)*D);g.add(fan);
-  }
-
-  // hydrant + utility box
-  const hyd=new THREE.Mesh(new THREE.CylinderGeometry(.12,.15,.62,8),hydrantMat);
-  hyd.position.set(-L/2+.7,.32,-D/2-.82);g.add(hyd);
-  const util=new THREE.Mesh(new THREE.BoxGeometry(.72,1.05,.42),utilityMat);
-  util.position.set(L/2-.82,.54,-D/2-.78);g.add(util);
-
-  // building sign
-  const sign=makeTextSprite('XƯỞNG '+String(idx+1).padStart(2,'0'),'#1d493a','#ffffff',.68);
-  sign.position.set(0,H*.63,D/2+.09);g.add(sign);
-
-  // parking / parked cars on selected factories
-  if(idx%2===0){
-    const slots=Math.max(3,Math.min(7,Math.floor(L/5)));
-    for(let i=0;i<slots;i++){
-      const x=(-.38+i/Math.max(1,slots-1)*.76)*L;
-      const line=new THREE.Mesh(new THREE.BoxGeometry(.08,.03,2.1),paintMat);
-      line.position.set(x,.12,-D/2-1.7);g.add(line);
-      if((i+idx)%3===0){
-        const car=new THREE.Group();car.position.set(x,.20,-D/2-1.45);g.add(car);
-        const cb=new THREE.Mesh(new THREE.BoxGeometry(1.12,.44,1.88),idx%4===0?truckBlueMat:truckWhiteMat);
-        cb.position.y=.28;car.add(cb);
-        const top=new THREE.Mesh(new THREE.BoxGeometry(.86,.38,.94),glassDarkMat);
-        top.position.set(0,.55,-.12);car.add(top);
-      }
-    }
-  }
-
-  // safety stripes on apron edges
-  for(let i=0;i<4;i++){
-    const stripe=new THREE.Mesh(new THREE.BoxGeometry(.55,.025,.12),yellowPaintMat);
-    stripe.position.set(-L*.35+i*L*.23,.11,D/2+2.0);
-    stripe.rotation.y=i%2?.15:-.15;g.add(stripe);
-  }
-}
-buildings.forEach(addFactoryDetail);
-
-// ---------- internal lamps and hydrants along building-front corridors ----------
-function addLampWorld(x,z,h=3.8){
-  const g=new THREE.Group();g.position.set(x,.15,z);detailGroup.add(g);
-  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.045,.065,h,8),poleMat);
-  pole.position.y=h/2;g.add(pole);
-  const arm=new THREE.Mesh(new THREE.BoxGeometry(.65,.06,.06),poleMat);
-  arm.position.set(.28,h-.12,0);g.add(arm);
-  const lamp=new THREE.Mesh(new THREE.BoxGeometry(.22,.10,.16),cloudMat);
-  lamp.position.set(.58,h-.16,0);g.add(lamp);
-}
-
-roofs.forEach((r,idx)=>{
-  const [cx,cy,Lpx,Spx,a]=r;
-  if(idx%2!==0)return;
-  const rad=THREE.MathUtils.degToRad(a);
-  const ux=Math.cos(rad),uy=Math.sin(rad);
-  const vx=-Math.sin(rad),vy=Math.cos(rad);
-  const side=Math.max(24,Spx*1.45);
-  for(const t of [-.34,0,.34]){
-    const px=cx+ux*(Lpx*t)+vx*side;
-    const py=cy+uy*(Lpx*t)+vy*side;
-    const p=mapPx(px,py);
-    addLampWorld(p.x,p.z,3.6);
-  }
-});
+// ---------- internal road furniture deferred until 2D positions are verified ----------
 
 // ---------- extra parking lots disabled in V35 ----------
 /* Only factory-attached parking remains until 2D parking footprints are verified. */
@@ -817,9 +663,9 @@ function tween(pos,tgt){
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),vd=document.getElementById('vd'),bp=document.getElementById('bp');
-v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.38;tween(new THREE.Vector3(155,125,175),new THREE.Vector3(0,0,4))};
-vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
-vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.22;tween(new THREE.Vector3(70,48,82),new THREE.Vector3(0,2,8))};
+v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.42;tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
+vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
+vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.20;tween(new THREE.Vector3(270,150,320),new THREE.Vector3(0,5,25))};
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
@@ -828,7 +674,7 @@ document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;g
 let treeVisibilityState=true;
 function updateTreeVisibility(){
   const d=camera.position.distanceTo(controls.target);
-  const show=d<420;
+  const show=d<2400;
   if(show===treeVisibilityState) return;
   treeVisibilityState=show;
   world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show;});
