@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V41 ROADS + OUTER WORLD</small>
+  <small>GitHub → Netlify · BUILD V42 RUNTIME ORDER FIX</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V41 bổ sung đường nhựa nội khu bám theo các trục giao thông của masterplan và nâng ngoại cảnh xung quanh dự án: cây trưởng thành, cụm nhà dân, ruộng/cỏ và đường ngoại vi ở đúng tỷ lệ vật lý.</p>
+  <p>Bản V42 sửa lỗi thứ tự khởi tạo của V41 làm scene biến mất. Đường nhựa nội khu và ngoại cảnh vẫn được giữ nguyên, nhưng được tạo sau khi vật liệu, random generator và asset cây/nhà đã sẵn sàng.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V41 site world</b><span>internal asphalt + outer village/trees</span></div>
+    <div class="stat"><b>V42 render fixed</b><span>roads + outer world restored</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V41: internal asphalt roads + populated outer world</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V42: runtime order fixed · V41 roads/outer world retained</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -134,129 +134,7 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(2200,2300),new THREE.MeshSta
 ground.rotation.x=-Math.PI/2;ground.position.y=-.18;ground.receiveShadow=true;scene.add(ground);
 
 
-// ---- V41: internal asphalt road network + immediate outer context ----------
-const siteInfraGroup=new THREE.Group();
-siteInfraGroup.name='siteInfraGroup';
-world.add(siteInfraGroup);
 
-const internalAsphaltMat=new THREE.MeshStandardMaterial({color:0x4e5454,roughness:.98});
-const internalEdgeMat=new THREE.MeshStandardMaterial({color:0xc9cbc5,roughness:.97});
-const lanePaintMat=new THREE.MeshStandardMaterial({
-  color:0xf2efdf,roughness:.82,depthWrite:false,
-  polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
-});
-const outerFieldMats=[
-  new THREE.MeshStandardMaterial({color:0x7fa968,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0x89ad6b,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0xa59f68,roughness:1}),
-  new THREE.MeshStandardMaterial({color:0x6f9b62,roughness:1})
-];
-
-function addRoadSegmentPx(a,b,widthPx=22,withCenter=true){
-  const p1=mapPx(a[0],a[1]),p2=mapPx(b[0],b[1]);
-  const dx=p2.x-p1.x,dz=p2.z-p1.z,len=Math.hypot(dx,dz),rot=Math.atan2(dx,dz);
-
-  const edge=new THREE.Mesh(new THREE.BoxGeometry(widthPx*S+2.0,.10,len+1.0),internalEdgeMat);
-  edge.position.set((p1.x+p2.x)/2,.10,(p1.z+p2.z)/2);
-  edge.rotation.y=rot;edge.receiveShadow=true;siteInfraGroup.add(edge);
-
-  const road=new THREE.Mesh(new THREE.BoxGeometry(widthPx*S,.12,len),internalAsphaltMat);
-  road.position.set((p1.x+p2.x)/2,.18,(p1.z+p2.z)/2);
-  road.rotation.y=rot;road.receiveShadow=true;siteInfraGroup.add(road);
-
-  if(withCenter && len>35){
-    const dashLen=4.0,gap=4.0,n=Math.max(2,Math.floor(len/(dashLen+gap)));
-    for(let i=0;i<n;i++){
-      const t=(i+.5)/n;
-      const dash=new THREE.Mesh(new THREE.BoxGeometry(.16,.02,dashLen),lanePaintMat);
-      dash.position.set(
-        THREE.MathUtils.lerp(p1.x,p2.x,t),.255,
-        THREE.MathUtils.lerp(p1.z,p2.z,t)
-      );
-      dash.rotation.y=rot;siteInfraGroup.add(dash);
-    }
-  }
-}
-
-// Road centerlines traced to the visible internal corridors of the HD masterplan.
-// Segments are deliberately broken at junctions so they do not cut through buildings.
-const INTERNAL_ROADS=[
-  // main diagonal spine from southwest to northeast
-  [[315,1110],[505,965],24],[[505,965],[710,810],24],[[710,810],[915,655],24],[[915,655],[1115,505],24],
-  // central east-west distributor
-  [[465,1185],[620,1065],22],[[620,1065],[785,940],22],[[785,940],[965,805],22],[[965,805],[1160,660],22],
-  // lower distributor
-  [[515,1405],[650,1300],22],[[650,1300],[805,1185],22],[[805,1185],[965,1060],22],[[965,1060],[1120,945],22],
-  // upper distributor / factory access
-  [[720,735],[820,655],20],[[820,655],[930,575],20],[[930,575],[1045,490],20],[[1045,490],[1170,405],20],
-  // right-side spine toward main landscaped/entrance area
-  [[1115,505],[1210,585],22],[[1210,585],[1285,690],22],[[1285,690],[1320,835],22],[[1320,835],[1295,1000],22],
-  // southwest local streets
-  [[305,1110],[370,1240],18],[[370,1240],[445,1365],18],[[445,1365],[540,1490],18],
-  // cross links through the central factory blocks
-  [[555,925],[640,1035],18],[[640,1035],[720,1140],18],
-  [[680,820],[760,925],18],[[760,925],[840,1030],18],
-  [[825,720],[905,825],18],[[905,825],[985,930],18]
-];
-INTERNAL_ROADS.forEach(([a,b,w])=>addRoadSegmentPx(a,b,w,true));
-
-// Small asphalt junction pads at the main intersections.
-function addJunctionPx(px,py,rPx=17){
-  const p=mapPx(px,py);
-  const m=new THREE.Mesh(new THREE.CylinderGeometry(rPx*S,rPx*S,.12,32),internalAsphaltMat);
-  m.position.set(p.x,.19,p.z);m.receiveShadow=true;siteInfraGroup.add(m);
-}
-[[505,965],[710,810],[915,655],[620,1065],[785,940],[965,805],[650,1300],[805,1185],[965,1060],[1210,585],[1285,690]].forEach(v=>addJunctionPx(v[0],v[1],15));
-
-// Immediate farmland / green bands just outside the masterplan slab so exterior is visible in normal camera views.
-const outerContext=new THREE.Group();
-outerContext.name='outerContext';
-scene.add(outerContext);
-
-function addFieldPatch(x,z,w,d,rot=0,matIndex=0){
-  const m=new THREE.Mesh(new THREE.BoxGeometry(w,.10,d),outerFieldMats[matIndex%outerFieldMats.length]);
-  m.position.set(x,-.45,z);m.rotation.y=rot;m.receiveShadow=true;outerContext.add(m);
-}
-// field patches close to each edge of the plan
-addFieldPatch(-760,-180,230,1050,.05,0);
-addFieldPatch(760,-120,230,1050,-.04,1);
-addFieldPatch(0,-930,1180,250,.02,2);
-addFieldPatch(0,930,1180,250,-.02,3);
-
-// closer village clusters immediately outside the plan
-function addOuterVillageHouse(x,z,rot=0,sc=1){
-  const g=new THREE.Group();g.position.set(x,-.35,z);g.rotation.y=rot;outerContext.add(g);
-  const w=7.0*sc,d=5.8*sc,h=5.2*sc;
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),houseWallMats[Math.floor(rnd()*houseWallMats.length)]);
-  body.position.y=h/2;body.castShadow=true;g.add(body);
-  const roof=new THREE.Mesh(new THREE.ConeGeometry(5.4*sc,2.5*sc,4),houseRoofMats[Math.floor(rnd()*houseRoofMats.length)]);
-  roof.rotation.y=Math.PI/4;roof.position.y=h+1.15*sc;roof.castShadow=true;g.add(roof);
-}
-for(let i=0;i<26;i++) addOuterVillageHouse(-720+rr(-45,45),rr(-650,650),rr(-.5,.5),rr(.8,1.25));
-for(let i=0;i<24;i++) addOuterVillageHouse(720+rr(-45,45),rr(-620,620),rr(-.5,.5),rr(.8,1.22));
-for(let i=0;i<18;i++) addOuterVillageHouse(rr(-520,520),-855+rr(-30,30),rr(-.4,.4),rr(.78,1.18));
-
-// tree belts immediately around the project edge, large enough to read at current physical scale
-function addContextTree(x,z,sc=1){
-  const g=new THREE.Group();g.position.set(x,-.30,z);outerContext.add(g);
-  const tr=new THREE.Mesh(new THREE.CylinderGeometry(.20*sc,.34*sc,4.8*sc,7),forestTrunkMat);
-  tr.position.y=2.4*sc;g.add(tr);
-  const c1=new THREE.Mesh(new THREE.IcosahedronGeometry(1.9*sc,1),treeLeafMat2);
-  c1.position.set(0,5.6*sc,0);c1.castShadow=true;g.add(c1);
-  const c2=new THREE.Mesh(new THREE.IcosahedronGeometry(1.35*sc,1),treeLeafMat3);
-  c2.position.set(.7*sc,6.6*sc,-.2*sc);c2.castShadow=true;g.add(c2);
-}
-for(let i=0;i<95;i++){
-  const z=-760+i*(1520/94);
-  addContextTree(-655+Math.sin(i*.7)*12,z,rr(.85,1.25));
-  addContextTree(655+Math.cos(i*.9)*12,z,rr(.85,1.25));
-}
-for(let i=0;i<70;i++){
-  const x=-590+i*(1180/69);
-  addContextTree(x,-800+Math.sin(i*.8)*10,rr(.82,1.18));
-  addContextTree(x,800+Math.cos(i*.65)*10,rr(.82,1.18));
-}
-// ---------------------------------------------------------------------------
 const roofs=[
 [988.64,643.02,191.42,34.85,37.15],[1025.55,593.67,191.25,37.41,36.47],[1100.52,492.14,191.41,33.39,36.79],[1137.16,442.12,190.0,33.2,36.87],[1062.45,543.73,191.24,36.5,37.06],
 [382.05,981.04,136.79,39.69,-53.33],[436.64,1022.48,136.4,39.6,-53.13],[553.1,1100.2,120.2,45.2,-53.13],
@@ -660,6 +538,132 @@ for(let i=0;i<260;i++){
   const side=i%2===0?-1:1;
   addOuterTree(side*rr(650,860),rr(-820,820),rr(.85,1.35));
 }
+
+// V42 runtime-order fix: V41 site/outer-context block moved here because it depends on
+// houseWallMats, houseRoofMats, rnd/rr and forestTrunkMat declared above.
+// ---- V41: internal asphalt road network + immediate outer context ----------
+const siteInfraGroup=new THREE.Group();
+siteInfraGroup.name='siteInfraGroup';
+world.add(siteInfraGroup);
+
+const internalAsphaltMat=new THREE.MeshStandardMaterial({color:0x4e5454,roughness:.98});
+const internalEdgeMat=new THREE.MeshStandardMaterial({color:0xc9cbc5,roughness:.97});
+const lanePaintMat=new THREE.MeshStandardMaterial({
+  color:0xf2efdf,roughness:.82,depthWrite:false,
+  polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
+});
+const outerFieldMats=[
+  new THREE.MeshStandardMaterial({color:0x7fa968,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0x89ad6b,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0xa59f68,roughness:1}),
+  new THREE.MeshStandardMaterial({color:0x6f9b62,roughness:1})
+];
+
+function addRoadSegmentPx(a,b,widthPx=22,withCenter=true){
+  const p1=mapPx(a[0],a[1]),p2=mapPx(b[0],b[1]);
+  const dx=p2.x-p1.x,dz=p2.z-p1.z,len=Math.hypot(dx,dz),rot=Math.atan2(dx,dz);
+
+  const edge=new THREE.Mesh(new THREE.BoxGeometry(widthPx*S+2.0,.10,len+1.0),internalEdgeMat);
+  edge.position.set((p1.x+p2.x)/2,.10,(p1.z+p2.z)/2);
+  edge.rotation.y=rot;edge.receiveShadow=true;siteInfraGroup.add(edge);
+
+  const road=new THREE.Mesh(new THREE.BoxGeometry(widthPx*S,.12,len),internalAsphaltMat);
+  road.position.set((p1.x+p2.x)/2,.18,(p1.z+p2.z)/2);
+  road.rotation.y=rot;road.receiveShadow=true;siteInfraGroup.add(road);
+
+  if(withCenter && len>35){
+    const dashLen=4.0,gap=4.0,n=Math.max(2,Math.floor(len/(dashLen+gap)));
+    for(let i=0;i<n;i++){
+      const t=(i+.5)/n;
+      const dash=new THREE.Mesh(new THREE.BoxGeometry(.16,.02,dashLen),lanePaintMat);
+      dash.position.set(
+        THREE.MathUtils.lerp(p1.x,p2.x,t),.255,
+        THREE.MathUtils.lerp(p1.z,p2.z,t)
+      );
+      dash.rotation.y=rot;siteInfraGroup.add(dash);
+    }
+  }
+}
+
+// Road centerlines traced to the visible internal corridors of the HD masterplan.
+// Segments are deliberately broken at junctions so they do not cut through buildings.
+const INTERNAL_ROADS=[
+  // main diagonal spine from southwest to northeast
+  [[315,1110],[505,965],24],[[505,965],[710,810],24],[[710,810],[915,655],24],[[915,655],[1115,505],24],
+  // central east-west distributor
+  [[465,1185],[620,1065],22],[[620,1065],[785,940],22],[[785,940],[965,805],22],[[965,805],[1160,660],22],
+  // lower distributor
+  [[515,1405],[650,1300],22],[[650,1300],[805,1185],22],[[805,1185],[965,1060],22],[[965,1060],[1120,945],22],
+  // upper distributor / factory access
+  [[720,735],[820,655],20],[[820,655],[930,575],20],[[930,575],[1045,490],20],[[1045,490],[1170,405],20],
+  // right-side spine toward main landscaped/entrance area
+  [[1115,505],[1210,585],22],[[1210,585],[1285,690],22],[[1285,690],[1320,835],22],[[1320,835],[1295,1000],22],
+  // southwest local streets
+  [[305,1110],[370,1240],18],[[370,1240],[445,1365],18],[[445,1365],[540,1490],18],
+  // cross links through the central factory blocks
+  [[555,925],[640,1035],18],[[640,1035],[720,1140],18],
+  [[680,820],[760,925],18],[[760,925],[840,1030],18],
+  [[825,720],[905,825],18],[[905,825],[985,930],18]
+];
+INTERNAL_ROADS.forEach(([a,b,w])=>addRoadSegmentPx(a,b,w,true));
+
+// Small asphalt junction pads at the main intersections.
+function addJunctionPx(px,py,rPx=17){
+  const p=mapPx(px,py);
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(rPx*S,rPx*S,.12,32),internalAsphaltMat);
+  m.position.set(p.x,.19,p.z);m.receiveShadow=true;siteInfraGroup.add(m);
+}
+[[505,965],[710,810],[915,655],[620,1065],[785,940],[965,805],[650,1300],[805,1185],[965,1060],[1210,585],[1285,690]].forEach(v=>addJunctionPx(v[0],v[1],15));
+
+// Immediate farmland / green bands just outside the masterplan slab so exterior is visible in normal camera views.
+const outerContext=new THREE.Group();
+outerContext.name='outerContext';
+scene.add(outerContext);
+
+function addFieldPatch(x,z,w,d,rot=0,matIndex=0){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,.10,d),outerFieldMats[matIndex%outerFieldMats.length]);
+  m.position.set(x,-.45,z);m.rotation.y=rot;m.receiveShadow=true;outerContext.add(m);
+}
+// field patches close to each edge of the plan
+addFieldPatch(-760,-180,230,1050,.05,0);
+addFieldPatch(760,-120,230,1050,-.04,1);
+addFieldPatch(0,-930,1180,250,.02,2);
+addFieldPatch(0,930,1180,250,-.02,3);
+
+// closer village clusters immediately outside the plan
+function addOuterVillageHouse(x,z,rot=0,sc=1){
+  const g=new THREE.Group();g.position.set(x,-.35,z);g.rotation.y=rot;outerContext.add(g);
+  const w=7.0*sc,d=5.8*sc,h=5.2*sc;
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),houseWallMats[Math.floor(rnd()*houseWallMats.length)]);
+  body.position.y=h/2;body.castShadow=true;g.add(body);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(5.4*sc,2.5*sc,4),houseRoofMats[Math.floor(rnd()*houseRoofMats.length)]);
+  roof.rotation.y=Math.PI/4;roof.position.y=h+1.15*sc;roof.castShadow=true;g.add(roof);
+}
+for(let i=0;i<26;i++) addOuterVillageHouse(-720+rr(-45,45),rr(-650,650),rr(-.5,.5),rr(.8,1.25));
+for(let i=0;i<24;i++) addOuterVillageHouse(720+rr(-45,45),rr(-620,620),rr(-.5,.5),rr(.8,1.22));
+for(let i=0;i<18;i++) addOuterVillageHouse(rr(-520,520),-855+rr(-30,30),rr(-.4,.4),rr(.78,1.18));
+
+// tree belts immediately around the project edge, large enough to read at current physical scale
+function addContextTree(x,z,sc=1){
+  const g=new THREE.Group();g.position.set(x,-.30,z);outerContext.add(g);
+  const tr=new THREE.Mesh(new THREE.CylinderGeometry(.20*sc,.34*sc,4.8*sc,7),forestTrunkMat);
+  tr.position.y=2.4*sc;g.add(tr);
+  const c1=new THREE.Mesh(new THREE.IcosahedronGeometry(1.9*sc,1),treeLeafMat2);
+  c1.position.set(0,5.6*sc,0);c1.castShadow=true;g.add(c1);
+  const c2=new THREE.Mesh(new THREE.IcosahedronGeometry(1.35*sc,1),treeLeafMat3);
+  c2.position.set(.7*sc,6.6*sc,-.2*sc);c2.castShadow=true;g.add(c2);
+}
+for(let i=0;i<95;i++){
+  const z=-760+i*(1520/94);
+  addContextTree(-655+Math.sin(i*.7)*12,z,rr(.85,1.25));
+  addContextTree(655+Math.cos(i*.9)*12,z,rr(.85,1.25));
+}
+for(let i=0;i<70;i++){
+  const x=-590+i*(1180/69);
+  addContextTree(x,-800+Math.sin(i*.8)*10,rr(.82,1.18));
+  addContextTree(x,800+Math.cos(i*.65)*10,rr(.82,1.18));
+}
+// ---------------------------------------------------------------------------
 
 // simple cloud clusters for the model-railway / diorama feeling
 const cloudMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.95});
