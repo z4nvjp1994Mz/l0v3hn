@@ -12,15 +12,17 @@
 .controls{right:18px;top:18px;padding:8px;border-radius:14px;display:flex;gap:7px}.controls button{border:0;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.07);color:#edf5ef;font-weight:700;cursor:pointer}.controls button.active,.controls button:hover{background:#effff5;color:#092217}
 .info{right:18px;bottom:18px;width:330px;padding:18px;border-radius:18px}.eyebrow{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#82edb2;font-weight:800}.info h2{font-size:18px;margin:6px 0 9px}.info p{font-size:12px;color:#bdc7c1;line-height:1.55;margin:0}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.stat{padding:10px;border-radius:11px;background:rgba(255,255,255,.05)}.stat b{display:block;font-size:14px}.stat span{font-size:10px;color:#94a39a}
 .hint{position:fixed;z-index:4;left:50%;bottom:22px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.43);border:1px solid rgba(255,255,255,.1);font-size:11px;color:#dce5df;pointer-events:none}
+.cad-preview{position:fixed;inset:5vh 5vw;z-index:30;display:none;background:#fff;border:2px solid rgba(0,0,0,.2);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:auto}
+.cad-preview.open{display:block}.cad-preview img{display:block;max-width:none;width:100%;height:auto;background:#fff}.cad-preview button{position:sticky;top:12px;float:right;margin:12px;z-index:2;border:0;border-radius:9px;padding:9px 12px;background:#102417;color:#fff;font-weight:800;cursor:pointer}
 @media(max-width:850px){.brand{left:12px;top:12px;width:calc(100vw - 24px)}.controls{left:12px;right:auto;top:130px}.info{right:12px;bottom:12px;width:285px}}
 </style>
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V8 CAD FIX</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
-<div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V9 CAD RASTER</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
+<div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
 <div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Bạn có thể dùng nền ảnh hiện tại hoặc bấm Load DWG để đọc bản CAD trực tiếp bằng LibreDWG WebAssembly. Khi DWG parse thành công, lớp CAD sẽ thay thế blueprint hiện tại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div><div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -232,27 +234,61 @@ async function loadDwgAsBlueprint(file){
 
     if(cadObjectUrl) URL.revokeObjectURL(cadObjectUrl);
     cadObjectUrl=URL.createObjectURL(new Blob([svgString],{type:'image/svg+xml'}));
-    const tex=await new THREE.TextureLoader().loadAsync(cadObjectUrl);
+
+    // Rasterize the generated SVG into a white canvas first.
+    // This avoids transparent/unsupported SVG rendering in WebGL textures.
+    cadPreviewImg.src=cadObjectUrl;
+    cadPreviewBtn.style.display='inline-block';
+
+    const img=new Image();
+    img.decoding='async';
+    img.src=cadObjectUrl;
+    await img.decode();
+
+    const maxSide=2048;
+    const aspect=(img.naturalWidth||vbW)/(img.naturalHeight||vbH||1);
+    let cw,ch;
+    if(aspect>=1){cw=maxSide;ch=Math.max(512,Math.round(maxSide/aspect));}
+    else{ch=maxSide;cw=Math.max(512,Math.round(maxSide*aspect));}
+
+    const cadCanvas=document.createElement('canvas');
+    cadCanvas.width=cw; cadCanvas.height=ch;
+    const cctx=cadCanvas.getContext('2d');
+    cctx.fillStyle='#ffffff';
+    cctx.fillRect(0,0,cw,ch);
+    cctx.drawImage(img,0,0,cw,ch);
+
+    const tex=new THREE.CanvasTexture(cadCanvas);
     tex.colorSpace=THREE.SRGBColorSpace;
     tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
 
     blueprintMat.map=tex;
     blueprintMat.color.setHex(0xffffff);
+    blueprintMat.transparent=false;
+    blueprintMat.opacity=1;
     blueprintMat.needsUpdate=true;
 
     const targetH=304;
-    const targetW=targetH*(vbW/vbH);
+    const targetW=targetH*(cw/ch);
     blueprint.geometry.dispose();
     blueprint.geometry=new THREE.PlaneGeometry(targetW,targetH);
+    blueprint.position.y=.12;
     blueprint.visible=true;
     bpOn=true;
     if(bp){bp.classList.add('active');bp.textContent='Blueprint On';}
 
-    bpStatus.textContent='DWG loaded ✓ '+file.name;
-    bpStatus.style.color='#85edb4';
-    setTimeout(()=>bpStatus.style.opacity='.35',3500);
+    // Make Top View fit the actual CAD plane, not the old hard-coded image plane.
+    const fit=Math.max(targetW,targetH);
+    camera.position.set(0,fit*1.15,.1);
+    controls.target.set(0,0,0);
+    controls.update();
+    vt.classList.add('active');
+    v3.classList.remove('active');
 
-    vt.click();
+    bpStatus.textContent='DWG visible ✓ '+file.name+' · '+cw+'×'+ch;
+    bpStatus.style.color='#85edb4';
+    bpStatus.style.opacity='1';
+    setTimeout(()=>bpStatus.style.opacity='.35',5000);
   }catch(err){
     console.error('DWG load failed',err);
     bpStatus.style.opacity='1';
@@ -264,7 +300,13 @@ async function loadDwgAsBlueprint(file){
 }
 
 const cadBtn=document.getElementById('cadBtn');
+const cadPreviewBtn=document.getElementById('cadPreviewBtn');
+const cadPreview=document.getElementById('cadPreview');
+const cadPreviewImg=document.getElementById('cadPreviewImg');
+const cadPreviewClose=document.getElementById('cadPreviewClose');
 const cadFile=document.getElementById('cadFile');
+cadPreviewBtn.onclick=()=>cadPreview.classList.add('open');
+cadPreviewClose.onclick=()=>cadPreview.classList.remove('open');
 cadBtn.onclick=()=>cadFile.click();
 cadFile.onchange=e=>{
   const file=e.target.files?.[0];
