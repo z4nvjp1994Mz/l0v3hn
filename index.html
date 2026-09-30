@@ -13,13 +13,13 @@
 .info{right:18px;bottom:18px;width:330px;padding:18px;border-radius:18px}.eyebrow{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#82edb2;font-weight:800}.info h2{font-size:18px;margin:6px 0 9px}.info p{font-size:12px;color:#bdc7c1;line-height:1.55;margin:0}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.stat{padding:10px;border-radius:11px;background:rgba(255,255,255,.05)}.stat b{display:block;font-size:14px}.stat span{font-size:10px;color:#94a39a}
 .hint{position:fixed;z-index:4;left:50%;bottom:22px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.43);border:1px solid rgba(255,255,255,.1);font-size:11px;color:#dce5df;pointer-events:none}
 .cad-preview{position:fixed;inset:5vh 5vw;z-index:30;display:none;background:#fff;border:2px solid rgba(0,0,0,.2);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:auto}
-.cad-preview.open{display:block}.cad-preview img{display:block;max-width:none;width:100%;height:auto;background:#fff}.cad-preview button{position:sticky;top:12px;float:right;margin:12px;z-index:2;border:0;border-radius:9px;padding:9px 12px;background:#102417;color:#fff;font-weight:800;cursor:pointer}
+.cad-preview.open{display:block}.cad-preview img{display:block;width:100%;height:calc(90vh - 40px);object-fit:contain;background:#fff}.cad-preview button{position:sticky;top:12px;float:right;margin:12px;z-index:2;border:0;border-radius:9px;padding:9px 12px;background:#102417;color:#fff;font-weight:800;cursor:pointer}
 @media(max-width:850px){.brand{left:12px;top:12px;width:calc(100vw - 24px)}.controls{left:12px;right:auto;top:130px}.info{right:12px;bottom:12px;width:285px}}
 </style>
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V11 CAD SANITIZE</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V12 CAD LINEWORK</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
 <div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
 <div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Bạn có thể dùng nền ảnh hiện tại hoặc bấm Load DWG để đọc bản CAD trực tiếp bằng LibreDWG WebAssembly. Khi DWG parse thành công, lớp CAD sẽ thay thế blueprint hiện tại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div><div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
@@ -234,10 +234,13 @@ async function loadDwgAsBlueprint(file){
       const fill=(el.getAttribute('fill')||'').toLowerCase();
       if(tag==='text'||tag==='tspan'){
         el.setAttribute('fill','#111827');
-        if(stroke && stroke!=='none') el.setAttribute('stroke','#111827');
+        el.setAttribute('stroke','none');
       }else{
-        if(!stroke || stroke==='#fff'||stroke==='#ffffff'||stroke==='white'||stroke==='rgb(255, 255, 255)') el.setAttribute('stroke','#111827');
-        if(fill==='#fff'||fill==='#ffffff'||fill==='white'||fill==='rgb(255, 255, 255)') el.setAttribute('fill','none');
+        // CAD preview should be linework. Filled HATCH/WIPEOUT/solid entities can otherwise
+        // cover the whole drawing when exported from LibreDWG.
+        el.setAttribute('fill','none');
+        el.setAttribute('stroke','#111827');
+        el.setAttribute('stroke-width','1');
       }
       el.setAttribute('vector-effect','non-scaling-stroke');
       visibleCount++;
@@ -253,50 +256,51 @@ async function loadDwgAsBlueprint(file){
 
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
-    // Some CAD entities can report absurd extents (for example proxy objects or bad text transforms),
-    // which makes the entire drawing collapse into a white dot. Build a robust bbox from sane elements only.
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    let bboxCount=0,ignoredCount=0;
-    const saneBoxes=[];
+    // Build per-entity boxes and hide pathological entities instead of merely excluding them
+    // from crop calculations. This prevents giant SOLID/HATCH/proxy objects from covering the preview.
+    const med=a=>{const q=[...a].sort((x,y)=>x-y);return q[Math.floor(q.length/2)]};
+    const boxed=[];
+    let ignoredCount=0,bboxCount=0;
     for(const el of graphics){
       let b=null;
       try{ b=el.getBBox(); }catch{}
-      if(!b) {ignoredCount++;continue;}
-      const vals=[b.x,b.y,b.width,b.height];
-      if(vals.some(v=>!Number.isFinite(v)) || b.width<0 || b.height<0){ignoredCount++;continue;}
+      if(!b || [b.x,b.y,b.width,b.height].some(v=>!Number.isFinite(v)) || b.width<0 || b.height<0){
+        el.style.display='none'; ignoredCount++; continue;
+      }
       const extent=Math.max(Math.abs(b.x),Math.abs(b.y),Math.abs(b.x+b.width),Math.abs(b.y+b.height),b.width,b.height);
-      if(extent>1e9){ignoredCount++;continue;}
-      saneBoxes.push(b);
+      if(extent>1e9){
+        el.style.display='none'; ignoredCount++; continue;
+      }
+      boxed.push({el,b,cx:b.x+b.width/2,cy:b.y+b.height/2,size:Math.max(b.width,b.height,0.0001)});
     }
-
-    if(!saneBoxes.length){
+    if(!boxed.length){
       holder.remove();
       throw new Error('Không tìm được entity CAD có bounding box hợp lệ');
     }
 
-    // First pass rough bbox.
-    for(const b of saneBoxes){
+    const mx=med(boxed.map(o=>o.cx));
+    const my=med(boxed.map(o=>o.cy));
+    const ms=Math.max(med(boxed.map(o=>o.size)),0.0001);
+
+    // Establish a robust core using median-relative distance. CAD can contain construction geometry
+    // far away from the actual site; those elements are hidden from this preview.
+    const core=boxed.filter(o=>{
+      const far=Math.abs(o.cx-mx)>ms*5000 || Math.abs(o.cy-my)>ms*5000;
+      const huge=o.size>ms*2500;
+      if(far||huge){o.el.style.display='none';ignoredCount++;return false;}
+      return true;
+    });
+    if(!core.length){
+      holder.remove();
+      throw new Error('Tất cả entity CAD bị lọc do extents bất thường');
+    }
+
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const o of core){
+      const b=o.b;
       minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
       maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
-    }
-    let roughW=maxX-minX, roughH=maxY-minY;
-
-    // If rough box is still pathological, reject obvious outliers using medians of centers and sizes.
-    if(!Number.isFinite(roughW)||!Number.isFinite(roughH)||roughW<=0||roughH<=0||Math.max(roughW/Math.max(roughH,1e-9),roughH/Math.max(roughW,1e-9))>1000){
-      const med=a=>{const q=[...a].sort((x,y)=>x-y);return q[Math.floor(q.length/2)]};
-      const centersX=saneBoxes.map(b=>b.x+b.width/2), centersY=saneBoxes.map(b=>b.y+b.height/2);
-      const sizes=saneBoxes.map(b=>Math.max(b.width,b.height)).filter(v=>v>0);
-      const mx=med(centersX), my=med(centersY), ms=Math.max(med(sizes),1);
-      minX=Infinity;minY=Infinity;maxX=-Infinity;maxY=-Infinity;bboxCount=0;
-      for(const b of saneBoxes){
-        const cx=b.x+b.width/2, cy=b.y+b.height/2;
-        if(Math.abs(cx-mx)>ms*2000 || Math.abs(cy-my)>ms*2000 || Math.max(b.width,b.height)>ms*1000){ignoredCount++;continue;}
-        minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
-        maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
-        bboxCount++;
-      }
-    } else {
-      bboxCount=saneBoxes.length;
+      bboxCount++;
     }
 
     const cropW0=maxX-minX,cropH0=maxY-minY;
