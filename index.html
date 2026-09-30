@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V37 RENDER FIX</small>
+  <small>GitHub → Netlify · BUILD V38 FACTORY DETAIL PASS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V37 giữ tỷ lệ vật lý của V36 nhưng sửa lỗi runtime khiến scene trắng hoàn toàn. Mô hình, cây, blueprint và ngoại cảnh được khôi phục hiển thị bình thường.</p>
+  <p>Bản V38 giữ tỷ lệ vật lý công nghiệp và bổ sung lại chi tiết nhà xưởng theo module thực tế: facade panels, dock bays, cửa người, canopy, cửa sổ, roof vents, đường nội bộ và sân dịch vụ, nhưng không dựng lại hàng rào/cổng sai.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>Industrial scale</b><span>~50–150 m factory lengths</span></div>
+    <div class="stat"><b>Factory detail pass</b><span>facade / dock / roof / service yard</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V37: runtime render restored · physical scale retained</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V38: industrial factory detail restored at correct scale</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -662,6 +662,151 @@ verifiedSupportGroup.traverse(o=>{if(o.isMesh){o.userData.collider=true;o.userDa
 detailGroup.traverse(o=>{if(o.isMesh){o.userData.detail=true;}});
 
 // ---------------------------------------------------------------------------
+
+// ---- V38: scale-aware factory detail --------------------------------------
+const factoryDetailGroup=new THREE.Group();
+factoryDetailGroup.name='factoryDetailGroup';
+world.add(factoryDetailGroup);
+
+const facadePanelMat=new THREE.MeshStandardMaterial({color:0xe8ebe8,roughness:.82});
+const windowMat=new THREE.MeshStandardMaterial({color:0x6c8f9b,roughness:.18,metalness:.04});
+const dockDoorMat=new THREE.MeshStandardMaterial({color:0xaeb6b8,roughness:.66});
+const dockCanopyMat=new THREE.MeshStandardMaterial({color:0x768982,roughness:.55});
+const concreteYardMat=new THREE.MeshStandardMaterial({color:0xbfc3be,roughness:.98});
+const asphaltYardMat=new THREE.MeshStandardMaterial({color:0x616665,roughness:.97});
+const curb2Mat=new THREE.MeshStandardMaterial({color:0xd4d6d0,roughness:.96});
+const roofUnitMat=new THREE.MeshStandardMaterial({color:0x9ca6a7,roughness:.56,metalness:.18});
+const ventDarkMat=new THREE.MeshStandardMaterial({color:0x4b5150,roughness:.72});
+const safetyYellowMat=new THREE.MeshStandardMaterial({color:0xe7c748,roughness:.8});
+const lineWhiteMat=new THREE.MeshStandardMaterial({color:0xf1f0e8,roughness:.8});
+
+function addFactoryScaleDetail(g,idx){
+  const body=g.children.find(o=>o.geometry?.type==='BoxGeometry' && o.position.y>1);
+  if(!body)return;
+  const prm=body.geometry.parameters;
+  const L=prm.width,D=prm.depth,H=prm.height;
+
+  // service yard attached to the long facade, proportional to building size
+  const yardDepth=Math.max(10,Math.min(20,D*.42));
+  const yard=new THREE.Mesh(new THREE.BoxGeometry(L*.90,.08,yardDepth),asphaltYardMat);
+  yard.position.set(0,.05,D/2+yardDepth/2+1.8);
+  yard.receiveShadow=true;g.add(yard);
+
+  // rear pedestrian strip
+  const walk=new THREE.Mesh(new THREE.BoxGeometry(L*.92,.10,2.2),concreteYardMat);
+  walk.position.set(0,.06,-D/2-1.3);g.add(walk);
+
+  // facade panel rhythm
+  const panelCount=Math.max(6,Math.min(16,Math.round(L/8)));
+  for(let i=0;i<panelCount;i++){
+    const x=(-.46+i/(panelCount-1)*.92)*L;
+    const joint=new THREE.Mesh(new THREE.BoxGeometry(.09,H*.78,.06),facadePanelMat);
+    joint.position.set(x,H*.49,D/2+.04);g.add(joint);
+  }
+
+  // office window band on one corner of the rear facade
+  const wb=new THREE.Mesh(new THREE.BoxGeometry(Math.min(18,L*.24),1.6,.08),windowMat);
+  wb.position.set(-L*.28,H*.62,-D/2-.05);g.add(wb);
+
+  // personnel doors, spaced sparsely
+  for(const x of [-L*.34,L*.34]){
+    const d=new THREE.Mesh(new THREE.BoxGeometry(1.05,2.25,.10),ventDarkMat);
+    d.position.set(x,1.28,-D/2-.06);g.add(d);
+    const cp=new THREE.Mesh(new THREE.BoxGeometry(2.2,.16,1.5),dockCanopyMat);
+    cp.position.set(x,2.55,-D/2-.70);g.add(cp);
+  }
+
+  // loading bays only on larger buildings, sized in realistic industrial proportions
+  if(L>45 && D>18){
+    const bays=Math.max(3,Math.min(8,Math.round(L/16)));
+    for(let i=0;i<bays;i++){
+      const x=(-.38+i/(bays-1)*.76)*L;
+
+      const door=new THREE.Mesh(new THREE.BoxGeometry(3.2,3.8,.12),dockDoorMat);
+      door.position.set(x,2.1,D/2+.07);g.add(door);
+
+      const deck=new THREE.Mesh(new THREE.BoxGeometry(3.8,.55,2.6),concreteYardMat);
+      deck.position.set(x,.32,D/2+1.35);g.add(deck);
+
+      const canopy=new THREE.Mesh(new THREE.BoxGeometry(4.2,.18,2.4),dockCanopyMat);
+      canopy.position.set(x,4.15,D/2+1.15);g.add(canopy);
+
+      // safety lines in front of each bay
+      for(let k=-1;k<=1;k+=2){
+        const stripe=new THREE.Mesh(new THREE.BoxGeometry(.18,.025,5.0),safetyYellowMat);
+        stripe.position.set(x+k*2.1,.11,D/2+yardDepth*.45);
+        stripe.rotation.y=.12*k;g.add(stripe);
+      }
+    }
+  }
+
+  // roof HVAC sized for industrial buildings
+  const unitCount=Math.max(3,Math.min(10,Math.round((L*D)/1500)));
+  for(let i=0;i<unitCount;i++){
+    const t=(i+1)/(unitCount+1);
+    const x=(-.38+t*.76)*L;
+    const z=(i%2?-.18:.18)*D;
+    const hvac=new THREE.Mesh(new THREE.BoxGeometry(2.4,.9,1.8),roofUnitMat);
+    hvac.position.set(x,H+.82,z);hvac.castShadow=true;g.add(hvac);
+    const fan=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.12,14),ventDarkMat);
+    fan.rotation.x=Math.PI/2;fan.position.set(x,H+1.32,z);g.add(fan);
+  }
+
+  // roof exhaust stacks
+  const stackCount=Math.max(2,Math.min(6,Math.round(L/28)));
+  for(let i=0;i<stackCount;i++){
+    const x=(-.32+i/Math.max(1,stackCount-1)*.64)*L;
+    const st=new THREE.Mesh(new THREE.CylinderGeometry(.28,.34,1.9,10),roofUnitMat);
+    st.position.set(x,H+1.3,-D*.28);g.add(st);
+  }
+
+  // parking/service markings integrated with yard, not floating elsewhere
+  const slotCount=Math.max(4,Math.min(10,Math.round(L/12)));
+  for(let i=0;i<=slotCount;i++){
+    const x=(-.42+i/slotCount*.84)*L;
+    const line=new THREE.Mesh(new THREE.BoxGeometry(.10,.025,5.2),lineWhiteMat);
+    line.position.set(x,.11,D/2+yardDepth*.82);g.add(line);
+  }
+
+  // building number plate (large enough to read only in detail view)
+  const sp=makeTextSprite('XƯỞNG '+String(idx+1).padStart(2,'0'),'#1d493a','#ffffff',.82);
+  sp.position.set(0,H*.62,D/2+.12);g.add(sp);
+
+  // fire hydrants on selected blocks
+  if(idx%3===0){
+    const hyd=new THREE.Mesh(new THREE.CylinderGeometry(.18,.22,.85,10),hydrantMat);
+    hyd.position.set(-L/2+2.2,.46,-D/2-2.2);g.add(hyd);
+  }
+}
+buildings.forEach(addFactoryScaleDetail);
+
+// Road-edge lamps at verified building-linked positions only
+function addScaleLampAtPx(px,py,h=8){
+  const p=mapPx(px,py),g=new THREE.Group();g.position.set(p.x,.15,p.z);factoryDetailGroup.add(g);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.07,.10,h,10),poleMat);
+  pole.position.y=h/2;g.add(pole);
+  const arm=new THREE.Mesh(new THREE.BoxGeometry(1.6,.08,.08),poleMat);
+  arm.position.set(.72,h-.25,0);g.add(arm);
+  const lamp=new THREE.Mesh(new THREE.BoxGeometry(.55,.22,.32),cloudMat);
+  lamp.position.set(1.48,h-.33,0);g.add(lamp);
+}
+roofs.forEach((r,idx)=>{
+  if(idx%2)return;
+  const [cx,cy,Lpx,Spx,a]=r;
+  const rad=THREE.MathUtils.degToRad(a);
+  const ux=Math.cos(rad),uy=Math.sin(rad);
+  const vx=-Math.sin(rad),vy=Math.cos(rad);
+  const side=Math.max(22,Spx*1.35);
+  for(const t of [-.32,.32]){
+    const px=cx+ux*(Lpx*t)+vx*side;
+    const py=cy+uy*(Lpx*t)+vy*side;
+    addScaleLampAtPx(px,py,7.5);
+  }
+});
+
+// Detail view targets the industrial core at a readable human-scale camera distance.
+vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.12;tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
+// ---------------------------------------------------------------------------
 // Views
 function tween(pos,tgt){
   const a=camera.position.clone(),b=controls.target.clone();let t=0;
@@ -670,7 +815,7 @@ function tween(pos,tgt){
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),vd=document.getElementById('vd'),bp=document.getElementById('bp');
 v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.42;tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
 vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
-vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.20;tween(new THREE.Vector3(270,150,320),new THREE.Vector3(0,5,25))};
+
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
