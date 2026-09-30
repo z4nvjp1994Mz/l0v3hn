@@ -3,501 +3,196 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Da Loc Industrial Cluster — Git Deploy Demo</title>
+<title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
 <style>
-:root{--glass:rgba(7,18,12,.82);--line:rgba(255,255,255,.12);--text:#f5f7f5;--muted:#a8b5ad}
+:root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
-#canvas{position:fixed;inset:0}canvas{display:block}.ui{position:fixed;z-index:5;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(16px);box-shadow:0 18px 50px rgba(0,0,0,.22)}
-.brand{left:18px;top:18px;width:440px;padding:16px 18px;border-radius:18px}.brand small{display:block;color:#85edb4;font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.brand h1{font-size:20px;margin:6px 0 4px}.brand p{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
-.controls{right:18px;top:18px;padding:8px;border-radius:14px;display:flex;gap:7px}.controls button{border:0;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.07);color:#edf5ef;font-weight:700;cursor:pointer}.controls button.active,.controls button:hover{background:#effff5;color:#092217}
-.info{right:18px;bottom:18px;width:330px;padding:18px;border-radius:18px}.eyebrow{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#82edb2;font-weight:800}.info h2{font-size:18px;margin:6px 0 9px}.info p{font-size:12px;color:#bdc7c1;line-height:1.55;margin:0}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.stat{padding:10px;border-radius:11px;background:rgba(255,255,255,.05)}.stat b{display:block;font-size:14px}.stat span{font-size:10px;color:#94a39a}
-.hint{position:fixed;z-index:4;left:50%;bottom:22px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.43);border:1px solid rgba(255,255,255,.1);font-size:11px;color:#dce5df;pointer-events:none}
-.cad-preview{position:fixed;inset:5vh 5vw;z-index:30;display:none;background:#fff;border:2px solid rgba(0,0,0,.2);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:auto}
-.cad-preview.open{display:block}.cad-preview img{display:block;width:100%;height:calc(90vh - 40px);object-fit:contain;background:#fff}.cad-preview button{position:sticky;top:12px;float:right;margin:12px;z-index:2;border:0;border-radius:9px;padding:9px 12px;background:#102417;color:#fff;font-weight:800;cursor:pointer}
-.align-panel{position:fixed;left:18px;bottom:58px;z-index:22;width:300px;padding:14px;border-radius:14px;background:rgba(7,18,12,.9);border:1px solid rgba(255,255,255,.12);display:none;color:#fff;font:12px Arial;backdrop-filter:blur(12px)}
-.align-panel.open{display:block}.align-panel label{display:grid;grid-template-columns:72px 1fr 52px;gap:8px;align-items:center;margin:8px 0}.align-panel input[type=range]{width:100%}.align-panel button{border:0;border-radius:8px;padding:7px 9px;background:#effff5;color:#092217;font-weight:800;cursor:pointer;margin-right:6px}.align-panel .muted{color:#a8b5ad;font-size:10px;line-height:1.4}
-@media(max-width:850px){.brand{left:12px;top:12px;width:calc(100vw - 24px)}.controls{left:12px;right:auto;top:130px}.info{right:12px;bottom:12px;width:285px}}
+#canvas{position:fixed;inset:0}canvas{display:block}
+.ui{position:fixed;z-index:5;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(14px);box-shadow:0 18px 50px rgba(0,0,0,.22)}
+.brand{left:16px;top:16px;width:420px;padding:15px 17px;border-radius:16px}.brand small{display:block;color:#82edb2;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}.brand h1{font-size:20px;margin:6px 0 4px}.brand p{font-size:12px;line-height:1.45;color:var(--muted);margin:0}
+.controls{right:16px;top:16px;padding:8px;border-radius:14px;display:flex;gap:7px}.controls button{border:0;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.07);color:#eef8f1;font-weight:800;cursor:pointer}.controls button.active,.controls button:hover{background:#effff5;color:#092217}
+.info{right:16px;bottom:16px;width:330px;padding:16px;border-radius:16px}.eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#82edb2;font-weight:800}.info h2{font-size:18px;margin:6px 0 8px}.info p{font-size:12px;color:#bdc8c1;line-height:1.5;margin:0}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.stat{padding:9px;border-radius:10px;background:rgba(255,255,255,.05)}.stat b{display:block;font-size:14px}.stat span{font-size:10px;color:#93a29a}
+.hint{position:fixed;z-index:4;left:50%;bottom:18px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.1);font-size:11px;color:#dce7e0;pointer-events:none}
+@media(max-width:850px){.brand{left:10px;top:10px;width:calc(100vw - 20px)}.controls{left:10px;right:auto;top:128px;max-width:calc(100vw - 20px);overflow:auto}.info{right:10px;bottom:10px;width:285px}}
 </style>
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V17 ALIGN CAD</small><h1>Da Loc Industrial Cluster</h1><p>Bản V17 bổ sung bước hiệu chỉnh CAD ↔ 3D. Hai lớp đang dùng hai hệ tọa độ khác nhau nên không thể khớp chỉ bằng việc nạp DWG.</p></div>
-<div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><button id="alignBtn" style="display:none">Align CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
-<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Sau khi nạp DWG, dùng Align CAD để chỉnh X/Z, Scale và Rotate của lớp CAD độc lập với mô hình 3D. Đây là bước bắt buộc để đồng bộ hai hệ tọa độ.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div>
-<div id="alignPanel" class="align-panel">
-  <b>CAD ↔ 3D alignment</b>
-  <div class="muted">Khối 3D hiện dùng hệ tọa độ ảnh masterplan cũ, còn DWG dùng tọa độ CAD thật. Dùng 4 thông số dưới đây để hiệu chỉnh lớp CAD cho khớp.</div>
-  <label><span>X</span><input id="alignX" type="range" min="-120" max="120" step="0.5" value="0"><output id="alignXo">0</output></label>
-  <label><span>Z</span><input id="alignZ" type="range" min="-120" max="120" step="0.5" value="0"><output id="alignZo">0</output></label>
-  <label><span>Scale</span><input id="alignS" type="range" min="0.35" max="2.2" step="0.005" value="1"><output id="alignSo">1</output></label>
-  <label><span>Rotate</span><input id="alignR" type="range" min="-180" max="180" step="0.1" value="0"><output id="alignRo">0°</output></label>
-  <button id="alignReset">Reset align</button><button id="alignClose">Đóng</button>
+<div class="ui brand">
+  <small>GitHub → Netlify · BUILD V18 FROM 2D</small>
+  <h1>Đa Lộc Industrial Cluster</h1>
+  <p>Bản này bỏ hoàn toàn DWG. Toàn bộ khối 3D được dựng lại trực tiếp theo vị trí và góc của các mái xanh trên chính masterplan 2D.</p>
 </div>
-<div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
+<div class="ui controls">
+  <button id="v3" class="active">3D Perspective</button>
+  <button id="vt">Top View</button>
+  <button id="bp" class="active">Blueprint On</button>
+  <button id="reset">Reset</button>
+</div>
+<div class="ui info">
+  <div class="eyebrow">Project overview</div>
+  <h2>Da Loc 3D</h2>
+  <p>Khối nhà dùng cùng hệ tọa độ pixel 1616×2048 với bản đồ 2D, vì vậy Top View có thể dùng để kiểm tra trực tiếp độ khớp.</p>
+  <div class="stats">
+    <div class="stat"><b>38</b><span>roof footprints detected</span></div>
+    <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
+    <div class="stat"><b>Dense trees</b><span>boundary + internal</span></div>
+    <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
+  </div>
+</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Dwg_File_Type, LibreDwg } from 'https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/dist/libredwg-web.js';
-const scene=new THREE.Scene();scene.background=new THREE.Color(0xa7c08e);scene.fog=new THREE.FogExp2(0xa7c08e,.0015);
-const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,1500);camera.position.set(195,185,225);
-const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;document.getElementById('canvas').appendChild(renderer.domElement);
-const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=75;controls.maxDistance=470;controls.maxPolarAngle=Math.PI/2.02;controls.target.set(0,0,5);
-scene.add(new THREE.HemisphereLight(0xf4fbff,0x4d6744,2.5));const sun=new THREE.DirectionalLight(0xfff3d7,4);sun.position.set(-150,220,140);sun.castShadow=true;scene.add(sun);
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(360,390),new THREE.MeshStandardMaterial({color:0x789562,roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-.2;ground.receiveShadow=true;scene.add(ground);
-const IMG_W=1616,IMG_H=2048,PLANE_H=304,PLANE_W=PLANE_H*(IMG_W/IMG_H),S=PLANE_W/IMG_W;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xa9c390);
+scene.fog=new THREE.FogExp2(0xa9c390,.0012);
+
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,1500);
+camera.position.set(190,185,230);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+document.getElementById('canvas').appendChild(renderer.domElement);
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+controls.minDistance=65;
+controls.maxDistance=500;
+controls.maxPolarAngle=Math.PI/2.02;
+controls.target.set(0,0,3);
+
+scene.add(new THREE.HemisphereLight(0xf7fbff,0x4d6744,2.4));
+const sun=new THREE.DirectionalLight(0xfff4df,3.4);
+sun.position.set(-150,220,140);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-240;sun.shadow.camera.right=240;sun.shadow.camera.top=240;sun.shadow.camera.bottom=-240;
+scene.add(sun);
+
+const world=new THREE.Group();scene.add(world);
+
+const IMG_W=1616,IMG_H=2048;
+const PLANE_H=304,PLANE_W=PLANE_H*(IMG_W/IMG_H),S=PLANE_W/IMG_W;
 function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
-function drawBlueprint(){
-  const c=document.createElement('canvas');c.width=1616;c.height=2048;
-  const ctx=c.getContext('2d');
-  ctx.fillStyle='#eff1ea';ctx.fillRect(0,0,c.width,c.height);
-  const boundary=[[942,214],[1293,364],[1353,1030],[976,1768],[758,1688],[274,1112],[235,1003],[495,821],[908,265]];
-  ctx.fillStyle='#e6e8e1';ctx.beginPath();boundary.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(232,115,115,.72)';ctx.lineWidth=7;ctx.setLineDash([1,16]);ctx.beginPath();boundary.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.stroke();ctx.setLineDash([]);
-  ctx.strokeStyle='#cfd4ca';ctx.lineWidth=26;ctx.lineCap='round';
-  const roads=[[[940,260],[1100,390],[1290,520]],[[870,410],[1040,540],[1210,670]],[[800,560],[980,690],[1160,820]],[[720,710],[920,860],[1090,990]],[[650,860],[860,1015],[1015,1135]],[[545,995],[770,1165],[925,1285]],[[445,1115],[670,1290],[840,1410]],[[540,823],[377,980],[275,1100]],[[646,874],[497,1057],[365,1260]],[[822,1095],[650,1337],[560,1579]],[[906,1068],[1052,843],[1135,653]],[[988,643],[1289,664]]];
-  roads.forEach(seg=>{ctx.beginPath();seg.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();});
-  ctx.fillStyle='rgba(200,219,196,.96)';
-  const greens=[[[1000,900],[1112,990],[982,1010]],[[1176,760],[1285,895],[1140,925]]];
-  greens.forEach(poly=>{ctx.beginPath();poly.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fill();});
-  ctx.fillStyle='#cce3c5';ctx.beginPath();ctx.arc(1052,842,48,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='#c5bba7';ctx.lineWidth=9;[14,26,38].forEach(r=>{ctx.beginPath();ctx.arc(1052,842,r,0,Math.PI*2);ctx.stroke();});
-  ctx.fillStyle='#7ab9d2';ctx.beginPath();ctx.arc(944,876,28,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#e8dfc6';ctx.beginPath();ctx.arc(944,876,8,0,Math.PI*2);ctx.fill();
-  ctx.lineWidth=3;
-  roofs.forEach(([cx,cy,Lp,Sp,a])=>{ctx.save();ctx.translate(cx,cy);ctx.rotate(a*Math.PI/180);ctx.fillStyle='#f7f8f3';ctx.strokeStyle='#d7dbd0';ctx.fillRect(-Lp*.54,-(Sp*1.45)*.5,Lp*1.08,Sp*1.45);ctx.strokeRect(-Lp*.54,-(Sp*1.45)*.5,Lp*1.08,Sp*1.45);ctx.fillStyle='#5b80cb';ctx.fillRect(-Lp*.41,-(Sp*.58)*.5,Lp*.82,Sp*.58);ctx.restore();});
-  return c;
-}
 
-const wall=new THREE.MeshStandardMaterial({color:0xeff2ee,roughness:.72}),roof=new THREE.MeshStandardMaterial({color:0xf9faf7,roughness:.55}),solar=new THREE.MeshStandardMaterial({color:0x4e73bd,roughness:.34,metalness:.2}),pad=new THREE.MeshStandardMaterial({color:0xd8ddd4,roughness:1});
-const roofs=[[954.16,368.34,130.79,30.12,-53.26],[1204.58,412.06,118.2,34.6,36.87],[1137.14,441.98,189.8,32.6,36.87],[1100.01,491.83,189.83,32.72,37.03],[1063.52,542.14,191.03,32.58,37.06],[844.82,561.27,82.46,24.53,36.57],[1278.41,589.1,86.32,33.99,-7.85],[1026.4,592.3,191,32.8,36.87],[988.81,642.92,191.23,34.24,37.03],[1289.66,663.72,85.97,33.22,-6.98],[773.71,695.55,102.21,15.37,37.02],[728.1,751.86,108.43,15.26,37.12],[697.22,819.57,150.99,15.46,37.13],[1349.48,831.78,109.54,24.73,80.27],[1297.78,840.03,109.8,27.72,80.98],[1052.35,842.73,52.42,50.76,33.69],[651.72,875.54,156.62,15.6,36.71],[606.14,931.47,162.82,15.5,37.06],[866.22,946.71,51.27,15.32,37.23],[381.91,981.17,135.56,39.5,-53.34],[925.74,992,110.85,15.41,37.18],[844.6,1021.2,105.6,15.2,36.87],[436.64,1022.46,136.38,39.4,-53.25],[496.34,1057.38,120.6,39.8,-53.13],[906.44,1067.89,63.02,15.14,37.09],[822.64,1095.33,159.83,15.5,37.12],[551.1,1098.7,120.2,39.4,-53.13],[303.28,1108.11,69.85,20.07,37.15],[669.88,1180.16,107.2,39.6,-53.13],[416.15,1192.97,156.57,20.17,37.01],[731.92,1227.43,108.4,39.44,-53.29],[365.65,1259.96,156.98,20.31,37.09],[798.99,1267.67,91.51,39.53,-52.82],[583.11,1296.6,91.13,39.4,-53.47],[649.94,1336.96,108.83,39.95,-52.99],[712.28,1383.96,108.4,39.6,-53.13],[527.15,1424.96,85.04,20.04,37.03],[622.8,1497.1,85.4,20,36.87],[465.98,1506.51,85.76,20.1,37.09],[561.7,1578.9,85.4,20.2,36.87]];
-const bpStatus=document.createElement('div');
-bpStatus.textContent='Blueprint image: loading…';
-Object.assign(bpStatus.style,{position:'fixed',left:'18px',bottom:'18px',zIndex:'20',padding:'7px 10px',borderRadius:'9px',font:'700 11px Arial',background:'rgba(7,18,12,.82)',color:'#d9fbe8',border:'1px solid rgba(255,255,255,.12)'});
-document.body.appendChild(bpStatus);
-
+// Exact same 2D masterplan family as the uploaded 1616×2048 source.
+const texLoader=new THREE.TextureLoader();
 const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1,side:THREE.DoubleSide});
 const blueprint=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),blueprintMat);
-blueprint.rotation.x=-Math.PI/2;
-blueprint.position.y=.06;
-blueprint.renderOrder=1;
-const cadAlignGroup=new THREE.Group();
-cadAlignGroup.add(blueprint);
-scene.add(cadAlignGroup);
+blueprint.rotation.x=-Math.PI/2;blueprint.position.y=.015;blueprint.renderOrder=0;world.add(blueprint);
+texLoader.load('/assets/masterplan-exact-v2.jpg?v=18',t=>{t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.capabilities.getMaxAnisotropy();blueprintMat.map=t;blueprintMat.needsUpdate=true;});
 
-const blueprintLoader=new THREE.TextureLoader();
-blueprintLoader.load(
-  '/assets/masterplan-exact-v2.jpg',
-  (tex)=>{
-    tex.colorSpace=THREE.SRGBColorSpace;
-    tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
-    blueprintMat.map=tex;
-    blueprintMat.needsUpdate=true;
-    bpStatus.textContent='Blueprint image: loaded ✓';
-    bpStatus.style.color='#85edb4';
-    setTimeout(()=>bpStatus.style.opacity='.25',2500);
-  },
-  undefined,
-  (err)=>{
-    bpStatus.textContent='Blueprint image: load error';
-    bpStatus.style.color='#ff9b9b';
-    console.error('Blueprint texture failed',err);
-  }
-);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(560,560),new THREE.MeshStandardMaterial({color:0x91ad79,roughness:1}));
+ground.rotation.x=-Math.PI/2;ground.position.y=-.18;ground.receiveShadow=true;scene.add(ground);
 
-function shortScale(s){if(s<18)return 3.05;if(s<25)return 2.25;if(s<36)return 1.62;return 1.3}
+const roofs=[
+[988.64,643.02,191.42,34.85,37.15],[1025.55,593.67,191.25,37.41,36.47],[1100.52,492.14,191.41,33.39,36.79],[1137.16,442.12,190.0,33.2,36.87],[1062.45,543.73,191.24,36.5,37.06],
+[382.05,981.04,136.79,39.69,-53.33],[436.64,1022.48,136.4,39.6,-53.13],[553.1,1100.2,120.2,45.2,-53.13],
+[650.22,1337.11,108.78,40.26,-53.45],[712.36,1384.02,108.4,40.2,-53.13],[669.77,1180.57,108.03,39.8,-52.94],[498.24,1058.78,120.61,44.78,-53.28],[732.04,1227.29,108.82,39.97,-52.77],
+[1203.68,413.26,118.6,38.0,36.87],[954.3,368.1,131.8,30.2,-53.13],[799.38,1267.66,91.8,40.2,-53.13],[583.11,1296.25,92.4,39.84,-52.67],
+[365.7,1259.89,156.98,20.43,37.15],[416.05,1192.94,156.78,20.24,37.0],
+[1279.95,599.54,86.35,55.07,-8.43],[825.96,1097.74,168.01,15.7,37.09],[605.99,931.35,163.21,15.59,37.01],[1290.73,673.26,86.29,53.18,-7.99],
+[1342.52,832.89,110.07,38.84,80.22],[867.06,1038.23,162.0,15.67,37.03],[1293.07,841.2,110.52,38.06,80.31],
+[651.64,875.48,156.82,15.6,36.71],[907.91,978.43,156.04,15.51,37.16],[697.31,819.59,151.18,15.64,37.03],
+[844.88,561.31,82.62,24.53,36.57],[622.87,1497.02,85.51,20.47,37.41],[465.95,1506.57,85.78,20.41,37.07],[527.14,1424.98,85.0,20.2,36.87],[561.62,1578.84,85.6,20.2,36.87],
+[728.18,751.76,108.81,15.64,37.01],[773.68,695.58,102.21,15.46,37.03],[303.28,1108.11,69.84,20.39,37.09]
+];
+
+const wallMat=new THREE.MeshStandardMaterial({color:0xf4f5f0,roughness:.76});
+const roofMat=new THREE.MeshStandardMaterial({color:0xfafbf8,roughness:.5});
+const blueMat=new THREE.MeshStandardMaterial({color:0x5a78bd,roughness:.34,metalness:.12});
+const padMat=new THREE.MeshStandardMaterial({color:0xd9ddd4,roughness:1});
+
+const buildings=[];
 for(const [cx,cy,Lpx,Spx,a] of roofs){
-  const p=mapPx(cx,cy),L=Lpx*S*1.04,D=Spx*S*shortScale(Spx),h=Math.max(3.8,Math.min(8.2,D*.52));
-  const g=new THREE.Group();g.position.set(p.x,0,p.z);g.rotation.y=THREE.MathUtils.degToRad(-a);scene.add(g);
-  const p0=new THREE.Mesh(new THREE.BoxGeometry(L+1.25,.18,D+1.25),pad);p0.position.y=.09;g.add(p0);
-  const b=new THREE.Mesh(new THREE.BoxGeometry(L,h,D),wall);b.position.y=h/2+.18;b.castShadow=true;g.add(b);
-  const r=new THREE.Mesh(new THREE.BoxGeometry(L+.26,.28,D+.26),roof);r.position.y=h+.22;g.add(r);
-  const stripeCount=L>18?2:1;
-  for(let j=0;j<stripeCount;j++){
-    const sr=new THREE.Mesh(new THREE.BoxGeometry(L*.82,.10,Math.min(D*.22,Spx*S*.58)),solar);
-    sr.position.set(0,h+.43,(j-(stripeCount-1)/2)*D*.18);g.add(sr);
-  }
+  const p=mapPx(cx,cy);
+  const L=Lpx*S;
+  // Blue band in the masterplan represents the roof strip; the white factory footprint is wider.
+  const footprintFactor=Spx<18?2.35:Spx<26?1.9:Spx<38?1.52:1.30;
+  const D=Spx*S*footprintFactor;
+  const h=Math.max(3.6,Math.min(7.4,D*.48));
+  const g=new THREE.Group();
+  g.position.set(p.x,.04,p.z);
+  g.rotation.y=THREE.MathUtils.degToRad(-a);
+  world.add(g);
+
+  const pad=new THREE.Mesh(new THREE.BoxGeometry(L+1.0,.16,D+1.0),padMat);
+  pad.position.y=.08;pad.receiveShadow=true;g.add(pad);
+
+  const body=new THREE.Mesh(new THREE.BoxGeometry(L,h,D),wallMat);
+  body.position.y=h/2+.16;body.castShadow=true;body.receiveShadow=true;g.add(body);
+
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(L+.24,.24,D+.24),roofMat);
+  roof.position.y=h+.26;roof.castShadow=true;g.add(roof);
+
+  const band=new THREE.Mesh(new THREE.BoxGeometry(L*.90,.12,Math.max(.7,Spx*S*.95)),blueMat);
+  band.position.y=h+.45;band.castShadow=true;g.add(band);
+
+  buildings.push(g);
 }
 
-const treeLeaf=new THREE.MeshStandardMaterial({color:0x347645,roughness:1});
-const treeTrunk=new THREE.MeshStandardMaterial({color:0x765536,roughness:1});
-const waterMat=new THREE.MeshStandardMaterial({color:0x58a9c8,roughness:.2,metalness:.05});
-const gardenMat=new THREE.MeshStandardMaterial({color:0x78a565,roughness:1});
-const pathMat=new THREE.MeshStandardMaterial({color:0xc7bca6,roughness:1});
+// Landscape
+const trunkMat=new THREE.MeshStandardMaterial({color:0x70513a,roughness:1});
+const leafMat=new THREE.MeshStandardMaterial({color:0x3e7c4c,roughness:1});
+const waterMat=new THREE.MeshStandardMaterial({color:0x66b6cc,roughness:.25,metalness:.04});
+const lawnMat=new THREE.MeshStandardMaterial({color:0x74a267,roughness:1});
 
-function addTree(px,py,scale=1){
+function addTree(px,py,scale=.86){
   const p=mapPx(px,py),g=new THREE.Group();
-  const t=new THREE.Mesh(new THREE.CylinderGeometry(.18*scale,.24*scale,1.8*scale,7),treeTrunk);
-  t.position.y=.9*scale;t.castShadow=true;
-  const c1=new THREE.Mesh(new THREE.IcosahedronGeometry(.86*scale,1),treeLeaf);
-  c1.position.y=2.15*scale;c1.castShadow=true;
-  const c2=new THREE.Mesh(new THREE.IcosahedronGeometry(.62*scale,1),treeLeaf);
-  c2.position.set(.12*scale,3.0*scale,-.06*scale);c2.castShadow=true;
-  g.add(t,c1,c2);g.position.set(p.x,0,p.z);scene.add(g);
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.12*scale,.18*scale,1.15*scale,7),trunkMat);trunk.position.y=.58*scale;
+  const c1=new THREE.Mesh(new THREE.IcosahedronGeometry(.60*scale,1),leafMat);c1.position.y=1.42*scale;c1.castShadow=true;
+  const c2=new THREE.Mesh(new THREE.IcosahedronGeometry(.42*scale,1),leafMat);c2.position.y=2.05*scale;c2.castShadow=true;
+  g.add(trunk,c1,c2);g.position.set(p.x,.05,p.z);world.add(g);
 }
-function treeLine(a,b,n,scale=1.05,jitter=0){
+function treeLine(a,b,n,scale=.82,jitter=1.6){
   for(let i=0;i<n;i++){
-    const q=n===1?.5:i/(n-1);
-    addTree(a[0]+(b[0]-a[0])*q+Math.sin(i*2.3)*jitter,a[1]+(b[1]-a[1])*q+Math.cos(i*1.9)*jitter,scale+(i%4)*.10);
+    const t=n===1?.5:i/(n-1);
+    addTree(a[0]+(b[0]-a[0])*t+Math.sin(i*2.1)*jitter,a[1]+(b[1]-a[1])*t+Math.cos(i*1.7)*jitter,scale+(i%4)*.06);
   }
 }
-function circlePx(cx,cy,r,mat,y=.06){
-  const p=mapPx(cx,cy),m=new THREE.Mesh(new THREE.CircleGeometry(r*S,40),mat);
-  m.rotation.x=-Math.PI/2;m.position.set(p.x,y,p.z);scene.add(m);return m;
+function circlePx(cx,cy,r,mat,y=.07){
+  const p=mapPx(cx,cy),m=new THREE.Mesh(new THREE.CircleGeometry(r*S,44),mat);
+  m.rotation.x=-Math.PI/2;m.position.set(p.x,y,p.z);world.add(m);
 }
-function ringGarden(cx,cy,r){
-  const p=mapPx(cx,cy);circlePx(cx,cy,r,gardenMat,.04);
-  for(let rr=10;rr<r;rr+=9){
-    const ring=new THREE.Mesh(new THREE.RingGeometry((rr-1.7)*S,(rr+1.6)*S,44),pathMat);
-    ring.rotation.x=-Math.PI/2;ring.position.set(p.x,.07,p.z);scene.add(ring);
-  }
-  for(let ang=0;ang<Math.PI*2;ang+=Math.PI/10)addTree(cx+Math.cos(ang)*r*.58,cy+Math.sin(ang)*r*.58,.62);
+circlePx(944,876,28,waterMat,.09);
+circlePx(1052,842,42,lawnMat,.055);
+
+const boundary=[[942,214],[1293,364],[1353,1030],[976,1768],[758,1688],[274,1112],[235,1003],[495,821],[908,265]];
+for(let i=0;i<boundary.length;i++){
+  const a=boundary[i],b=boundary[(i+1)%boundary.length];
+  const d=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  treeLine(a,b,Math.max(5,Math.round(d/22)),.82,1.2);
 }
-function triangularTrees(points,n){
-  for(let i=0;i<n;i++){
-    const u=(i*.61803398875)%1,v=(i*.38196601125)%1;
-    const a=1-u,b=u*(1-v),c=u*v;
-    addTree(points[0][0]*a+points[1][0]*b+points[2][0]*c,points[0][1]*a+points[1][1]*b+points[2][1]*c,.55+(i%4)*.05);
-  }
+[
+[[892,330],[1260,608]],[[786,433],[1176,728]],[[709,720],[971,924]],
+[[560,786],[884,1040]],[[433,908],[808,1192]],[[334,1063],[730,1368]],[[450,1408],[645,1561]]
+].forEach(([a,b])=>treeLine(a,b,Math.round(Math.hypot(b[0]-a[0],b[1]-a[1])/32),.68,1.0));
+
+// A few denser landscape pockets
+for(let i=0;i<28;i++){const a=i/28*Math.PI*2;addTree(1052+Math.cos(a)*32,842+Math.sin(a)*32,.65)}
+for(let i=0;i<24;i++){const u=(i*.618)%1,v=(i*.347)%1;const A=1-u,B=u*(1-v),C=u*v;addTree(1000*A+1112*B+982*C,900*A+990*B+1010*C,.60)}
+
+// Views
+function tween(pos,tgt){
+  const a=camera.position.clone(),b=controls.target.clone();let t=0;
+  const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
+const v3=document.getElementById('v3'),vt=document.getElementById('vt'),bp=document.getElementById('bp');
+v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');tween(new THREE.Vector3(190,185,230),new THREE.Vector3(0,0,3))};
+vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
+let bpOn=true;
+bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;bp.classList.add('active');bp.textContent='Blueprint On';v3.click()};
 
-// Central lake and landscaped areas visible in the 2D plan.
-circlePx(944,876,28,waterMat,.08);
-circlePx(944,876,7,new THREE.MeshStandardMaterial({color:0xe3dcc3,roughness:1}),.1);
-ringGarden(1052,842,34);
-triangularTrees([[1000,900],[1112,990],[982,1010]],22);
-triangularTrees([[1176,760],[1285,895],[1140,925]],18);
-
-// Green perimeter.
-treeLine([942,214],[1293,364],40,1.12,3.0);
-treeLine([1298,365],[1353,1030],44,1.10,3.0);
-treeLine([1350,1034],[976,1768],48,1.12,3.2);
-treeLine([976,1768],[758,1688],24,1.06,2.5);
-treeLine([758,1688],[274,1112],54,1.12,3.0);
-treeLine([274,1112],[235,1003],12,1.02,2.0);
-treeLine([238,1004],[495,821],26,1.06,2.3);
-treeLine([495,821],[908,265],40,1.10,2.8);
-
-// Internal landscape strips between the factory clusters.
-treeLine([892,330],[1260,608],34,.92,1.8);
-treeLine([786,433],[1176,728],34,.90,1.5);
-treeLine([709,720],[971,924],26,.90,1.4);
-treeLine([560,786],[884,1040],34,.90,1.5);
-treeLine([433,908],[808,1192],38,.90,1.5);
-treeLine([334,1063],[730,1368],36,.90,1.5);
-treeLine([450,1408],[645,1561],10,.58,1.0);
-
-
-let cadLibre=null;
-let cadObjectUrl=null;
-async function getCadLibre(){
-  if(cadLibre) return cadLibre;
-  bpStatus.style.opacity='1';
-  bpStatus.style.color='#d9fbe8';
-  bpStatus.textContent='DWG engine: loading WASM…';
-  const paths=[
-    'https://unpkg.com/@mlightcad/libredwg-web@0.7.14/wasm',
-    'https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/wasm'
-  ];
-  let lastErr=null;
-  for(const p of paths){
-    try{
-      cadLibre=await LibreDwg.create(p);
-      bpStatus.textContent='DWG engine: ready ✓';
-      bpStatus.style.color='#85edb4';
-      return cadLibre;
-    }catch(err){
-      console.error('LibreDWG init failed from',p,err);
-      lastErr=err;
-    }
-  }
-  throw lastErr || new Error('Unable to initialize LibreDWG WASM');
-}
-async function loadDwgAsBlueprint(file){
-  try{
-    bpStatus.style.opacity='1';
-    bpStatus.style.color='#d9fbe8';
-    bpStatus.textContent='DWG: reading '+file.name+'…';
-    const buffer=await file.arrayBuffer();
-    if(!buffer || buffer.byteLength<32) throw new Error('File DWG rỗng hoặc không đọc được');
-    const lib=await getCadLibre();
-    bpStatus.textContent='DWG: decoding '+Math.round(buffer.byteLength/1024)+' KB…';
-    const dwg=lib.dwg_read_data(buffer,Dwg_File_Type.DWG);
-    if(!dwg) throw new Error('LibreDWG không trả về dữ liệu DWG');
-    bpStatus.textContent='DWG: converting entities…';
-    const db=lib.convert(dwg);
-    if(!db) { lib.dwg_free(dwg); throw new Error('Không chuyển đổi được database DWG'); }
-    bpStatus.textContent='DWG: building direct linework…';
-
-    // Direct renderer: bypass LibreDWG's SVG exporter completely.
-    // We use the converted model-space database and recursively resolve INSERT blocks.
-    const blockMap=new Map((db.tables?.BLOCK_RECORD?.entries||[]).map(b=>[b.name,b]));
-    const primitives=[];
-    const MAX_DEPTH=8;
-
-    function mul(a,b){
-      return {
-        a:a.a*b.a+a.c*b.b, b:a.b*b.a+a.d*b.b,
-        c:a.a*b.c+a.c*b.d, d:a.b*b.c+a.d*b.d,
-        e:a.a*b.e+a.c*b.f+a.e, f:a.b*b.e+a.d*b.f+a.f
-      };
-    }
-    function tr(x=0,y=0){return {a:1,b:0,c:0,d:1,e:x,f:y}}
-    function sc(x=1,y=1){return {a:x,b:0,c:0,d:y,e:0,f:0}}
-    function ro(rad=0){const c=Math.cos(rad),q=Math.sin(rad);return {a:c,b:q,c:-q,d:c,e:0,f:0}}
-    function pt(m,p){return {x:m.a*(p?.x||0)+m.c*(p?.y||0)+m.e,y:m.b*(p?.x||0)+m.d*(p?.y||0)+m.f}}
-    function saneP(p){return Number.isFinite(p.x)&&Number.isFinite(p.y)&&Math.abs(p.x)<1e9&&Math.abs(p.y)<1e9}
-
-    function emitEntity(e,m,depth=0){
-      if(!e||depth>MAX_DEPTH) return;
-      switch(e.type){
-        case 'LINE': {
-          const a=pt(m,e.startPoint),b=pt(m,e.endPoint);
-          if(saneP(a)&&saneP(b)) primitives.push({t:'line',a,b});
-          break;
-        }
-        case 'LWPOLYLINE':
-        case 'POLYLINE2D':
-        case 'POLYLINE3D': {
-          const vs=(e.vertices||[]).map(v=>pt(m,v)).filter(saneP);
-          if(vs.length>1) primitives.push({t:'poly',p:vs,closed:!!(e.flag&1)||!!(e.flag&512)});
-          break;
-        }
-        case 'CIRCLE': {
-          const c=pt(m,e.center);
-          const p2=pt(m,{x:(e.center?.x||0)+(e.radius||0),y:e.center?.y||0});
-          const r=Math.hypot(p2.x-c.x,p2.y-c.y);
-          if(saneP(c)&&Number.isFinite(r)&&r>0&&r<1e8) primitives.push({t:'circle',c,r});
-          break;
-        }
-        case 'ARC': {
-          const c=pt(m,e.center);
-          const p2=pt(m,{x:(e.center?.x||0)+(e.radius||0),y:e.center?.y||0});
-          const r=Math.hypot(p2.x-c.x,p2.y-c.y);
-          if(saneP(c)&&Number.isFinite(r)&&r>0&&r<1e8) primitives.push({t:'arc',c,r,a0:e.startAngle||0,a1:e.endAngle||0});
-          break;
-        }
-        case 'ELLIPSE': {
-          const c=pt(m,e.center),ma=e.majorAxisEndPoint||{x:0,y:0};
-          const ep=pt(m,{x:(e.center?.x||0)+ma.x,y:(e.center?.y||0)+ma.y});
-          const rx=Math.hypot(ep.x-c.x,ep.y-c.y);
-          const ry=Math.abs(rx*(e.axisRatio||1));
-          if(saneP(c)&&Number.isFinite(rx)&&Number.isFinite(ry)&&rx>0&&ry>0&&rx<1e8&&ry<1e8)
-            primitives.push({t:'ellipse',c,rx,ry,rot:Math.atan2(ep.y-c.y,ep.x-c.x),a0:e.startAngle||0,a1:e.endAngle||Math.PI*2});
-          break;
-        }
-        case 'INSERT': {
-          const b=blockMap.get(e.name);
-          if(!b) break;
-          const bp=b.basePoint||{x:0,y:0};
-          const im=mul(m,mul(tr(e.insertionPoint?.x||0,e.insertionPoint?.y||0),mul(ro(e.rotation||0),mul(sc(e.xScale||1,e.yScale||1),tr(-(bp.x||0),-(bp.y||0))))));
-          for(const child of (b.entities||[])) emitEntity(child,im,depth+1);
-          break;
-        }
-      }
-    }
-
-    const I={a:1,b:0,c:0,d:1,e:0,f:0};
-
-    // IMPORTANT: db.entities contains both MODEL_SPACE and PAPER_SPACE entities in this library.
-    // The previous builds were therefore rendering title blocks / layout legends together with the site.
-    // Restrict rendering to the actual *MODEL_SPACE block record.
-    const modelBlock=(db.tables?.BLOCK_RECORD?.entries||[]).find(b=>(b.name||'').toUpperCase()==='*MODEL_SPACE');
-    const sourceEntities=modelBlock?.entities?.length ? modelBlock.entities : (db.entities||[]);
-    for(const e of sourceEntities) emitEntity(e,I,0);
-
-    if(!primitives.length) throw new Error('MODEL_SPACE không có LINE/POLYLINE/CIRCLE/ARC/ELLIPSE khả dụng');
-
-    // Isolate the dominant site cluster. This drawing contains construction/layout geometry
-    // far away from the actual project, so global extents are not useful.
-    const med=a=>{const q=[...a].sort((x,y)=>x-y);return q[Math.floor(q.length/2)]};
-    const qtile=(a,q)=>{const x=[...a].sort((u,v)=>u-v);return x[Math.min(x.length-1,Math.max(0,Math.floor((x.length-1)*q)))]};
-
-    const infos=[];
-    for(const p of primitives){
-      let pts=[];
-      if(p.t==='line') pts=[p.a,p.b];
-      else if(p.t==='poly') pts=p.p;
-      else if(p.t==='circle'||p.t==='arc'||p.t==='ellipse'){
-        const rx=p.rx||p.r||0, ry=p.ry||p.r||0;
-        pts=[{x:p.c.x-rx,y:p.c.y-ry},{x:p.c.x+rx,y:p.c.y+ry}];
-      }
-      pts=pts.filter(saneP);
-      if(!pts.length) continue;
-      const xs=pts.map(v=>v.x),ys=pts.map(v=>v.y);
-      const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
-      const size=Math.max(maxx-minx,maxy-miny,1e-6);
-      infos.push({p,cx:(minx+maxx)/2,cy:(miny+maxy)/2,size,minx,maxx,miny,maxy});
-    }
-    if(infos.length<10) throw new Error('Quá ít primitive CAD hợp lệ');
-
-    // Step 1: reject unusually huge primitives (construction axes, xlines, proxy geometry).
-    const medSize=Math.max(med(infos.map(o=>o.size)),1e-6);
-    const p90Size=Math.max(qtile(infos.map(o=>o.size),.90),medSize);
-    let candidates=infos.filter(o=>o.size<=Math.max(p90Size*6,medSize*120));
-
-    // Step 2: split model-space geometry into two horizontal clusters.
-    // From the verified DWG viewer, the actual project/site is the LEFT cluster;
-    // the schedule/table geometry is on the RIGHT.
-    function split2(items){
-      if(items.length<20) return [items,[]];
-      let c1=Math.min(...items.map(o=>o.cx)), c2=Math.max(...items.map(o=>o.cx));
-      let a=[],b=[];
-      for(let iter=0;iter<24;iter++){
-        a=[];b=[];
-        for(const o of items){
-          (Math.abs(o.cx-c1)<=Math.abs(o.cx-c2)?a:b).push(o);
-        }
-        const n1=a.length?a.reduce((z,o)=>z+o.cx,0)/a.length:c1;
-        const n2=b.length?b.reduce((z,o)=>z+o.cx,0)/b.length:c2;
-        if(Math.abs(n1-c1)+Math.abs(n2-c2)<1e-6) break;
-        c1=n1;c2=n2;
-      }
-      return c1<=c2?[a,b]:[b,a];
-    }
-
-    let [leftCluster,rightCluster]=split2(candidates);
-    const leftMean=leftCluster.length?leftCluster.reduce((z,o)=>z+o.cx,0)/leftCluster.length:Infinity;
-    const rightMean=rightCluster.length?rightCluster.reduce((z,o)=>z+o.cx,0)/rightCluster.length:-Infinity;
-    const sep=Math.abs(rightMean-leftMean);
-
-    // Only force the left cluster when there is a meaningful spatial separation and it is not tiny.
-    if(rightCluster.length>20 && leftCluster.length>=Math.max(20,candidates.length*.08) && sep>medSize*30){
-      candidates=leftCluster;
-    }
-
-    // Step 3: trim remaining outliers inside the chosen left-side site cluster.
-    const mx=med(candidates.map(o=>o.cx)), my=med(candidates.map(o=>o.cy));
-    const dx=candidates.map(o=>Math.abs(o.cx-mx)),dy=candidates.map(o=>Math.abs(o.cy-my));
-    const lx=Math.max(qtile(dx,.985)*1.20,medSize*80,1);
-    const ly=Math.max(qtile(dy,.985)*1.20,medSize*80,1);
-    const selected=candidates.filter(o=>Math.abs(o.cx-mx)<=lx && Math.abs(o.cy-my)<=ly);
-    if(selected.length<20) throw new Error('Không tìm được cụm khu đất bên trái đủ lớn');
-
-    const selectedSet=new Set(selected.map(o=>o.p));
-    let minX=Math.min(...selected.map(o=>o.minx)),maxX=Math.max(...selected.map(o=>o.maxx));
-    let minY=Math.min(...selected.map(o=>o.miny)),maxY=Math.max(...selected.map(o=>o.maxy));
-    const w0=maxX-minX,h0=maxY-minY;
-    const padx=Math.max(w0*.035,1),pady=Math.max(h0*.035,1);
-    minX-=padx;maxX+=padx;minY-=pady;maxY+=pady;
-    const worldW=maxX-minX,worldH=maxY-minY;
-    if(!(worldW>0&&worldH>0&&Number.isFinite(worldW)&&Number.isFinite(worldH))) throw new Error('CAD cluster bounds không hợp lệ');
-
-    // Draw direct CAD linework to a canvas.
-    const maxSide=2048,aspect=worldW/worldH;
-    let cw,ch;
-    if(aspect>=1){cw=maxSide;ch=Math.max(512,Math.round(maxSide/aspect));}
-    else{ch=maxSide;cw=Math.max(512,Math.round(maxSide*aspect));}
-    const cadCanvas=document.createElement('canvas');cadCanvas.width=cw;cadCanvas.height=ch;
-    const cctx=cadCanvas.getContext('2d');
-    cctx.fillStyle='#fff';cctx.fillRect(0,0,cw,ch);
-    cctx.strokeStyle='#111827';cctx.lineWidth=1; cctx.lineJoin='round'; cctx.lineCap='round';
-    const X=x=>(x-minX)/worldW*cw;
-    const Y=y=>ch-(y-minY)/worldH*ch;
-    let drawn=0;
-    for(const p of primitives){
-      try{
-        cctx.beginPath();
-        if(!selectedSet.has(p)) continue;
-        if(p.t==='line'){
-          cctx.moveTo(X(p.a.x),Y(p.a.y));cctx.lineTo(X(p.b.x),Y(p.b.y));
-        }else if(p.t==='poly'){
-          const pts=p.p; if(pts.length<2) continue;
-          cctx.moveTo(X(pts[0].x),Y(pts[0].y));for(let i=1;i<pts.length;i++)cctx.lineTo(X(pts[i].x),Y(pts[i].y));if(p.closed)cctx.closePath();
-        }else if(p.t==='circle'){
-          const sx=cw/worldW,sy=ch/worldH;
-          cctx.ellipse(X(p.c.x),Y(p.c.y),p.r*sx,p.r*sy,0,0,Math.PI*2);
-        }else if(p.t==='arc'){
-          const sx=cw/worldW,sy=ch/worldH;
-          cctx.ellipse(X(p.c.x),Y(p.c.y),p.r*sx,p.r*sy,0,-p.a1,-p.a0);
-        }else if(p.t==='ellipse'){
-          const sx=cw/worldW,sy=ch/worldH;
-          cctx.ellipse(X(p.c.x),Y(p.c.y),p.rx*sx,p.ry*sy,-p.rot,-p.a1,-p.a0);
-        }
-        cctx.stroke();drawn++;
-      }catch{}
-    }
-    if(drawn<10) throw new Error('CAD chỉ vẽ được '+drawn+' primitive hợp lệ');
-
-    cadPreviewImg.src=cadCanvas.toDataURL('image/png');
-    cadPreviewBtn.style.display='inline-block';alignBtn.style.display='inline-block';
-
-    const tex=new THREE.CanvasTexture(cadCanvas);
-    tex.colorSpace=THREE.SRGBColorSpace;
-    tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
-    blueprintMat.map=tex;blueprintMat.color.setHex(0xffffff);blueprintMat.transparent=false;blueprintMat.opacity=1;blueprintMat.needsUpdate=true;
-
-    const targetH=304,targetW=targetH*(cw/ch);
-    blueprint.geometry.dispose();blueprint.geometry=new THREE.PlaneGeometry(targetW,targetH);blueprint.position.y=.12;blueprint.visible=true;
-    bpOn=true;if(bp){bp.classList.add('active');bp.textContent='Blueprint On';}
-    // Initial calibration between CAD model-space orientation and the existing image-based 3D coordinate system.
-    // This is only a starting point; V17 exposes live controls for precise adjustment.
-    alignX.value='0';alignZ.value='0';alignS.value='0.78';alignR.value='-18.5';applyCadAlign();
-
-    const fit=Math.max(targetW,targetH);
-    camera.position.set(0,fit*1.15,.1);controls.target.set(0,0,0);controls.update();
-    vt.classList.add('active');v3.classList.remove('active');
-
-    bpStatus.textContent='MODEL SPACE ✓ '+drawn+'/'+primitives.length+' primitives · '+Math.round(worldW)+'×'+Math.round(worldH);
-    bpStatus.style.color='#85edb4';bpStatus.style.opacity='1';
-    setTimeout(()=>bpStatus.style.opacity='.35',5000);
-  }catch(err){
-    console.error('DWG load failed',err);
-    bpStatus.style.opacity='1';
-    bpStatus.style.color='#ff9b9b';
-    const msg=err instanceof Error ? err.message : String(err);
-    bpStatus.textContent='DWG error: '+msg.slice(0,180);
-    bpStatus.title=msg;
-  }
-}
-
-const cadBtn=document.getElementById('cadBtn');
-const cadPreviewBtn=document.getElementById('cadPreviewBtn');
-const alignBtn=document.getElementById('alignBtn');
-const alignPanel=document.getElementById('alignPanel');
-const alignX=document.getElementById('alignX'),alignZ=document.getElementById('alignZ'),alignS=document.getElementById('alignS'),alignR=document.getElementById('alignR');
-const alignXo=document.getElementById('alignXo'),alignZo=document.getElementById('alignZo'),alignSo=document.getElementById('alignSo'),alignRo=document.getElementById('alignRo');
-function applyCadAlign(){
-  cadAlignGroup.position.x=parseFloat(alignX.value)||0;
-  cadAlignGroup.position.z=parseFloat(alignZ.value)||0;
-  const sc=parseFloat(alignS.value)||1; cadAlignGroup.scale.set(sc,1,sc);
-  cadAlignGroup.rotation.y=THREE.MathUtils.degToRad(parseFloat(alignR.value)||0);
-  alignXo.value=alignX.value;alignZo.value=alignZ.value;alignSo.value=Number(sc).toFixed(3);alignRo.value=(parseFloat(alignR.value)||0).toFixed(1)+'°';
-}
-[alignX,alignZ,alignS,alignR].forEach(el=>el.addEventListener('input',applyCadAlign));
-alignBtn.onclick=()=>alignPanel.classList.toggle('open');
-document.getElementById('alignClose').onclick=()=>alignPanel.classList.remove('open');
-document.getElementById('alignReset').onclick=()=>{alignX.value=0;alignZ.value=0;alignS.value=1;alignR.value=0;applyCadAlign();};
-const cadPreview=document.getElementById('cadPreview');
-const cadPreviewImg=document.getElementById('cadPreviewImg');
-const cadPreviewClose=document.getElementById('cadPreviewClose');
-const cadFile=document.getElementById('cadFile');
-cadPreviewBtn.onclick=()=>cadPreview.classList.add('open');
-cadPreviewClose.onclick=()=>cadPreview.classList.remove('open');
-cadBtn.onclick=()=>cadFile.click();
-cadFile.onchange=e=>{
-  const file=e.target.files?.[0];
-  if(file) loadDwgAsBlueprint(file);
-};
-
-function tween(pos,tgt){const a=camera.position.clone(),b=controls.target.clone();let t=0;const go=()=>{t=Math.min(1,t+.03);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go()}
-const v3=document.getElementById('v3'),vt=document.getElementById('vt');v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');tween(new THREE.Vector3(195,185,225),new THREE.Vector3(0,0,5))};vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};let bpOn=true;const bp=document.getElementById('bp');
-if(bp){
-  bp.classList.add('active');
-  bp.onclick=()=>{
-    bpOn=!bpOn;
-    blueprint.visible=bpOn;
-    bp.classList.toggle('active',bpOn);
-    bp.textContent=bpOn?'Blueprint On':'Blueprint Off';
-  };
-}
-document.getElementById('reset').onclick=()=>{
-  bpOn=true;blueprint.visible=true;
-  if(bp){bp.classList.add('active');bp.textContent='Blueprint On';}
-  v3.click();
-};
-(function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)})();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+(function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)})();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 </script>
 </body>
 </html>
