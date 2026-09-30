@@ -17,7 +17,7 @@
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V7 CAD</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V8 CAD FIX</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
 <div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
 <div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Bạn có thể dùng nền ảnh hiện tại hoặc bấm Load DWG để đọc bản CAD trực tiếp bằng LibreDWG WebAssembly. Khi DWG parse thành công, lớp CAD sẽ thay thế blueprint hiện tại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div>
@@ -178,10 +178,25 @@ let cadObjectUrl=null;
 async function getCadLibre(){
   if(cadLibre) return cadLibre;
   bpStatus.style.opacity='1';
-  bpStatus.textContent='DWG engine: loading…';
-  cadLibre=await LibreDwg.create('https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/wasm/');
-  bpStatus.textContent='DWG engine: ready ✓';
-  return cadLibre;
+  bpStatus.style.color='#d9fbe8';
+  bpStatus.textContent='DWG engine: loading WASM…';
+  const paths=[
+    'https://unpkg.com/@mlightcad/libredwg-web@0.7.14/wasm',
+    'https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14/wasm'
+  ];
+  let lastErr=null;
+  for(const p of paths){
+    try{
+      cadLibre=await LibreDwg.create(p);
+      bpStatus.textContent='DWG engine: ready ✓';
+      bpStatus.style.color='#85edb4';
+      return cadLibre;
+    }catch(err){
+      console.error('LibreDWG init failed from',p,err);
+      lastErr=err;
+    }
+  }
+  throw lastErr || new Error('Unable to initialize LibreDWG WASM');
 }
 async function loadDwgAsBlueprint(file){
   try{
@@ -189,12 +204,18 @@ async function loadDwgAsBlueprint(file){
     bpStatus.style.color='#d9fbe8';
     bpStatus.textContent='DWG: reading '+file.name+'…';
     const buffer=await file.arrayBuffer();
+    if(!buffer || buffer.byteLength<32) throw new Error('File DWG rỗng hoặc không đọc được');
     const lib=await getCadLibre();
-    bpStatus.textContent='DWG: parsing geometry…';
+    bpStatus.textContent='DWG: decoding '+Math.round(buffer.byteLength/1024)+' KB…';
     const dwg=lib.dwg_read_data(buffer,Dwg_File_Type.DWG);
+    if(!dwg) throw new Error('LibreDWG không trả về dữ liệu DWG');
+    bpStatus.textContent='DWG: converting entities…';
     const db=lib.convert(dwg);
+    if(!db) { lib.dwg_free(dwg); throw new Error('Không chuyển đổi được database DWG'); }
+    bpStatus.textContent='DWG: generating SVG…';
     const svgString=lib.dwg_to_svg(db);
     lib.dwg_free(dwg);
+    if(!svgString || !svgString.includes('<svg')) throw new Error('DWG đã đọc nhưng không tạo được SVG');
 
     const parser=new DOMParser();
     const doc=parser.parseFromString(svgString,'image/svg+xml');
@@ -236,7 +257,9 @@ async function loadDwgAsBlueprint(file){
     console.error('DWG load failed',err);
     bpStatus.style.opacity='1';
     bpStatus.style.color='#ff9b9b';
-    bpStatus.textContent='DWG load error — mở Console để xem chi tiết';
+    const msg=err instanceof Error ? err.message : String(err);
+    bpStatus.textContent='DWG error: '+msg.slice(0,180);
+    bpStatus.title=msg;
   }
 }
 
