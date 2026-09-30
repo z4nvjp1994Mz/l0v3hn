@@ -19,13 +19,13 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V34 GAME-READY DETAIL</small>
+  <small>GitHub → Netlify · BUILD V35 CORRECTED GAME DETAIL</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V34 bổ sung lớp chi tiết game-ready bám theo mặt bằng: hàng rào, cổng, chòi bảo vệ, barrier, vỉa hè, sân xưởng, dock giao nhận, biển tên, đèn đường, trụ cứu hỏa, parking và props kỹ thuật.</p>
+  <p>Bản V35 loại bỏ hàng rào/cổng đặt sai, giữ chỉ các chi tiết gắn trực tiếp với footprint nhà xưởng và tăng độ hiển thị của dock, cửa, mái, vạch sân, đèn, parking để kiểm tra rõ ở cự ly gần.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
-  <button id="vt">Top View</button>
+  <button id="vt">Top View</button><button id="vd">Detail View</button>
   <button id="bp" class="active">Blueprint On</button>
   <button id="reset">Reset</button>
 </div>
@@ -34,13 +34,13 @@
   <h2>Da Loc 3D</h2>
   <p>Khối nhà dùng cùng hệ tọa độ pixel 1616×2048 với bản đồ 2D, vì vậy Top View có thể dùng để kiểm tra trực tiếp độ khớp.</p>
   <div class="stats">
-    <div class="stat"><b>38 + site</b><span>factories + gates + game props</span></div>
+    <div class="stat"><b>38 + detail</b><span>factory-attached game props</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>Game-ready detail</b><span>gates / fences / docks / props</span></div>
+    <div class="stat"><b>Corrected detail</b><span>docks / doors / roof / parking</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V34: detailed gates, fences, docks and factory props</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V35: bad fence/gates removed · factory detail enlarged</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -51,7 +51,7 @@ scene.background=new THREE.Color(0xa9c390);
 scene.fog=new THREE.FogExp2(0xa9c390,.0012);
 
 const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,1500);
-camera.position.set(190,185,230);
+camera.position.set(155,125,175);
 
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -652,106 +652,16 @@ function makeTextSprite(text,bg='#173d32',fg='#ffffff',scale=1){
   return sp;
 }
 
-// ---------- perimeter fence exactly follows site boundary vertices ----------
-const SITE_BOUNDARY=[
-  [942,214],[1293,364],[1353,1030],[976,1768],[758,1688],
-  [274,1112],[235,1003],[495,821],[908,265]
-];
-
-function addFenceSegmentPx(a,b,postSpacingPx=17){
-  const p1=mapPx(a[0],a[1]),p2=mapPx(b[0],b[1]);
-  const dx=p2.x-p1.x,dz=p2.z-p1.z,len=Math.hypot(dx,dz);
-  const count=Math.max(2,Math.round(Math.hypot(b[0]-a[0],b[1]-a[1])/postSpacingPx));
-  const rot=Math.atan2(dx,dz);
-
-  const wire=new THREE.Mesh(new THREE.BoxGeometry(.08,1.45,len),fenceWireMat);
-  wire.position.set((p1.x+p2.x)/2,.78,(p1.z+p2.z)/2);
-  wire.rotation.y=rot;
-  detailGroup.add(wire);
-
-  for(let i=0;i<=count;i++){
-    const t=i/count;
-    const post=new THREE.Mesh(new THREE.BoxGeometry(.10,1.7,.10),fencePostMat);
-    post.position.set(
-      THREE.MathUtils.lerp(p1.x,p2.x,t),
-      .85,
-      THREE.MathUtils.lerp(p1.z,p2.z,t)
-    );
-    detailGroup.add(post);
-  }
-}
-for(let i=0;i<SITE_BOUNDARY.length;i++){
-  addFenceSegmentPx(SITE_BOUNDARY[i],SITE_BOUNDARY[(i+1)%SITE_BOUNDARY.length]);
-}
-
-// ---------- gate complexes placed on visible road entrances of the 2D plan ----------
-function addBarrierArm(parent,x,z,rot=0,len=3.6){
-  const g=new THREE.Group();g.position.set(x,.22,z);g.rotation.y=rot;parent.add(g);
-  const base=new THREE.Mesh(new THREE.BoxGeometry(.45,.72,.45),barrierRedMat);
-  base.position.y=.36;g.add(base);
-  const arm=new THREE.Mesh(new THREE.BoxGeometry(len,.12,.12),barrierMat);
-  arm.position.set(len/2,.82,0);g.add(arm);
-  for(let i=0;i<4;i++){
-    const stripe=new THREE.Mesh(new THREE.BoxGeometry(.28,.14,.14),barrierRedMat);
-    stripe.position.set(.7+i*.8,.82,.0);g.add(stripe);
-  }
-}
-
-function addGuardhouse(parent,x,z,rot=0,scale=1){
-  const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot;parent.add(g);
-  const body=new THREE.Mesh(new THREE.BoxGeometry(2.7*scale,2.5*scale,2.2*scale),guardWallMat);
-  body.position.y=1.25*scale;body.castShadow=true;g.add(body);
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(3.1*scale,.22*scale,2.6*scale),guardRoofMat);
-  roof.position.y=2.64*scale;g.add(roof);
-  const win1=new THREE.Mesh(new THREE.BoxGeometry(1.05*scale,.9*scale,.05),glassDarkMat);
-  win1.position.set(0,1.42*scale,1.12*scale);g.add(win1);
-  const win2=new THREE.Mesh(new THREE.BoxGeometry(.05,.9*scale,1.0*scale),glassDarkMat);
-  win2.position.set(1.37*scale,1.42*scale,0);g.add(win2);
-  const door=new THREE.Mesh(new THREE.BoxGeometry(.72*scale,1.65*scale,.06),darkMat);
-  door.position.set(-.72*scale,.84*scale,1.13*scale);g.add(door);
-}
-
-function addGateComplexPx(cx,cy,angleDeg,label,scale=1){
-  const p=mapPx(cx,cy);
-  const g=new THREE.Group();
-  g.position.set(p.x,.18,p.z);
-  g.rotation.y=THREE.MathUtils.degToRad(-angleDeg);
-  detailGroup.add(g);
-
-  const width=8.5*scale;
-  const pillarGeo=new THREE.BoxGeometry(.7*scale,4.1*scale,.9*scale);
-  const left=new THREE.Mesh(pillarGeo,guardWallMat);
-  const right=left.clone();
-  left.position.set(-width/2,2.05*scale,0);right.position.set(width/2,2.05*scale,0);
-  const beam=new THREE.Mesh(new THREE.BoxGeometry(width+.8*scale,.55*scale,1.0*scale),signMat);
-  beam.position.y=3.85*scale;
-  g.add(left,right,beam);
-
-  const logo=makeTextSprite(label,'#173d32','#ffffff',.72*scale);
-  logo.position.set(0,4.15*scale,.58*scale);g.add(logo);
-
-  addGuardhouse(g,-width/2-2.25*scale,1.7*scale,0,.92*scale);
-  addBarrierArm(g,-1.9*scale,1.4*scale,0,3.7*scale);
-  addBarrierArm(g,1.9*scale,-1.4*scale,Math.PI,3.7*scale);
-
-  // bollards and pedestrian lane
-  for(let i=-3;i<=3;i++){
-    const b=new THREE.Mesh(new THREE.CylinderGeometry(.09*scale,.11*scale,.78*scale,8),bollardMat);
-    b.position.set(i*.55*scale,.39*scale,3.0*scale);g.add(b);
-  }
-
-  // curb/sidewalk pad
-  const pad=new THREE.Mesh(new THREE.BoxGeometry(width+7*scale,.12*scale,5.8*scale),sidewalkMat);
-  pad.position.y=.06;g.add(pad);
-}
-
-// Gate coordinates taken from visible access locations on the masterplan.
-[
-  [500,820,37,'ĐA LỘC',1.05],
-  [1352,1000,80,'ĐA LỘC',1.0],
-  [758,1680,37,'ĐA LỘC',.95],
-  [275,1110,-53,'ĐA LỘC',.92]
-].forEach(v=>addGateComplexPx(...v));
+// ---------- perimeter fence disabled in V35 ----------
+/*
+The V34 fence path was incorrect and crossed the project.
+It is intentionally disabled until the exact 2D boundary is extracted/verified.
+*/
+// ---------- gates disabled in V35 ----------
+/*
+Gate complexes from V34 were also based on unverified points.
+They are hidden until gate footprints are derived from the blueprint itself.
+*/
 
 // ---------- detailed factory yards / docks / service equipment ----------
 function addFactoryDetail(g,idx){
@@ -761,8 +671,8 @@ function addFactoryDetail(g,idx){
   const L=prm.width,D=prm.depth,H=prm.height;
 
   // apron in front of loading facade
-  const apron=new THREE.Mesh(new THREE.BoxGeometry(L*.84,.08,Math.max(2.7,D*.26)),asphaltDarkMat);
-  apron.position.set(0,.05,D/2+Math.max(1.45,D*.16));
+  const apron=new THREE.Mesh(new THREE.BoxGeometry(L*.92,.10,Math.max(3.6,D*.34)),asphaltDarkMat);
+  apron.position.set(0,.06,D/2+Math.max(2.0,D*.20));
   apron.receiveShadow=true;g.add(apron);
 
   // sidewalk on opposite side
@@ -774,11 +684,11 @@ function addFactoryDetail(g,idx){
   for(let i=0;i<bays;i++){
     const x=(-.38+i/Math.max(1,bays-1)*.76)*L;
 
-    const deck=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.7,L/bays*.62),.36,1.05),dockDeckMat);
+    const deck=new THREE.Mesh(new THREE.BoxGeometry(Math.min(2.0,L/bays*.68),.44,1.35),dockDeckMat);
     deck.position.set(x,.24,D/2+.54);g.add(deck);
 
-    const door=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.35,L/bays*.52),1.85,.08),doorMat);
-    door.position.set(x,1.15,D/2+.05);g.add(door);
+    const door=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.55,L/bays*.58),2.15,.10),doorMat);
+    door.position.set(x,1.28,D/2+.06);g.add(door);
 
     const bumper1=new THREE.Mesh(new THREE.BoxGeometry(.16,.52,.15),dockRubberMat);
     const bumper2=bumper1.clone();
@@ -788,16 +698,21 @@ function addFactoryDetail(g,idx){
   }
 
   // side personnel door + canopy
-  const sideDoor=new THREE.Mesh(new THREE.BoxGeometry(.72,1.72,.07),darkMat);
+  const sideDoor=new THREE.Mesh(new THREE.BoxGeometry(.86,1.95,.08),darkMat);
   sideDoor.position.set(L/2+.04,.93,-D*.12);sideDoor.rotation.y=Math.PI/2;g.add(sideDoor);
-  const canopy=new THREE.Mesh(new THREE.BoxGeometry(1.2,.10,.85),guardRoofMat);
+  const canopy=new THREE.Mesh(new THREE.BoxGeometry(1.5,.12,1.05),guardRoofMat);
   canopy.position.set(L/2+.35,1.95,-D*.12);g.add(canopy);
+  // visible office/window strip on one long facade
+  const winStrip=new THREE.Mesh(new THREE.BoxGeometry(L*.38,.72,.07),glassDarkMat);
+  winStrip.position.set(0,H*.58,-D/2-.04);
+  g.add(winStrip);
+
 
   // roof HVAC + vents + tanks
   const hvacCount=Math.max(2,Math.min(5,Math.floor(L/8)));
   for(let i=0;i<hvacCount;i++){
     const x=(-.34+i/Math.max(1,hvacCount-1)*.68)*L;
-    const hvac=new THREE.Mesh(new THREE.BoxGeometry(.9,.42,.65),utilityMat);
+    const hvac=new THREE.Mesh(new THREE.BoxGeometry(1.15,.52,.80),utilityMat);
     hvac.position.set(x,H+.63,(i%2?-.2:.2)*D);hvac.castShadow=true;g.add(hvac);
     const fan=new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.08,12),darkMat);
     fan.rotation.x=Math.PI/2;fan.position.set(x,H+.86,(i%2?-.2:.2)*D);g.add(fan);
@@ -810,7 +725,7 @@ function addFactoryDetail(g,idx){
   util.position.set(L/2-.82,.54,-D/2-.78);g.add(util);
 
   // building sign
-  const sign=makeTextSprite('XƯỞNG '+String(idx+1).padStart(2,'0'),'#1d493a','#ffffff',.55);
+  const sign=makeTextSprite('XƯỞNG '+String(idx+1).padStart(2,'0'),'#1d493a','#ffffff',.68);
   sign.position.set(0,H*.63,D/2+.09);g.add(sign);
 
   // parking / parked cars on selected factories
@@ -818,13 +733,13 @@ function addFactoryDetail(g,idx){
     const slots=Math.max(3,Math.min(7,Math.floor(L/5)));
     for(let i=0;i<slots;i++){
       const x=(-.38+i/Math.max(1,slots-1)*.76)*L;
-      const line=new THREE.Mesh(new THREE.BoxGeometry(.06,.025,1.7),paintMat);
+      const line=new THREE.Mesh(new THREE.BoxGeometry(.08,.03,2.1),paintMat);
       line.position.set(x,.12,-D/2-1.7);g.add(line);
       if((i+idx)%3===0){
         const car=new THREE.Group();car.position.set(x,.20,-D/2-1.45);g.add(car);
-        const cb=new THREE.Mesh(new THREE.BoxGeometry(.95,.38,1.65),idx%4===0?truckBlueMat:truckWhiteMat);
+        const cb=new THREE.Mesh(new THREE.BoxGeometry(1.12,.44,1.88),idx%4===0?truckBlueMat:truckWhiteMat);
         cb.position.y=.28;car.add(cb);
-        const top=new THREE.Mesh(new THREE.BoxGeometry(.74,.33,.82),glassDarkMat);
+        const top=new THREE.Mesh(new THREE.BoxGeometry(.86,.38,.94),glassDarkMat);
         top.position.set(0,.55,-.12);car.add(top);
       }
     }
@@ -865,31 +780,8 @@ roofs.forEach((r,idx)=>{
   }
 });
 
-// ---------- parking lots aligned to visible parking-like rectangles ----------
-function addParkingLotPx(cx,cy,wPx,hPx,angleDeg,rows=1,slots=8){
-  const p=mapPx(cx,cy),g=new THREE.Group();
-  g.position.set(p.x,.26,p.z);
-  g.rotation.y=THREE.MathUtils.degToRad(-angleDeg);
-  detailGroup.add(g);
-
-  const lot=new THREE.Mesh(new THREE.BoxGeometry(wPx*S,.08,hPx*S),parkingMat);
-  lot.position.y=.04;g.add(lot);
-
-  const long=wPx*S,deep=hPx*S;
-  for(let r=0;r<rows;r++){
-    const z=-deep*.25 + r*(deep*.5/Math.max(1,rows-1));
-    for(let i=0;i<=slots;i++){
-      const x=-long*.46+i*(long*.92/slots);
-      const line=new THREE.Mesh(new THREE.BoxGeometry(.035,.025,deep*.28),paintMat);
-      line.position.set(x,.10,z);g.add(line);
-    }
-  }
-}
-[
-  [1040,358,122,36,37,1,12],
-  [1180,548,94,32,37,1,9],
-  [575,1005,90,34,-53,1,9]
-].forEach(v=>addParkingLotPx(...v));
+// ---------- extra parking lots disabled in V35 ----------
+/* Only factory-attached parking remains until 2D parking footprints are verified. */
 
 // ---------- park micro-details constrained to semantic park zones ----------
 function addBenchDetailedPx(px,py,angleDeg=0){
@@ -911,20 +803,7 @@ function addTrashBinPx(px,py){
 ].forEach(v=>addBenchDetailedPx(...v));
 [[1145,684],[1200,704],[1185,950],[1070,875]].forEach(v=>addTrashBinPx(...v));
 
-// ---------- small service signs / wayfinding ----------
-function addWayfindingPx(px,py,angleDeg,label){
-  const p=mapPx(px,py),g=new THREE.Group();
-  g.position.set(p.x,.25,p.z);g.rotation.y=THREE.MathUtils.degToRad(-angleDeg);detailGroup.add(g);
-  const post1=new THREE.Mesh(new THREE.BoxGeometry(.07,1.65,.07),poleMat);
-  const post2=post1.clone();post1.position.set(-.48,.83,0);post2.position.set(.48,.83,0);g.add(post1,post2);
-  const board=new THREE.Mesh(new THREE.BoxGeometry(1.25,.62,.08),signMat);
-  board.position.y=1.42;g.add(board);
-  const sp=makeTextSprite(label,'#244e40','#ffffff',.30);
-  sp.position.set(0,1.43,.06);g.add(sp);
-}
-[
-  [894,760,37,'KHU A'],[1095,760,37,'KHU B'],[705,1140,-53,'KHU C'],[1240,930,80,'KHU D']
-].forEach(v=>addWayfindingPx(...v));
+// ---------- wayfinding signs deferred until map positions are verified ----------
 
 // ---------- collision-friendly metadata for future walk mode ----------
 buildings.forEach((g,idx)=>{g.userData.collider=true;g.userData.type='factory';g.userData.id='factory-'+(idx+1);});
@@ -937,9 +816,10 @@ function tween(pos,tgt){
   const a=camera.position.clone(),b=controls.target.clone();let t=0;
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
-const v3=document.getElementById('v3'),vt=document.getElementById('vt'),bp=document.getElementById('bp');
-v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');blueprintMat.opacity=.56;tween(new THREE.Vector3(215,170,245),new THREE.Vector3(0,0,2))};
-vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
+const v3=document.getElementById('v3'),vt=document.getElementById('vt'),vd=document.getElementById('vd'),bp=document.getElementById('bp');
+v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.38;tween(new THREE.Vector3(155,125,175),new THREE.Vector3(0,0,4))};
+vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
+vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.22;tween(new THREE.Vector3(70,48,82),new THREE.Vector3(0,2,8))};
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
