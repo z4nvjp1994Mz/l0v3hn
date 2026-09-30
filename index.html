@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Da Loc Industrial Cluster — Git Deploy Demo</title>
+<style>
+:root{--glass:rgba(7,18,12,.82);--line:rgba(255,255,255,.12);--text:#f5f7f5;--muted:#a8b5ad}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
+#canvas{position:fixed;inset:0}canvas{display:block}.ui{position:fixed;z-index:5;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(16px);box-shadow:0 18px 50px rgba(0,0,0,.22)}
+.brand{left:18px;top:18px;width:440px;padding:16px 18px;border-radius:18px}.brand small{display:block;color:#85edb4;font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.brand h1{font-size:20px;margin:6px 0 4px}.brand p{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
+.controls{right:18px;top:18px;padding:8px;border-radius:14px;display:flex;gap:7px}.controls button{border:0;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.07);color:#edf5ef;font-weight:700;cursor:pointer}.controls button.active,.controls button:hover{background:#effff5;color:#092217}
+.info{right:18px;bottom:18px;width:330px;padding:18px;border-radius:18px}.eyebrow{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#82edb2;font-weight:800}.info h2{font-size:18px;margin:6px 0 9px}.info p{font-size:12px;color:#bdc7c1;line-height:1.55;margin:0}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.stat{padding:10px;border-radius:11px;background:rgba(255,255,255,.05)}.stat b{display:block;font-size:14px}.stat span{font-size:10px;color:#94a39a}
+.hint{position:fixed;z-index:4;left:50%;bottom:22px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.43);border:1px solid rgba(255,255,255,.1);font-size:11px;color:#dce5df;pointer-events:none}
+@media(max-width:850px){.brand{left:12px;top:12px;width:calc(100vw - 24px)}.controls{left:12px;right:auto;top:130px}.info{right:12px;bottom:12px;width:285px}}
+</style>
+</head>
+<body>
+<div id="canvas"></div>
+<div class="ui brand"><small>GitHub → Netlify workflow</small><h1>Da Loc Industrial Cluster</h1><p>Bản demo Git-backed đầu tiên. Từ bây giờ code có thể cập nhật trên GitHub và Netlify tự deploy.</p></div>
+<div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="reset">Reset</button></div>
+<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>40 khối nhà được giữ theo bộ tọa độ roof-aligned của bản V3. Bước này thiết lập luồng GitHub → Netlify tự động.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>No build</b><span>Static site</span></div></div></div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xa7c08e);scene.fog=new THREE.FogExp2(0xa7c08e,.0015);
+const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,1500);camera.position.set(195,185,225);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;document.getElementById('canvas').appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=75;controls.maxDistance=470;controls.maxPolarAngle=Math.PI/2.02;controls.target.set(0,0,5);
+scene.add(new THREE.HemisphereLight(0xf4fbff,0x4d6744,2.5));const sun=new THREE.DirectionalLight(0xfff3d7,4);sun.position.set(-150,220,140);sun.castShadow=true;scene.add(sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(360,390),new THREE.MeshStandardMaterial({color:0x73965e,roughness:1}));ground.rotation.x=-Math.PI/2;ground.position.y=-.2;ground.receiveShadow=true;scene.add(ground);
+const IMG_W=1616,IMG_H=2048,PLANE_H=304,PLANE_W=PLANE_H*(IMG_W/IMG_H),S=PLANE_W/IMG_W;
+function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
+const wall=new THREE.MeshStandardMaterial({color:0xeff2ee,roughness:.72}),roof=new THREE.MeshStandardMaterial({color:0xf9faf7,roughness:.55}),solar=new THREE.MeshStandardMaterial({color:0x4e73bd,roughness:.34,metalness:.2}),pad=new THREE.MeshStandardMaterial({color:0xd8ddd4,roughness:1});
+const roofs=[[954.16,368.34,130.79,30.12,-53.26],[1204.58,412.06,118.2,34.6,36.87],[1137.14,441.98,189.8,32.6,36.87],[1100.01,491.83,189.83,32.72,37.03],[1063.52,542.14,191.03,32.58,37.06],[844.82,561.27,82.46,24.53,36.57],[1278.41,589.1,86.32,33.99,-7.85],[1026.4,592.3,191,32.8,36.87],[988.81,642.92,191.23,34.24,37.03],[1289.66,663.72,85.97,33.22,-6.98],[773.71,695.55,102.21,15.37,37.02],[728.1,751.86,108.43,15.26,37.12],[697.22,819.57,150.99,15.46,37.13],[1349.48,831.78,109.54,24.73,80.27],[1297.78,840.03,109.8,27.72,80.98],[1052.35,842.73,52.42,50.76,33.69],[651.72,875.54,156.62,15.6,36.71],[606.14,931.47,162.82,15.5,37.06],[866.22,946.71,51.27,15.32,37.23],[381.91,981.17,135.56,39.5,-53.34],[925.74,992,110.85,15.41,37.18],[844.6,1021.2,105.6,15.2,36.87],[436.64,1022.46,136.38,39.4,-53.25],[496.34,1057.38,120.6,39.8,-53.13],[906.44,1067.89,63.02,15.14,37.09],[822.64,1095.33,159.83,15.5,37.12],[551.1,1098.7,120.2,39.4,-53.13],[303.28,1108.11,69.85,20.07,37.15],[669.88,1180.16,107.2,39.6,-53.13],[416.15,1192.97,156.57,20.17,37.01],[731.92,1227.43,108.4,39.44,-53.29],[365.65,1259.96,156.98,20.31,37.09],[798.99,1267.67,91.51,39.53,-52.82],[583.11,1296.6,91.13,39.4,-53.47],[649.94,1336.96,108.83,39.95,-52.99],[712.28,1383.96,108.4,39.6,-53.13],[527.15,1424.96,85.04,20.04,37.03],[622.8,1497.1,85.4,20,36.87],[465.98,1506.51,85.76,20.1,37.09],[561.7,1578.9,85.4,20.2,36.87]];
+function shortScale(s){if(s<18)return 3.1;if(s<25)return 2.35;if(s<36)return 1.65;return 1.35}
+for(const [cx,cy,Lpx,Spx,a] of roofs){const p=mapPx(cx,cy),L=Lpx*S*1.08,D=Spx*S*shortScale(Spx),h=Math.max(4.5,Math.min(9.5,D*.55));const g=new THREE.Group();g.position.set(p.x,0,p.z);g.rotation.y=THREE.MathUtils.degToRad(-a);scene.add(g);const p0=new THREE.Mesh(new THREE.BoxGeometry(L+1.5,.22,D+1.5),pad);p0.position.y=.11;g.add(p0);const b=new THREE.Mesh(new THREE.BoxGeometry(L,h,D),wall);b.position.y=h/2+.22;b.castShadow=true;g.add(b);const r=new THREE.Mesh(new THREE.BoxGeometry(L+.35,.38,D+.35),roof);r.position.y=h+.35;g.add(r);const s=new THREE.Mesh(new THREE.BoxGeometry(L*.9,.13,Math.min(D*.42,Spx*S*1.02)),solar);s.position.y=h+.62;g.add(s)}
+function tween(pos,tgt){const a=camera.position.clone(),b=controls.target.clone();let t=0;const go=()=>{t=Math.min(1,t+.03);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go()}
+const v3=document.getElementById('v3'),vt=document.getElementById('vt');v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');tween(new THREE.Vector3(195,185,225),new THREE.Vector3(0,0,5))};vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};document.getElementById('reset').onclick=()=>v3.click();
+(function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)})();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script>
+</body>
+</html>
