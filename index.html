@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V39 RUNTIME FIX</small>
+  <small>GitHub → Netlify · BUILD V40 ANTI-FLICKER VISUAL PASS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V39 sửa lỗi runtime của V38 khiến scene trắng hoàn toàn. Toàn bộ detail nhà xưởng của V38 được giữ nguyên và Detail View được gắn đúng sau khi các nút UI đã khởi tạo.</p>
+  <p>Bản V40 xử lý z-fighting/chớp nháy, nâng độ chính xác depth buffer và bổ sung lớp chi tiết kiến trúc gắn trực tiếp lên nhà xưởng: chân tường, gân facade, cửa kính, máng xối, ống thoát nước, skylight, roof equipment và dock detail.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>Factory detail pass</b><span>facade / dock / roof / service yard</span></div>
+    <div class="stat"><b>Visual pass V40</b><span>anti-flicker + richer factory detail</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V39: V38 detail restored · runtime order fixed</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V40: anti-flicker depth fix · richer factory detail</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -50,17 +50,18 @@ const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
 scene.fog=new THREE.FogExp2(0xa9c390,.00022);
 
-const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,6000);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,1.0,5000);
 camera.position.set(820,620,900);
 
-const renderer=new THREE.WebGLRenderer({antialias:true});
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',logarithmicDepthBuffer:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.08;
+renderer.toneMappingExposure=1.03;
+renderer.shadowMap.autoUpdate=true;
 document.getElementById('canvas').appendChild(renderer.domElement);
 
 const controls=new OrbitControls(camera,renderer.domElement);
@@ -76,6 +77,8 @@ sun.position.set(-700,1100,650);
 sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);
 sun.shadow.camera.left=-1100;sun.shadow.camera.right=1100;sun.shadow.camera.top=1100;sun.shadow.camera.bottom=-1100;
+sun.shadow.bias=-0.00015;
+sun.shadow.normalBias=0.035;
 scene.add(sun);
 
 const world=new THREE.Group();scene.add(world);
@@ -86,9 +89,9 @@ function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
 
 // Exact same 2D masterplan family as the uploaded 1616×2048 source.
 const texLoader=new THREE.TextureLoader();
-const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.72,side:THREE.DoubleSide,depthWrite:true});
+const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.72,side:THREE.DoubleSide,depthWrite:false,depthTest:true,polygonOffset:true,polygonOffsetFactor:2,polygonOffsetUnits:2});
 const blueprint=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),blueprintMat);
-blueprint.rotation.x=-Math.PI/2;blueprint.position.y=.22;blueprint.renderOrder=-10;world.add(blueprint);
+blueprint.rotation.x=-Math.PI/2;blueprint.position.y=-.06;blueprint.renderOrder=-100;world.add(blueprint);
 const bpBadge=document.createElement('div');
 bpBadge.textContent='Blueprint: loading old masterplan…';
 Object.assign(bpBadge.style,{position:'fixed',left:'16px',bottom:'16px',zIndex:'20',padding:'7px 10px',borderRadius:'9px',font:'700 11px Arial',background:'rgba(7,18,12,.82)',color:'#d9fbe8',border:'1px solid rgba(255,255,255,.12)'});
@@ -279,11 +282,13 @@ function worldShapeFromPixels(points){
   shape.closePath();
   return shape;
 }
-function addZonePolygon(points,material,y=.24){
+function addZonePolygon(points,material,y=.18){
   const geo=new THREE.ShapeGeometry(worldShapeFromPixels(points));
   const m=new THREE.Mesh(geo,material);
   m.rotation.x=-Math.PI/2;
   m.position.y=y;
+  m.renderOrder=5;
+  if(m.material){m.material.polygonOffset=true;m.material.polygonOffsetFactor=-1;m.material.polygonOffsetUnits=-1;}
   m.receiveShadow=true;
   semanticGroup.add(m);
   return m;
@@ -607,7 +612,7 @@ function makeTextSprite(text,bg='#173d32',fg='#ffffff',scale=1){
   ctx.fillStyle=fg;ctx.font='700 44px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillText(text,c.width/2,c.height/2);
   const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
-  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false});
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,depthTest:true});
   const sp=new THREE.Sprite(mat);sp.scale.set(5.2*scale,1.3*scale,1);
   return sp;
 }
@@ -677,8 +682,8 @@ const asphaltYardMat=new THREE.MeshStandardMaterial({color:0x616665,roughness:.9
 const curb2Mat=new THREE.MeshStandardMaterial({color:0xd4d6d0,roughness:.96});
 const roofUnitMat=new THREE.MeshStandardMaterial({color:0x9ca6a7,roughness:.56,metalness:.18});
 const ventDarkMat=new THREE.MeshStandardMaterial({color:0x4b5150,roughness:.72});
-const safetyYellowMat=new THREE.MeshStandardMaterial({color:0xe7c748,roughness:.8});
-const lineWhiteMat=new THREE.MeshStandardMaterial({color:0xf1f0e8,roughness:.8});
+const safetyYellowMat=new THREE.MeshStandardMaterial({color:0xe7c748,roughness:.8,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+const lineWhiteMat=new THREE.MeshStandardMaterial({color:0xf1f0e8,roughness:.8,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
 
 function addFactoryScaleDetail(g,idx){
   const body=g.children.find(o=>o.geometry?.type==='BoxGeometry' && o.position.y>1);
@@ -780,6 +785,106 @@ function addFactoryScaleDetail(g,idx){
 }
 buildings.forEach(addFactoryScaleDetail);
 
+// ---- V40 architectural richness pass: all detail stays attached to each verified factory footprint ----
+const baseSkirtMat=new THREE.MeshStandardMaterial({color:0xb8bcb8,roughness:.88});
+const ribMat=new THREE.MeshStandardMaterial({color:0xd5d9d7,roughness:.72});
+const skylightMat=new THREE.MeshStandardMaterial({color:0x9fc5d6,roughness:.22,metalness:.04,transparent:true,opacity:.92});
+const gutterMat=new THREE.MeshStandardMaterial({color:0x7d8786,roughness:.52,metalness:.26});
+const pipeMat=new THREE.MeshStandardMaterial({color:0x8d9795,roughness:.56,metalness:.18});
+const bumperMat=new THREE.MeshStandardMaterial({color:0x2f3433,roughness:.96});
+const crateMat=new THREE.MeshStandardMaterial({color:0xa97a4e,roughness:.9});
+const safetyRedMat=new THREE.MeshStandardMaterial({color:0xb94d46,roughness:.78});
+
+function addFactoryRichDetail(g,idx){
+  const body=g.children.find(o=>o.geometry?.type==='BoxGeometry' && o.position.y>1);
+  if(!body)return;
+  const {width:L,height:H,depth:D}=body.geometry.parameters;
+
+  // Darker base skirt grounds the huge industrial building visually.
+  const skirtFront=new THREE.Mesh(new THREE.BoxGeometry(L*.985,.75,.10),baseSkirtMat);
+  skirtFront.position.set(0,.48,D/2+.065);g.add(skirtFront);
+  const skirtBack=skirtFront.clone();skirtBack.position.z=-D/2-.065;g.add(skirtBack);
+
+  // Repeating facade ribs make scale readable at walking distance.
+  const ribN=Math.max(8,Math.min(24,Math.round(L/6)));
+  for(let i=0;i<ribN;i++){
+    const x=(-.48+i/(ribN-1)*.96)*L;
+    for(const z of [D/2+.085,-D/2-.085]){
+      const rib=new THREE.Mesh(new THREE.BoxGeometry(.16,H*.86,.16),ribMat);
+      rib.position.set(x,H*.50,z);rib.castShadow=true;g.add(rib);
+    }
+  }
+
+  // Continuous clerestory windows.
+  const winLen=Math.min(L*.64,64);
+  for(const z of [D/2+.095,-D/2-.095]){
+    const band=new THREE.Mesh(new THREE.BoxGeometry(winLen,1.15,.09),windowMat);
+    band.position.set(0,H*.73,z);g.add(band);
+  }
+
+  // Gutters and downpipes on both long sides.
+  for(const z of [D/2+.18,-D/2-.18]){
+    const gutter=new THREE.Mesh(new THREE.BoxGeometry(L*.98,.20,.22),gutterMat);
+    gutter.position.set(0,H+.12,z);g.add(gutter);
+    const downN=Math.max(3,Math.min(8,Math.round(L/22)));
+    for(let i=0;i<downN;i++){
+      const x=(-.45+i/(downN-1)*.90)*L;
+      const dp=new THREE.Mesh(new THREE.CylinderGeometry(.10,.10,H*.90,8),pipeMat);
+      dp.position.set(x,H*.45,z);g.add(dp);
+    }
+  }
+
+  // Skylights aligned along the roof, not coplanar with roof.
+  const skyN=Math.max(3,Math.min(12,Math.round(L/14)));
+  for(let i=0;i<skyN;i++){
+    const x=(-.40+i/(skyN-1)*.80)*L;
+    const sky=new THREE.Mesh(new THREE.BoxGeometry(Math.min(5.0,L/skyN*.55),.24,1.35),skylightMat);
+    sky.position.set(x,H+1.00,0);sky.castShadow=true;g.add(sky);
+  }
+
+  // Larger rooftop technical blocks for visual richness.
+  const techN=Math.max(2,Math.min(6,Math.round(L/25)));
+  for(let i=0;i<techN;i++){
+    const x=(-.32+i/Math.max(1,techN-1)*.64)*L;
+    const box=new THREE.Mesh(new THREE.BoxGeometry(2.8,1.25,2.2),roofUnitMat);
+    box.position.set(x,H+1.18,D*.22);box.castShadow=true;g.add(box);
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(3.05,.16,2.45),gutterMat);
+    cap.position.set(x,H+1.86,D*.22);g.add(cap);
+  }
+
+  // Dock bumpers and safety bollards only on the front service facade.
+  if(L>45 && D>18){
+    const bays=Math.max(3,Math.min(8,Math.round(L/16)));
+    for(let i=0;i<bays;i++){
+      const x=(-.38+i/(bays-1)*.76)*L;
+      for(const bx of [x-1.65,x+1.65]){
+        const bump=new THREE.Mesh(new THREE.BoxGeometry(.24,.85,.30),bumperMat);
+        bump.position.set(bx,.60,D/2+.24);g.add(bump);
+      }
+      for(const bx of [x-2.2,x+2.2]){
+        const bol=new THREE.Mesh(new THREE.CylinderGeometry(.10,.13,1.05,8),safetyYellowMat);
+        bol.position.set(bx,.55,D/2+2.0);g.add(bol);
+      }
+    }
+  }
+
+  // A few crates/pallet-like props near selected service yards to make scale legible.
+  if(idx%4===0){
+    for(let i=0;i<4;i++){
+      const cr=new THREE.Mesh(new THREE.BoxGeometry(1.2,.75,1.0),crateMat);
+      cr.position.set(-L*.30+i*1.6,.42,D/2+4.4);cr.castShadow=true;g.add(cr);
+    }
+  }
+
+  // Corner safety markers.
+  for(const sx of [-1,1]){
+    const marker=new THREE.Mesh(new THREE.BoxGeometry(.28,1.4,.28),safetyRedMat);
+    marker.position.set(sx*(L/2-.4),.75,D/2+.35);g.add(marker);
+  }
+}
+buildings.forEach(addFactoryRichDetail);
+
+
 // Road-edge lamps at verified building-linked positions only
 function addScaleLampAtPx(px,py,h=8){
   const p=mapPx(px,py),g=new THREE.Group();g.position.set(p.x,.15,p.z);factoryDetailGroup.add(g);
@@ -848,7 +953,15 @@ window.addEventListener('error',e=>{
   }
   box.textContent='3D runtime error: '+(e.message||'unknown');
 });
-(function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)})();
+(function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  const d=camera.position.distanceTo(controls.target);
+  world.traverse(o=>{
+    if(o.isSprite) o.visible=d<520;
+  });
+  renderer.render(scene,camera);
+})();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 </script>
 </body>
