@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V32 DIORAMA DETAIL</small>
+  <small>GitHub → Netlify · BUILD V33 SEMANTIC 2D→3D</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V32 chuyển sang phong cách diorama chi tiết: giữ footprint chính xác, chỉ giữ các support footprint tin cậy, đồng thời bổ sung môi trường xung quanh, rừng, nhà dân, xe, mây và chi tiết nhà xưởng.</p>
+  <p>Bản V33 bắt đầu dựng 3D theo ngữ nghĩa của chính masterplan: vùng công viên 2D thành công viên 3D, vùng hồ thành mặt nước 3D, vùng cảnh quan giữ đúng footprint thay vì đặt vật thể theo cảm tính.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>38 + site</b><span>factories + verified support structures</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>Diorama detail</b><span>trees + village + vehicles</span></div>
+    <div class="stat"><b>Semantic 2D→3D</b><span>park / water / landscape zones</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V32: detailed diorama environment + verified support footprints</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V33: semantic zones extruded from the 2D masterplan</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -219,8 +219,6 @@ function circlePx(cx,cy,r,mat,y=.07){
   const p=mapPx(cx,cy),m=new THREE.Mesh(new THREE.CircleGeometry(r*S,44),mat);
   m.rotation.x=-Math.PI/2;m.position.set(p.x,y,p.z);world.add(m);
 }
-circlePx(944,876,28,waterMat,.09);
-circlePx(1052,842,42,lawnMat,.055);
 
 // These 286 points were sampled from the actual green vegetation pixels
 // in the 1616×2048 masterplan, with building footprints excluded.
@@ -253,7 +251,138 @@ TREE_POINTS.forEach(([x,y,scale],i)=>{
 
 
 
-// ---- V32: Support footprints tin cậy + diorama chi tiết ----
+
+// ---- V33: Semantic 2D -> 3D zoning --------------------------------------
+// Principle: geometry is created only from a region that exists on the 2D masterplan.
+// Pixel coordinates below use the SAME 1616x2048 coordinate system as the blueprint.
+const semanticGroup=new THREE.Group();
+semanticGroup.name='semantic2D3D';
+world.add(semanticGroup);
+
+const parkBaseMat=new THREE.MeshStandardMaterial({color:0x78a968,roughness:1});
+const parkDarkMat=new THREE.MeshStandardMaterial({color:0x4f8650,roughness:1});
+const pathMat=new THREE.MeshStandardMaterial({color:0xd9c7ac,roughness:.98});
+const flowerPinkMat=new THREE.MeshStandardMaterial({color:0xc7778c,roughness:.92});
+const flowerRedMat=new THREE.MeshStandardMaterial({color:0xbb5f62,roughness:.92});
+const semanticWaterMat=new THREE.MeshStandardMaterial({color:0x68b9d3,roughness:.18,metalness:.08});
+const semanticStoneMat=new THREE.MeshStandardMaterial({color:0xc9c7bd,roughness:.95});
+
+function worldShapeFromPixels(points){
+  const shape=new THREE.Shape();
+  points.forEach((pt,i)=>{
+    const p=mapPx(pt[0],pt[1]);
+    const sy=-p.z;
+    if(i===0) shape.moveTo(p.x,sy); else shape.lineTo(p.x,sy);
+  });
+  shape.closePath();
+  return shape;
+}
+function addZonePolygon(points,material,y=.24){
+  const geo=new THREE.ShapeGeometry(worldShapeFromPixels(points));
+  const m=new THREE.Mesh(geo,material);
+  m.rotation.x=-Math.PI/2;
+  m.position.y=y;
+  m.receiveShadow=true;
+  semanticGroup.add(m);
+  return m;
+}
+function pointInPoly(x,y,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+    const hit=((yi>y)!=(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi+1e-9)+xi);
+    if(hit) inside=!inside;
+  }
+  return inside;
+}
+function addSemanticBush(px,py,scale=.55,flower=false){
+  const p=mapPx(px,py);
+  const mat=flower ? (Math.round(px+py)%2?flowerPinkMat:flowerRedMat) : parkDarkMat;
+  const b=new THREE.Mesh(new THREE.IcosahedronGeometry(.38*scale,1),mat);
+  b.position.set(p.x,.48*scale,p.z);
+  b.scale.y=.72;
+  b.castShadow=true;
+  semanticGroup.add(b);
+}
+function addPathPx(a,b,widthPx=4){
+  const p1=mapPx(a[0],a[1]),p2=mapPx(b[0],b[1]);
+  const dx=p2.x-p1.x,dz=p2.z-p1.z,len=Math.hypot(dx,dz);
+  const m=new THREE.Mesh(new THREE.BoxGeometry(widthPx*S,.09,len),pathMat);
+  m.position.set((p1.x+p2.x)/2,.31,(p1.z+p2.z)/2);
+  m.rotation.y=Math.atan2(dx,dz);
+  m.receiveShadow=true;
+  semanticGroup.add(m);
+}
+function addEllipsePx(cx,cy,rxPx,ryPx,material,y=.33,angleDeg=0){
+  const p=mapPx(cx,cy);
+  const g=new THREE.CircleGeometry(1,64);
+  g.scale(rxPx*S,ryPx*S,1);
+  const m=new THREE.Mesh(g,material);
+  m.rotation.x=-Math.PI/2;
+  m.rotation.z=THREE.MathUtils.degToRad(angleDeg);
+  m.position.set(p.x,y,p.z);
+  m.receiveShadow=true;
+  semanticGroup.add(m);
+  return m;
+}
+function addParkFrom2D(poly,{ornamental=false,spacing=15}={}){
+  addZonePolygon(poly,parkBaseMat,.245);
+  const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+
+  // Populate ONLY pixels inside the 2D park footprint.
+  let n=0;
+  for(let y=minY+8;y<maxY-8;y+=spacing){
+    for(let x=minX+8;x<maxX-8;x+=spacing){
+      if(!pointInPoly(x,y,poly)) continue;
+      const jx=Math.sin((x+y)*.071)*2.2, jy=Math.cos((x-y)*.063)*2.2;
+      if(pointInPoly(x+jx,y+jy,poly)){
+        addSemanticBush(x+jx,y+jy,.60+(n%4)*.05,ornamental && n%3===0);
+        n++;
+      }
+    }
+  }
+}
+
+// MAIN ORNAMENTAL PARK — contour extracted from the pink park footprint in masterplan-hires.jpg.
+// This polygon is not guessed from screen perspective; it uses source-image pixel coordinates.
+const PARK_MAIN=[[1203,584],[1149,646],[1166,726],[1140,666],[1063,758],[1230,734]];
+addParkFrom2D(PARK_MAIN,{ornamental:true,spacing:13});
+
+// Recreate the circular/radial ornamental composition that is visible INSIDE this same 2D park.
+const parkCenter=[1164,690];
+addEllipsePx(parkCenter[0],parkCenter[1],34,34,parkBaseMat,.30);
+addEllipsePx(parkCenter[0],parkCenter[1],25,25,pathMat,.315);
+addEllipsePx(parkCenter[0],parkCenter[1],17,17,parkBaseMat,.325);
+for(let i=0;i<8;i++){
+  const a=i*Math.PI/4;
+  const a0=[parkCenter[0]+Math.cos(a)*18,parkCenter[1]+Math.sin(a)*18];
+  const a1=[parkCenter[0]+Math.cos(a)*47,parkCenter[1]+Math.sin(a)*47];
+  addPathPx(a0,a1,3.2);
+}
+
+// SECONDARY LANDSCAPED TRIANGLE/PARK — follows the lower-right landscaped wedge on the plan.
+const PARK_SECONDARY=[[1120,888],[1262,900],[1325,982],[1218,1028],[1154,958]];
+addParkFrom2D(PARK_SECONDARY,{ornamental:true,spacing:16});
+addPathPx([1160,918],[1265,972],3.2);
+addPathPx([1200,900],[1218,1013],3.0);
+
+// CENTRAL WATER FEATURE — centroid/bounds measured from the actual blue non-roof component.
+addEllipsePx(1053.34,850.71,33.5,23.5,semanticWaterMat,.35,-8);
+
+// Lawn around the water feature, again confined to its visible landscaped island.
+const POND_GARDEN=[[1000,817],[1051,805],[1108,831],[1114,873],[1075,903],[1019,894],[986,859]];
+addZonePolygon(POND_GARDEN,parkBaseMat,.255);
+for(const [x,y] of [[1009,835],[1026,819],[1085,832],[1098,853],[1080,884],[1038,890],[1005,866]]){
+  addSemanticBush(x,y,.75,false);
+}
+
+// Small stone/plaza pad associated with the central administration block on the map.
+const ADMIN_PLAZA=[[876,850],[913,825],[951,853],[929,900],[890,897]];
+addZonePolygon(ADMIN_PLAZA,semanticStoneMat,.27);
+
+// -------------------------------------------------------------------------
+// ---- V33: Support footprints tin cậy + diorama chi tiết ----
 const verifiedSupportGroup=new THREE.Group();
 verifiedSupportGroup.name='verifiedSupportGroup';
 world.add(verifiedSupportGroup);
