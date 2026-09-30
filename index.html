@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V36 PHYSICAL SCALE</small>
+  <small>GitHub → Netlify · BUILD V37 RENDER FIX</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V36 hiệu chỉnh lại tỷ lệ vật lý toàn khu theo quy mô 61,83 ha: nhà xưởng trở về kích thước công nghiệp hàng chục–hàng trăm mét, đồng thời gỡ các chi tiết cửa/dock/parking suy đoán sai để không làm sai masterplan.</p>
+  <p>Bản V37 giữ tỷ lệ vật lý của V36 nhưng sửa lỗi runtime khiến scene trắng hoàn toàn. Mô hình, cây, blueprint và ngoại cảnh được khôi phục hiển thị bình thường.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -40,7 +40,7 @@
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V36: physical scale calibrated · guessed factory details removed</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V37: runtime render restored · physical scale retained</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -436,6 +436,11 @@ function addVerifiedSupport(cx,cy,wPx,hPx,cvAngle,h=2.7,roofMat=supportRoofMat,g
 // Building footprints and physical scale are now prioritized.
 // Doors, docks, parking and facade modules will be rebuilt only after their 2D / architectural positions are verified.
 
+
+// V37 runtime fix: this material is still used by village-house doors.
+// It was accidentally removed in V36 together with the old guessed factory-detail block.
+const darkMat=new THREE.MeshStandardMaterial({color:0x4f5657,roughness:.7});
+
 // -------- Outer diorama environment inspired by the uploaded Netlify reference --------
 const diorama=new THREE.Group();
 diorama.name='dioramaEnvironment';
@@ -682,6 +687,22 @@ function updateTreeVisibility(){
 controls.addEventListener('change',updateTreeVisibility);
 updateTreeVisibility();
 
+
+window.addEventListener('error',e=>{
+  console.error(e.error||e.message);
+  let box=document.getElementById('runtimeErrorBox');
+  if(!box){
+    box=document.createElement('div');
+    box.id='runtimeErrorBox';
+    Object.assign(box.style,{
+      position:'fixed',left:'16px',top:'190px',zIndex:'99',
+      maxWidth:'520px',padding:'10px 12px',borderRadius:'10px',
+      background:'rgba(100,0,0,.88)',color:'#fff',font:'700 12px Arial'
+    });
+    document.body.appendChild(box);
+  }
+  box.textContent='3D runtime error: '+(e.message||'unknown');
+});
 (function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)})();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 </script>
