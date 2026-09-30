@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V22 CANVAS BLUEPRINT</small>
+  <small>GitHub → Netlify · BUILD V23 HI-RES BLUEPRINT</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>Bản này dùng trực tiếp asset masterplan nằm trong cùng GitHub/Netlify project để tránh lỗi proxy và bảo đảm blueprint luôn tải được.</p>
 </div>
@@ -94,7 +94,7 @@ document.body.appendChild(bpBadge);
 
 const bpImg=new Image();
 bpImg.decoding='async';
-bpImg.src='/assets/masterplan-exact-v2.jpg?v=22';
+bpImg.src='/assets/masterplan-hires.jpg?v=23';
 bpImg.onload=()=>{
   const c=document.createElement('canvas');
   c.width=bpImg.naturalWidth;
@@ -115,7 +115,7 @@ bpImg.onload=()=>{
   blueprintMat.color.setHex(0xffffff);
   blueprintMat.needsUpdate=true;
 
-  bpBadge.textContent='Blueprint: canvas texture loaded ✓';
+  bpBadge.textContent='Blueprint: hi-res 1616×2048 loaded ✓';
   bpBadge.style.color='#85edb4';
   setTimeout(()=>bpBadge.style.opacity='.28',2600);
 };
