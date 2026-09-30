@@ -19,7 +19,7 @@
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V12 CAD LINEWORK</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V13 DIRECT DWG</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
 <div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
 <div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Bạn có thể dùng nền ảnh hiện tại hoặc bấm Load DWG để đọc bản CAD trực tiếp bằng LibreDWG WebAssembly. Khi DWG parse thành công, lớp CAD sẽ thay thế blueprint hiện tại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div><div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
@@ -214,164 +214,160 @@ async function loadDwgAsBlueprint(file){
     bpStatus.textContent='DWG: converting entities…';
     const db=lib.convert(dwg);
     if(!db) { lib.dwg_free(dwg); throw new Error('Không chuyển đổi được database DWG'); }
-    bpStatus.textContent='DWG: generating SVG…';
-    const svgString=lib.dwg_to_svg(db);
-    lib.dwg_free(dwg);
-    if(!svgString || !svgString.includes('<svg')) throw new Error('DWG đã đọc nhưng không tạo được SVG');
+    bpStatus.textContent='DWG: building direct linework…';
 
-    const parser=new DOMParser();
-    const doc=parser.parseFromString(svgString,'image/svg+xml');
-    const svg=doc.documentElement;
-    if(svg.nodeName.toLowerCase()!=='svg') throw new Error('SVG output không hợp lệ');
+    // Direct renderer: bypass LibreDWG's SVG exporter completely.
+    // We use the converted model-space database and recursively resolve INSERT blocks.
+    const blockMap=new Map((db.tables?.BLOCK_RECORD?.entries||[]).map(b=>[b.name,b]));
+    const primitives=[];
+    const MAX_DEPTH=8;
 
-    // LibreDWG may preserve CAD colors such as ACI 7 as white.
-    // On a white preview those entities become invisible, so normalize them to dark CAD lines.
-    const graphics=[...svg.querySelectorAll('path,line,polyline,polygon,circle,ellipse,rect,text,tspan')];
-    let visibleCount=0;
-    for(const el of graphics){
-      const tag=el.tagName.toLowerCase();
-      const stroke=(el.getAttribute('stroke')||'').toLowerCase();
-      const fill=(el.getAttribute('fill')||'').toLowerCase();
-      if(tag==='text'||tag==='tspan'){
-        el.setAttribute('fill','#111827');
-        el.setAttribute('stroke','none');
-      }else{
-        // CAD preview should be linework. Filled HATCH/WIPEOUT/solid entities can otherwise
-        // cover the whole drawing when exported from LibreDWG.
-        el.setAttribute('fill','none');
-        el.setAttribute('stroke','#111827');
-        el.setAttribute('stroke-width','1');
+    function mul(a,b){
+      return {
+        a:a.a*b.a+a.c*b.b, b:a.b*b.a+a.d*b.b,
+        c:a.a*b.c+a.c*b.d, d:a.b*b.c+a.d*b.d,
+        e:a.a*b.e+a.c*b.f+a.e, f:a.b*b.e+a.d*b.f+a.f
+      };
+    }
+    function tr(x=0,y=0){return {a:1,b:0,c:0,d:1,e:x,f:y}}
+    function sc(x=1,y=1){return {a:x,b:0,c:0,d:y,e:0,f:0}}
+    function ro(rad=0){const c=Math.cos(rad),q=Math.sin(rad);return {a:c,b:q,c:-q,d:c,e:0,f:0}}
+    function pt(m,p){return {x:m.a*(p?.x||0)+m.c*(p?.y||0)+m.e,y:m.b*(p?.x||0)+m.d*(p?.y||0)+m.f}}
+    function saneP(p){return Number.isFinite(p.x)&&Number.isFinite(p.y)&&Math.abs(p.x)<1e9&&Math.abs(p.y)<1e9}
+
+    function emitEntity(e,m,depth=0){
+      if(!e||depth>MAX_DEPTH) return;
+      switch(e.type){
+        case 'LINE': {
+          const a=pt(m,e.startPoint),b=pt(m,e.endPoint);
+          if(saneP(a)&&saneP(b)) primitives.push({t:'line',a,b});
+          break;
+        }
+        case 'LWPOLYLINE':
+        case 'POLYLINE2D':
+        case 'POLYLINE3D': {
+          const vs=(e.vertices||[]).map(v=>pt(m,v)).filter(saneP);
+          if(vs.length>1) primitives.push({t:'poly',p:vs,closed:!!(e.flag&1)||!!(e.flag&512)});
+          break;
+        }
+        case 'CIRCLE': {
+          const c=pt(m,e.center);
+          const p2=pt(m,{x:(e.center?.x||0)+(e.radius||0),y:e.center?.y||0});
+          const r=Math.hypot(p2.x-c.x,p2.y-c.y);
+          if(saneP(c)&&Number.isFinite(r)&&r>0&&r<1e8) primitives.push({t:'circle',c,r});
+          break;
+        }
+        case 'ARC': {
+          const c=pt(m,e.center);
+          const p2=pt(m,{x:(e.center?.x||0)+(e.radius||0),y:e.center?.y||0});
+          const r=Math.hypot(p2.x-c.x,p2.y-c.y);
+          if(saneP(c)&&Number.isFinite(r)&&r>0&&r<1e8) primitives.push({t:'arc',c,r,a0:e.startAngle||0,a1:e.endAngle||0});
+          break;
+        }
+        case 'ELLIPSE': {
+          const c=pt(m,e.center),ma=e.majorAxisEndPoint||{x:0,y:0};
+          const ep=pt(m,{x:(e.center?.x||0)+ma.x,y:(e.center?.y||0)+ma.y});
+          const rx=Math.hypot(ep.x-c.x,ep.y-c.y);
+          const ry=Math.abs(rx*(e.axisRatio||1));
+          if(saneP(c)&&Number.isFinite(rx)&&Number.isFinite(ry)&&rx>0&&ry>0&&rx<1e8&&ry<1e8)
+            primitives.push({t:'ellipse',c,rx,ry,rot:Math.atan2(ep.y-c.y,ep.x-c.x),a0:e.startAngle||0,a1:e.endAngle||Math.PI*2});
+          break;
+        }
+        case 'INSERT': {
+          const b=blockMap.get(e.name);
+          if(!b) break;
+          const bp=b.basePoint||{x:0,y:0};
+          const im=mul(m,mul(tr(e.insertionPoint?.x||0,e.insertionPoint?.y||0),mul(ro(e.rotation||0),mul(sc(e.xScale||1,e.yScale||1),tr(-(bp.x||0),-(bp.y||0))))));
+          for(const child of (b.entities||[])) emitEntity(child,im,depth+1);
+          break;
+        }
       }
-      el.setAttribute('vector-effect','non-scaling-stroke');
-      visibleCount++;
     }
 
-    // Mount offscreen so the browser can calculate the real graphic bounds.
-    const holder=document.createElement('div');
-    Object.assign(holder.style,{position:'fixed',left:'-20000px',top:'-20000px',width:'1200px',height:'1200px',visibility:'hidden',pointerEvents:'none'});
-    document.body.appendChild(holder);
-    svg.removeAttribute('width'); svg.removeAttribute('height');
-    svg.setAttribute('width','1200'); svg.setAttribute('height','1200');
-    holder.appendChild(svg);
+    const I={a:1,b:0,c:0,d:1,e:0,f:0};
+    for(const e of (db.entities||[])) emitEntity(e,I,0);
+    if(!primitives.length) throw new Error('DWG đọc được nhưng không có LINE/POLYLINE/CIRCLE/ARC/ELLIPSE khả dụng');
 
-    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-
-    // Build per-entity boxes and hide pathological entities instead of merely excluding them
-    // from crop calculations. This prevents giant SOLID/HATCH/proxy objects from covering the preview.
+    // Robust bounds from primitive points. Ignore construction geometry far from the main cluster.
+    const samples=[];
+    for(const p of primitives){
+      if(p.t==='line') samples.push(p.a,p.b);
+      else if(p.t==='poly') samples.push(...p.p);
+      else if(p.t==='circle'||p.t==='arc'||p.t==='ellipse'){
+        samples.push({x:p.c.x-p.rx||p.c.x-p.r,y:p.c.y-p.ry||p.c.y-p.r},{x:p.c.x+(p.rx||p.r),y:p.c.y+(p.ry||p.r)});
+      }
+    }
+    const finite=samples.filter(saneP);
+    if(finite.length<2) throw new Error('Không đủ điểm CAD hợp lệ để tính khung nhìn');
     const med=a=>{const q=[...a].sort((x,y)=>x-y);return q[Math.floor(q.length/2)]};
-    const boxed=[];
-    let ignoredCount=0,bboxCount=0;
-    for(const el of graphics){
-      let b=null;
-      try{ b=el.getBBox(); }catch{}
-      if(!b || [b.x,b.y,b.width,b.height].some(v=>!Number.isFinite(v)) || b.width<0 || b.height<0){
-        el.style.display='none'; ignoredCount++; continue;
-      }
-      const extent=Math.max(Math.abs(b.x),Math.abs(b.y),Math.abs(b.x+b.width),Math.abs(b.y+b.height),b.width,b.height);
-      if(extent>1e9){
-        el.style.display='none'; ignoredCount++; continue;
-      }
-      boxed.push({el,b,cx:b.x+b.width/2,cy:b.y+b.height/2,size:Math.max(b.width,b.height,0.0001)});
-    }
-    if(!boxed.length){
-      holder.remove();
-      throw new Error('Không tìm được entity CAD có bounding box hợp lệ');
-    }
+    const mx=med(finite.map(p=>p.x)),my=med(finite.map(p=>p.y));
+    const dxs=finite.map(p=>Math.abs(p.x-mx)).sort((a,b)=>a-b);
+    const dys=finite.map(p=>Math.abs(p.y-my)).sort((a,b)=>a-b);
+    const qx=dxs[Math.floor(dxs.length*.98)]||1,qy=dys[Math.floor(dys.length*.98)]||1;
+    const keep=p=>Math.abs(p.x-mx)<=Math.max(qx*2,1)&&Math.abs(p.y-my)<=Math.max(qy*2,1);
+    const kept=finite.filter(keep);
+    let minX=Math.min(...kept.map(p=>p.x)),maxX=Math.max(...kept.map(p=>p.x));
+    let minY=Math.min(...kept.map(p=>p.y)),maxY=Math.max(...kept.map(p=>p.y));
+    const w0=maxX-minX,h0=maxY-minY;
+    const padx=Math.max(w0*.03,1),pady=Math.max(h0*.03,1);
+    minX-=padx;maxX+=padx;minY-=pady;maxY+=pady;
+    const worldW=maxX-minX,worldH=maxY-minY;
+    if(!(worldW>0&&worldH>0&&Number.isFinite(worldW)&&Number.isFinite(worldH))) throw new Error('CAD bounds không hợp lệ');
 
-    const mx=med(boxed.map(o=>o.cx));
-    const my=med(boxed.map(o=>o.cy));
-    const ms=Math.max(med(boxed.map(o=>o.size)),0.0001);
-
-    // Establish a robust core using median-relative distance. CAD can contain construction geometry
-    // far away from the actual site; those elements are hidden from this preview.
-    const core=boxed.filter(o=>{
-      const far=Math.abs(o.cx-mx)>ms*5000 || Math.abs(o.cy-my)>ms*5000;
-      const huge=o.size>ms*2500;
-      if(far||huge){o.el.style.display='none';ignoredCount++;return false;}
-      return true;
-    });
-    if(!core.length){
-      holder.remove();
-      throw new Error('Tất cả entity CAD bị lọc do extents bất thường');
-    }
-
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    for(const o of core){
-      const b=o.b;
-      minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
-      maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
-      bboxCount++;
-    }
-
-    const cropW0=maxX-minX,cropH0=maxY-minY;
-    if(!Number.isFinite(cropW0)||!Number.isFinite(cropH0)||cropW0<=0||cropH0<=0){
-      holder.remove();
-      throw new Error('Bounding box CAD không hợp lệ sau khi lọc outlier');
-    }
-
-    const padX=Math.max(cropW0*.025,1);
-    const padY=Math.max(cropH0*.025,1);
-    const cropX=minX-padX,cropY=minY-padY,cropW=cropW0+padX*2,cropH=cropH0+padY*2;
-    svg.setAttribute('viewBox',cropX+' '+cropY+' '+cropW+' '+cropH);
-    svg.setAttribute('preserveAspectRatio','xMidYMid meet');
-    svg.setAttribute('xmlns','http://www.w3.org/2000/svg');
-    holder.remove();
-
-    const normalizedSvg=new XMLSerializer().serializeToString(svg);
-    if(cadObjectUrl) URL.revokeObjectURL(cadObjectUrl);
-    cadObjectUrl=URL.createObjectURL(new Blob([normalizedSvg],{type:'image/svg+xml'}));
-
-    cadPreviewImg.src=cadObjectUrl;
-    cadPreviewBtn.style.display='inline-block';
-
-    const img=new Image();
-    img.decoding='async';
-    img.src=cadObjectUrl;
-    await img.decode();
-
-    const maxSide=2048;
-    const aspect=cropW/cropH;
+    // Draw direct CAD linework to a canvas.
+    const maxSide=2048,aspect=worldW/worldH;
     let cw,ch;
     if(aspect>=1){cw=maxSide;ch=Math.max(512,Math.round(maxSide/aspect));}
     else{ch=maxSide;cw=Math.max(512,Math.round(maxSide*aspect));}
-
-    const cadCanvas=document.createElement('canvas');
-    cadCanvas.width=cw; cadCanvas.height=ch;
+    const cadCanvas=document.createElement('canvas');cadCanvas.width=cw;cadCanvas.height=ch;
     const cctx=cadCanvas.getContext('2d');
-    cctx.fillStyle='#ffffff';
-    cctx.fillRect(0,0,cw,ch);
-    cctx.drawImage(img,0,0,cw,ch);
+    cctx.fillStyle='#fff';cctx.fillRect(0,0,cw,ch);
+    cctx.strokeStyle='#111827';cctx.lineWidth=1; cctx.lineJoin='round'; cctx.lineCap='round';
+    const X=x=>(x-minX)/worldW*cw;
+    const Y=y=>ch-(y-minY)/worldH*ch;
+    let drawn=0;
+    for(const p of primitives){
+      try{
+        cctx.beginPath();
+        if(p.t==='line'){
+          if(!keep(p.a)&&!keep(p.b)) continue;
+          cctx.moveTo(X(p.a.x),Y(p.a.y));cctx.lineTo(X(p.b.x),Y(p.b.y));
+        }else if(p.t==='poly'){
+          const pts=p.p.filter(keep); if(pts.length<2) continue;
+          cctx.moveTo(X(pts[0].x),Y(pts[0].y));for(let i=1;i<pts.length;i++)cctx.lineTo(X(pts[i].x),Y(pts[i].y));if(p.closed)cctx.closePath();
+        }else if(p.t==='circle'){
+          if(!keep(p.c)) continue; const sx=cw/worldW,sy=ch/worldH;
+          cctx.ellipse(X(p.c.x),Y(p.c.y),p.r*sx,p.r*sy,0,0,Math.PI*2);
+        }else if(p.t==='arc'){
+          if(!keep(p.c)) continue; const sx=cw/worldW,sy=ch/worldH;
+          cctx.ellipse(X(p.c.x),Y(p.c.y),p.r*sx,p.r*sy,0,-p.a1,-p.a0);
+        }else if(p.t==='ellipse'){
+          if(!keep(p.c)) continue; const sx=cw/worldW,sy=ch/worldH;
+          cctx.ellipse(X(p.c.x),Y(p.c.y),p.rx*sx,p.ry*sy,-p.rot,-p.a1,-p.a0);
+        }
+        cctx.stroke();drawn++;
+      }catch{}
+    }
+    if(drawn<10) throw new Error('CAD chỉ vẽ được '+drawn+' primitive hợp lệ');
+
+    cadPreviewImg.src=cadCanvas.toDataURL('image/png');
+    cadPreviewBtn.style.display='inline-block';
 
     const tex=new THREE.CanvasTexture(cadCanvas);
     tex.colorSpace=THREE.SRGBColorSpace;
     tex.anisotropy=renderer.capabilities.getMaxAnisotropy();
+    blueprintMat.map=tex;blueprintMat.color.setHex(0xffffff);blueprintMat.transparent=false;blueprintMat.opacity=1;blueprintMat.needsUpdate=true;
 
-    blueprintMat.map=tex;
-    blueprintMat.color.setHex(0xffffff);
-    blueprintMat.transparent=false;
-    blueprintMat.opacity=1;
-    blueprintMat.needsUpdate=true;
+    const targetH=304,targetW=targetH*(cw/ch);
+    blueprint.geometry.dispose();blueprint.geometry=new THREE.PlaneGeometry(targetW,targetH);blueprint.position.y=.12;blueprint.visible=true;
+    bpOn=true;if(bp){bp.classList.add('active');bp.textContent='Blueprint On';}
 
-    const targetH=304;
-    const targetW=targetH*(cw/ch);
-    blueprint.geometry.dispose();
-    blueprint.geometry=new THREE.PlaneGeometry(targetW,targetH);
-    blueprint.position.y=.12;
-    blueprint.visible=true;
-    bpOn=true;
-    if(bp){bp.classList.add('active');bp.textContent='Blueprint On';}
-
-    // Make Top View fit the actual CAD plane, not the old hard-coded image plane.
     const fit=Math.max(targetW,targetH);
-    camera.position.set(0,fit*1.15,.1);
-    controls.target.set(0,0,0);
-    controls.update();
-    vt.classList.add('active');
-    v3.classList.remove('active');
+    camera.position.set(0,fit*1.15,.1);controls.target.set(0,0,0);controls.update();
+    vt.classList.add('active');v3.classList.remove('active');
 
-    bpStatus.textContent='DWG visible ✓ '+bboxCount+'/'+visibleCount+' entities · ignored '+ignoredCount+' · '+Math.round(cropW)+'×'+Math.round(cropH);
-    bpStatus.style.color='#85edb4';
-    bpStatus.style.opacity='1';
+    bpStatus.textContent='DWG direct ✓ '+drawn+'/'+primitives.length+' primitives · '+Math.round(worldW)+'×'+Math.round(worldH);
+    bpStatus.style.color='#85edb4';bpStatus.style.opacity='1';
     setTimeout(()=>bpStatus.style.opacity='.35',5000);
   }catch(err){
     console.error('DWG load failed',err);
