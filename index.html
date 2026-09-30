@@ -19,7 +19,7 @@
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V10 CAD CROP</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V11 CAD SANITIZE</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
 <div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
 <div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Bạn có thể dùng nền ảnh hiện tại hoặc bấm Load DWG để đọc bản CAD trực tiếp bằng LibreDWG WebAssembly. Khi DWG parse thành công, lớp CAD sẽ thay thế blueprint hiện tại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div><div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
@@ -252,16 +252,62 @@ async function loadDwgAsBlueprint(file){
     holder.appendChild(svg);
 
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-    let box;
-    try{ box=svg.getBBox(); }catch{ box=null; }
-    if(!box || !isFinite(box.width) || !isFinite(box.height) || box.width<=0 || box.height<=0){
-      holder.remove();
-      throw new Error('SVG có '+visibleCount+' phần tử nhưng không có bounding box hiển thị');
+
+    // Some CAD entities can report absurd extents (for example proxy objects or bad text transforms),
+    // which makes the entire drawing collapse into a white dot. Build a robust bbox from sane elements only.
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    let bboxCount=0,ignoredCount=0;
+    const saneBoxes=[];
+    for(const el of graphics){
+      let b=null;
+      try{ b=el.getBBox(); }catch{}
+      if(!b) {ignoredCount++;continue;}
+      const vals=[b.x,b.y,b.width,b.height];
+      if(vals.some(v=>!Number.isFinite(v)) || b.width<0 || b.height<0){ignoredCount++;continue;}
+      const extent=Math.max(Math.abs(b.x),Math.abs(b.y),Math.abs(b.x+b.width),Math.abs(b.y+b.height),b.width,b.height);
+      if(extent>1e9){ignoredCount++;continue;}
+      saneBoxes.push(b);
     }
 
-    const padX=Math.max(box.width*.025,1);
-    const padY=Math.max(box.height*.025,1);
-    const cropX=box.x-padX,cropY=box.y-padY,cropW=box.width+padX*2,cropH=box.height+padY*2;
+    if(!saneBoxes.length){
+      holder.remove();
+      throw new Error('Không tìm được entity CAD có bounding box hợp lệ');
+    }
+
+    // First pass rough bbox.
+    for(const b of saneBoxes){
+      minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
+      maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
+    }
+    let roughW=maxX-minX, roughH=maxY-minY;
+
+    // If rough box is still pathological, reject obvious outliers using medians of centers and sizes.
+    if(!Number.isFinite(roughW)||!Number.isFinite(roughH)||roughW<=0||roughH<=0||Math.max(roughW/Math.max(roughH,1e-9),roughH/Math.max(roughW,1e-9))>1000){
+      const med=a=>{const q=[...a].sort((x,y)=>x-y);return q[Math.floor(q.length/2)]};
+      const centersX=saneBoxes.map(b=>b.x+b.width/2), centersY=saneBoxes.map(b=>b.y+b.height/2);
+      const sizes=saneBoxes.map(b=>Math.max(b.width,b.height)).filter(v=>v>0);
+      const mx=med(centersX), my=med(centersY), ms=Math.max(med(sizes),1);
+      minX=Infinity;minY=Infinity;maxX=-Infinity;maxY=-Infinity;bboxCount=0;
+      for(const b of saneBoxes){
+        const cx=b.x+b.width/2, cy=b.y+b.height/2;
+        if(Math.abs(cx-mx)>ms*2000 || Math.abs(cy-my)>ms*2000 || Math.max(b.width,b.height)>ms*1000){ignoredCount++;continue;}
+        minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
+        maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
+        bboxCount++;
+      }
+    } else {
+      bboxCount=saneBoxes.length;
+    }
+
+    const cropW0=maxX-minX,cropH0=maxY-minY;
+    if(!Number.isFinite(cropW0)||!Number.isFinite(cropH0)||cropW0<=0||cropH0<=0){
+      holder.remove();
+      throw new Error('Bounding box CAD không hợp lệ sau khi lọc outlier');
+    }
+
+    const padX=Math.max(cropW0*.025,1);
+    const padY=Math.max(cropH0*.025,1);
+    const cropX=minX-padX,cropY=minY-padY,cropW=cropW0+padX*2,cropH=cropH0+padY*2;
     svg.setAttribute('viewBox',cropX+' '+cropY+' '+cropW+' '+cropH);
     svg.setAttribute('preserveAspectRatio','xMidYMid meet');
     svg.setAttribute('xmlns','http://www.w3.org/2000/svg');
@@ -319,7 +365,7 @@ async function loadDwgAsBlueprint(file){
     vt.classList.add('active');
     v3.classList.remove('active');
 
-    bpStatus.textContent='DWG visible ✓ '+visibleCount+' entities · '+Math.round(cropW)+'×'+Math.round(cropH);
+    bpStatus.textContent='DWG visible ✓ '+bboxCount+'/'+visibleCount+' entities · ignored '+ignoredCount+' · '+Math.round(cropW)+'×'+Math.round(cropH);
     bpStatus.style.color='#85edb4';
     bpStatus.style.opacity='1';
     setTimeout(()=>bpStatus.style.opacity='.35',5000);
