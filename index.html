@@ -14,15 +14,27 @@
 .hint{position:fixed;z-index:4;left:50%;bottom:22px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.43);border:1px solid rgba(255,255,255,.1);font-size:11px;color:#dce5df;pointer-events:none}
 .cad-preview{position:fixed;inset:5vh 5vw;z-index:30;display:none;background:#fff;border:2px solid rgba(0,0,0,.2);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:auto}
 .cad-preview.open{display:block}.cad-preview img{display:block;width:100%;height:calc(90vh - 40px);object-fit:contain;background:#fff}.cad-preview button{position:sticky;top:12px;float:right;margin:12px;z-index:2;border:0;border-radius:9px;padding:9px 12px;background:#102417;color:#fff;font-weight:800;cursor:pointer}
+.align-panel{position:fixed;left:18px;bottom:58px;z-index:22;width:300px;padding:14px;border-radius:14px;background:rgba(7,18,12,.9);border:1px solid rgba(255,255,255,.12);display:none;color:#fff;font:12px Arial;backdrop-filter:blur(12px)}
+.align-panel.open{display:block}.align-panel label{display:grid;grid-template-columns:72px 1fr 52px;gap:8px;align-items:center;margin:8px 0}.align-panel input[type=range]{width:100%}.align-panel button{border:0;border-radius:8px;padding:7px 9px;background:#effff5;color:#092217;font-weight:800;cursor:pointer;margin-right:6px}.align-panel .muted{color:#a8b5ad;font-size:10px;line-height:1.4}
 @media(max-width:850px){.brand{left:12px;top:12px;width:calc(100vw - 24px)}.controls{left:12px;right:auto;top:130px}.info{right:12px;bottom:12px;width:285px}}
 </style>
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V16 LEFT SITE</small><h1>Da Loc Industrial Cluster</h1><p>Bản V16 chỉ đọc *MODEL_SPACE và ưu tiên cụm khu đất bên trái, đúng vị trí dự án bạn xác nhận trong DWG FastView.</p></div>
-<div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
-<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>DWG được lọc về *MODEL_SPACE, sau đó tách geometry theo trục ngang và chọn cụm bên trái làm khu đất dự án; cụm bảng biểu bên phải bị loại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div><div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V17 ALIGN CAD</small><h1>Da Loc Industrial Cluster</h1><p>Bản V17 bổ sung bước hiệu chỉnh CAD ↔ 3D. Hai lớp đang dùng hai hệ tọa độ khác nhau nên không thể khớp chỉ bằng việc nạp DWG.</p></div>
+<div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><button id="alignBtn" style="display:none">Align CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
+<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Sau khi nạp DWG, dùng Align CAD để chỉnh X/Z, Scale và Rotate của lớp CAD độc lập với mô hình 3D. Đây là bước bắt buộc để đồng bộ hai hệ tọa độ.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div>
+<div id="alignPanel" class="align-panel">
+  <b>CAD ↔ 3D alignment</b>
+  <div class="muted">Khối 3D hiện dùng hệ tọa độ ảnh masterplan cũ, còn DWG dùng tọa độ CAD thật. Dùng 4 thông số dưới đây để hiệu chỉnh lớp CAD cho khớp.</div>
+  <label><span>X</span><input id="alignX" type="range" min="-120" max="120" step="0.5" value="0"><output id="alignXo">0</output></label>
+  <label><span>Z</span><input id="alignZ" type="range" min="-120" max="120" step="0.5" value="0"><output id="alignZo">0</output></label>
+  <label><span>Scale</span><input id="alignS" type="range" min="0.35" max="2.2" step="0.005" value="1"><output id="alignSo">1</output></label>
+  <label><span>Rotate</span><input id="alignR" type="range" min="-180" max="180" step="0.1" value="0"><output id="alignRo">0°</output></label>
+  <button id="alignReset">Reset align</button><button id="alignClose">Đóng</button>
+</div>
+<div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -70,7 +82,9 @@ const blueprint=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),blueprin
 blueprint.rotation.x=-Math.PI/2;
 blueprint.position.y=.06;
 blueprint.renderOrder=1;
-scene.add(blueprint);
+const cadAlignGroup=new THREE.Group();
+cadAlignGroup.add(blueprint);
+scene.add(cadAlignGroup);
 
 const blueprintLoader=new THREE.TextureLoader();
 blueprintLoader.load(
@@ -407,7 +421,7 @@ async function loadDwgAsBlueprint(file){
     if(drawn<10) throw new Error('CAD chỉ vẽ được '+drawn+' primitive hợp lệ');
 
     cadPreviewImg.src=cadCanvas.toDataURL('image/png');
-    cadPreviewBtn.style.display='inline-block';
+    cadPreviewBtn.style.display='inline-block';alignBtn.style.display='inline-block';
 
     const tex=new THREE.CanvasTexture(cadCanvas);
     tex.colorSpace=THREE.SRGBColorSpace;
@@ -417,6 +431,9 @@ async function loadDwgAsBlueprint(file){
     const targetH=304,targetW=targetH*(cw/ch);
     blueprint.geometry.dispose();blueprint.geometry=new THREE.PlaneGeometry(targetW,targetH);blueprint.position.y=.12;blueprint.visible=true;
     bpOn=true;if(bp){bp.classList.add('active');bp.textContent='Blueprint On';}
+    // Initial calibration between CAD model-space orientation and the existing image-based 3D coordinate system.
+    // This is only a starting point; V17 exposes live controls for precise adjustment.
+    alignX.value='0';alignZ.value='0';alignS.value='0.78';alignR.value='-18.5';applyCadAlign();
 
     const fit=Math.max(targetW,targetH);
     camera.position.set(0,fit*1.15,.1);controls.target.set(0,0,0);controls.update();
@@ -437,6 +454,21 @@ async function loadDwgAsBlueprint(file){
 
 const cadBtn=document.getElementById('cadBtn');
 const cadPreviewBtn=document.getElementById('cadPreviewBtn');
+const alignBtn=document.getElementById('alignBtn');
+const alignPanel=document.getElementById('alignPanel');
+const alignX=document.getElementById('alignX'),alignZ=document.getElementById('alignZ'),alignS=document.getElementById('alignS'),alignR=document.getElementById('alignR');
+const alignXo=document.getElementById('alignXo'),alignZo=document.getElementById('alignZo'),alignSo=document.getElementById('alignSo'),alignRo=document.getElementById('alignRo');
+function applyCadAlign(){
+  cadAlignGroup.position.x=parseFloat(alignX.value)||0;
+  cadAlignGroup.position.z=parseFloat(alignZ.value)||0;
+  const sc=parseFloat(alignS.value)||1; cadAlignGroup.scale.set(sc,1,sc);
+  cadAlignGroup.rotation.y=THREE.MathUtils.degToRad(parseFloat(alignR.value)||0);
+  alignXo.value=alignX.value;alignZo.value=alignZ.value;alignSo.value=Number(sc).toFixed(3);alignRo.value=(parseFloat(alignR.value)||0).toFixed(1)+'°';
+}
+[alignX,alignZ,alignS,alignR].forEach(el=>el.addEventListener('input',applyCadAlign));
+alignBtn.onclick=()=>alignPanel.classList.toggle('open');
+document.getElementById('alignClose').onclick=()=>alignPanel.classList.remove('open');
+document.getElementById('alignReset').onclick=()=>{alignX.value=0;alignZ.value=0;alignS.value=1;alignR.value=0;applyCadAlign();};
 const cadPreview=document.getElementById('cadPreview');
 const cadPreviewImg=document.getElementById('cadPreviewImg');
 const cadPreviewClose=document.getElementById('cadPreviewClose');
