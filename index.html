@@ -19,9 +19,9 @@
 </head>
 <body>
 <div id="canvas"></div>
-<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V14 SITE CLUSTER</small><h1>Da Loc Industrial Cluster</h1><p>Bản V7 bổ sung chế độ đọc trực tiếp file DWG trong trình duyệt. Bạn có thể nạp bản CAD để thay lớp blueprint 2D bằng hình học từ DWG.</p></div>
+<div class="ui brand"><small>GitHub → Netlify workflow · BUILD V15 MODEL SPACE</small><h1>Da Loc Industrial Cluster</h1><p>Bản V15 chỉ đọc đúng *MODEL_SPACE của DWG, bỏ toàn bộ PAPER_SPACE/title block trước khi dựng blueprint CAD.</p></div>
 <div class="ui controls"><button id="v3" class="active">3D Perspective</button><button id="vt">Top View</button><button id="bp">Blueprint On/Off</button><button id="cadBtn">Load DWG</button><button id="cadPreviewBtn" style="display:none">Preview CAD</button><input id="cadFile" type="file" accept=".dwg" hidden><button id="reset">Reset</button></div>
-<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>Bạn có thể dùng nền ảnh hiện tại hoặc bấm Load DWG để đọc bản CAD trực tiếp bằng LibreDWG WebAssembly. Khi DWG parse thành công, lớp CAD sẽ thay thế blueprint hiện tại.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
+<div class="ui info"><div class="eyebrow">Project overview</div><h2>Da Loc 3D</h2><p>DWG được lọc về *MODEL_SPACE trước khi render. Điều này loại các bảng biểu, title block và layout lặp lại đã làm preview sai ở các bản trước.</p><div class="stats"><div class="stat"><b>40 blocks</b><span>Roof-aligned data</span></div><div class="stat"><b>61.83 ha</b><span>Project scale</span></div><div class="stat"><b>main</b><span>Deploy branch</span></div><div class="stat"><b>2D + 3D</b><span>Overlay comparison</span></div></div></div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Chuyển 3D / Top View</div><div id="cadPreview" class="cad-preview"><button id="cadPreviewClose">Đóng ×</button><img id="cadPreviewImg" alt="CAD Preview"></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
@@ -285,8 +285,15 @@ async function loadDwgAsBlueprint(file){
     }
 
     const I={a:1,b:0,c:0,d:1,e:0,f:0};
-    for(const e of (db.entities||[])) emitEntity(e,I,0);
-    if(!primitives.length) throw new Error('DWG đọc được nhưng không có LINE/POLYLINE/CIRCLE/ARC/ELLIPSE khả dụng');
+
+    // IMPORTANT: db.entities contains both MODEL_SPACE and PAPER_SPACE entities in this library.
+    // The previous builds were therefore rendering title blocks / layout legends together with the site.
+    // Restrict rendering to the actual *MODEL_SPACE block record.
+    const modelBlock=(db.tables?.BLOCK_RECORD?.entries||[]).find(b=>(b.name||'').toUpperCase()==='*MODEL_SPACE');
+    const sourceEntities=modelBlock?.entities?.length ? modelBlock.entities : (db.entities||[]);
+    for(const e of sourceEntities) emitEntity(e,I,0);
+
+    if(!primitives.length) throw new Error('MODEL_SPACE không có LINE/POLYLINE/CIRCLE/ARC/ELLIPSE khả dụng');
 
     // Isolate the dominant site cluster. This drawing contains construction/layout geometry
     // far away from the actual project, so global extents are not useful.
@@ -391,7 +398,7 @@ async function loadDwgAsBlueprint(file){
     camera.position.set(0,fit*1.15,.1);controls.target.set(0,0,0);controls.update();
     vt.classList.add('active');v3.classList.remove('active');
 
-    bpStatus.textContent='DWG cluster ✓ '+drawn+'/'+primitives.length+' primitives · '+Math.round(worldW)+'×'+Math.round(worldH);
+    bpStatus.textContent='MODEL SPACE ✓ '+drawn+'/'+primitives.length+' primitives · '+Math.round(worldW)+'×'+Math.round(worldH);
     bpStatus.style.color='#85edb4';bpStatus.style.opacity='1';
     setTimeout(()=>bpStatus.style.opacity='.35',5000);
   }catch(err){
