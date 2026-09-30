@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V42 RUNTIME ORDER FIX</small>
+  <small>GitHub → Netlify · BUILD V43 COORDINATE LOCK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V42 sửa lỗi thứ tự khởi tạo của V41 làm scene biến mất. Đường nhựa nội khu và ngoại cảnh vẫn được giữ nguyên, nhưng được tạo sau khi vật liệu, random generator và asset cây/nhà đã sẵn sàng.</p>
+  <p>Bản V43 khóa hệ tọa độ masterplan bằng một PIN chuẩn cố định. Từ phiên bản này, mọi asset thuộc dự án phải đi qua cùng hàm pixel→world; scale, rotation và origin không được tự ý thay đổi.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V42 render fixed</b><span>roads + outer world restored</span></div>
+    <div class="stat"><b>V43 coordinate lock</b><span>single pinned 2D→3D transform</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V42: runtime order fixed · V41 roads/outer world retained</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V43: masterplan coordinate system pinned and locked</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -83,19 +83,100 @@ scene.add(sun);
 
 const world=new THREE.Group();scene.add(world);
 
-const IMG_W=1616,IMG_H=2048;
-const S=0.782,PLANE_W=IMG_W*S,PLANE_H=IMG_H*S;
-function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
+const SITE_FRAME=Object.freeze({
+  imageWidth:1616,
+  imageHeight:2048,
+  metersPerPixel:0.782,
+
+  // PERMANENT MASTERPLAN PIN.
+  // Source pixel = center of the blue water feature on masterplan-hires.jpg.
+  pinPixel:Object.freeze({x:1053.34,y:850.71}),
+
+  // Keep the exact pre-V43 world mapping, but express it through the permanent pin.
+  pinWorld:Object.freeze({
+    x:(1053.34-1616/2)*0.782,
+    z:(850.71-2048/2)*0.782
+  }),
+
+  rotationY:0
+});
+
+const IMG_W=SITE_FRAME.imageWidth;
+const IMG_H=SITE_FRAME.imageHeight;
+const S=SITE_FRAME.metersPerPixel;
+const PLANE_W=IMG_W*S;
+const PLANE_H=IMG_H*S;
+
+function mapPx(x,y){
+  if(!Number.isFinite(x)||!Number.isFinite(y)){
+    throw new Error('Invalid masterplan pixel coordinate: '+x+','+y);
+  }
+  return {
+    x:SITE_FRAME.pinWorld.x+(x-SITE_FRAME.pinPixel.x)*S,
+    z:SITE_FRAME.pinWorld.z+(y-SITE_FRAME.pinPixel.y)*S
+  };
+}
+
+// Canonical helper for every future site asset.
+// Do NOT use raw world x/z for anything that belongs to the masterplan.
+function placeAtMapPx(object,px,py,y=0){
+  const p=mapPx(px,py);
+  object.position.set(p.x,y,p.z);
+  object.userData.masterplanPx={x:px,y:py};
+  return object;
+}
+
+// Stable conversion for dimensions authored in masterplan pixels.
+function pxLength(px){ return px*S; }
+
+// Validation: these must never change unless the source masterplan image itself changes.
+const SITE_FRAME_SIGNATURE='1616x2048@0.782|PIN:1053.34,850.71';
+console.info('[DaLoc] SITE_FRAME locked',SITE_FRAME_SIGNATURE,SITE_FRAME);
 
 // Exact same 2D masterplan family as the uploaded 1616×2048 source.
 const texLoader=new THREE.TextureLoader();
 const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.72,side:THREE.DoubleSide,depthWrite:false,depthTest:true,polygonOffset:true,polygonOffsetFactor:2,polygonOffsetUnits:2});
 const blueprint=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),blueprintMat);
-blueprint.rotation.x=-Math.PI/2;blueprint.position.y=-.06;blueprint.renderOrder=-100;world.add(blueprint);
+blueprint.rotation.x=-Math.PI/2;
+const bpCenter=mapPx(IMG_W/2,IMG_H/2);
+blueprint.position.set(bpCenter.x,-.06,bpCenter.z);
+blueprint.renderOrder=-100;
+blueprint.userData.siteFrameSignature=SITE_FRAME_SIGNATURE;
+world.add(blueprint);
 const bpBadge=document.createElement('div');
 bpBadge.textContent='Blueprint: loading old masterplan…';
 Object.assign(bpBadge.style,{position:'fixed',left:'16px',bottom:'16px',zIndex:'20',padding:'7px 10px',borderRadius:'9px',font:'700 11px Arial',background:'rgba(7,18,12,.82)',color:'#d9fbe8',border:'1px solid rgba(255,255,255,.12)'});
 document.body.appendChild(bpBadge);
+
+const coordBadge=document.createElement('div');
+coordBadge.textContent='COORD LOCK: PIN 1053.34,850.71 · 0.782 m/px';
+Object.assign(coordBadge.style,{
+  position:'fixed',left:'16px',bottom:'48px',zIndex:'20',
+  padding:'7px 10px',borderRadius:'9px',font:'700 10px Arial',
+  background:'rgba(7,18,12,.82)',color:'#aef1cb',
+  border:'1px solid rgba(255,255,255,.12)'
+});
+document.body.appendChild(coordBadge);
+
+const sitePinGroup=new THREE.Group();
+sitePinGroup.name='SITE_MASTERPLAN_PIN';
+sitePinGroup.visible=false;
+const pinP=mapPx(SITE_FRAME.pinPixel.x,SITE_FRAME.pinPixel.y);
+sitePinGroup.position.set(pinP.x,.8,pinP.z);
+const pinRing=new THREE.Mesh(
+  new THREE.TorusGeometry(2.8,.18,10,32),
+  new THREE.MeshBasicMaterial({color:0xff304f,depthTest:false})
+);
+pinRing.rotation.x=Math.PI/2;
+sitePinGroup.add(pinRing);
+const pinStem=new THREE.Mesh(
+  new THREE.CylinderGeometry(.12,.12,4.5,8),
+  new THREE.MeshBasicMaterial({color:0xff304f,depthTest:false})
+);
+pinStem.position.y=2.25;
+sitePinGroup.add(pinStem);
+world.add(sitePinGroup);
+
 
 const bpImg=new Image();
 bpImg.decoding='async';
@@ -542,6 +623,9 @@ for(let i=0;i<260;i++){
 // V42 runtime-order fix: V41 site/outer-context block moved here because it depends on
 // houseWallMats, houseRoofMats, rnd/rr and forestTrunkMat declared above.
 // ---- V41: internal asphalt road network + immediate outer context ----------
+// IMPORTANT V43 RULE:
+// Every INTERNAL project road/asset MUST use mapPx()/placeAtMapPx().
+// Raw world coordinates are permitted only for EXTERNAL diorama context.
 const siteInfraGroup=new THREE.Group();
 siteInfraGroup.name='siteInfraGroup';
 world.add(siteInfraGroup);
@@ -1090,6 +1174,9 @@ window.addEventListener('error',e=>{
   });
   renderer.render(scene,camera);
 })();
+setTimeout(()=>{
+  console.info('[DaLoc] Coordinate lock active:',SITE_FRAME_SIGNATURE);
+},0);
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 </script>
 </body>
