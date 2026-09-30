@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V23 HI-RES BLUEPRINT</small>
+  <small>GitHub → Netlify · BUILD V24 MAP-ALIGNED TREES</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>Bản này dùng trực tiếp asset masterplan nằm trong cùng GitHub/Netlify project để tránh lỗi proxy và bảo đảm blueprint luôn tải được.</p>
 </div>
@@ -36,7 +36,7 @@
   <div class="stats">
     <div class="stat"><b>38</b><span>roof footprints detected</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>Dense trees</b><span>boundary + internal</span></div>
+    <div class="stat"><b>Map-aligned trees</b><span>green strips + gardens</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
@@ -84,7 +84,7 @@ function mapPx(x,y){return{x:(x/IMG_W-.5)*PLANE_W,z:(y/IMG_H-.5)*PLANE_H}}
 
 // Exact same 2D masterplan family as the uploaded 1616×2048 source.
 const texLoader=new THREE.TextureLoader();
-const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:false,opacity:1,side:THREE.DoubleSide});
+const blueprintMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.82,side:THREE.DoubleSide,depthWrite:true});
 const blueprint=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),blueprintMat);
 blueprint.rotation.x=-Math.PI/2;blueprint.position.y=.22;blueprint.renderOrder=-10;world.add(blueprint);
 const bpBadge=document.createElement('div');
@@ -174,46 +174,126 @@ for(const [cx,cy,Lpx,Spx,a] of roofs){
   buildings.push(g);
 }
 
-// Landscape
-const trunkMat=new THREE.MeshStandardMaterial({color:0x70513a,roughness:1});
-const leafMat=new THREE.MeshStandardMaterial({color:0x3e7c4c,roughness:1});
+// Landscape — tree positions aligned to the 2D masterplan
+const treeLeafMat = new THREE.MeshStandardMaterial({ color: 0x4b8a57, roughness: 1 });
+const treeTrunkMat = new THREE.MeshStandardMaterial({ color: 0x7a5638, roughness: 1 });
 const waterMat=new THREE.MeshStandardMaterial({color:0x66b6cc,roughness:.25,metalness:.04});
 const lawnMat=new THREE.MeshStandardMaterial({color:0x74a267,roughness:1});
 
-function addTree(px,py,scale=.86){
-  const p=mapPx(px,py),g=new THREE.Group();
-  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.12*scale,.18*scale,1.15*scale,7),trunkMat);trunk.position.y=.58*scale;
-  const c1=new THREE.Mesh(new THREE.IcosahedronGeometry(.60*scale,1),leafMat);c1.position.y=1.42*scale;c1.castShadow=true;
-  const c2=new THREE.Mesh(new THREE.IcosahedronGeometry(.42*scale,1),leafMat);c2.position.y=2.05*scale;c2.castShadow=true;
-  g.add(trunk,c1,c2);g.position.set(p.x,.05,p.z);world.add(g);
+function addTree(px, py, scale = 1) {
+  const p = mapPx(px, py);
+  const g = new THREE.Group();
+
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.10 * scale, 0.14 * scale, 0.85 * scale, 6),
+    treeTrunkMat
+  );
+  trunk.position.y = 0.42 * scale;
+  trunk.castShadow = true;
+
+  const crown = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.42 * scale, 1),
+    treeLeafMat
+  );
+  crown.position.y = 1.08 * scale;
+  crown.castShadow = true;
+
+  g.add(trunk, crown);
+  g.position.set(p.x, 0.05, p.z);
+  g.userData.isTreeGroup = true;
+  world.add(g);
+  return g;
 }
-function treeLine(a,b,n,scale=.82,jitter=1.6){
-  for(let i=0;i<n;i++){
-    const t=n===1?.5:i/(n-1);
-    addTree(a[0]+(b[0]-a[0])*t+Math.sin(i*2.1)*jitter,a[1]+(b[1]-a[1])*t+Math.cos(i*1.7)*jitter,scale+(i%4)*.06);
+
+function addTreeLine(a, b, count, scale = 0.62, jitter = 0) {
+  for (let i = 0; i < count; i++) {
+    const t = count === 1 ? 0.5 : i / (count - 1);
+    const x = a[0] + (b[0] - a[0]) * t + Math.sin(i * 2.17) * jitter;
+    const y = a[1] + (b[1] - a[1]) * t + Math.cos(i * 1.83) * jitter;
+    addTree(x, y, scale + (i % 3) * 0.04);
   }
 }
+
+function addTreeCluster(points, count = 12, scale = 0.56) {
+  for (let i = 0; i < count; i++) {
+    const u = (i * 0.618) % 1;
+    const v = (i * 0.382) % 1;
+    const a = 1 - u;
+    const b = u * (1 - v);
+    const c = u * v;
+    const x = points[0][0] * a + points[1][0] * b + points[2][0] * c;
+    const y = points[0][1] * a + points[1][1] * b + points[2][1] * c;
+    addTree(x, y, scale + (i % 4) * 0.03);
+  }
+}
+
+function addRingTrees(cx, cy, r, count = 10, scale = 0.56) {
+  for (let i = 0; i < count; i++) {
+    const ang = (Math.PI * 2 * i) / count;
+    addTree(
+      cx + Math.cos(ang) * r,
+      cy + Math.sin(ang) * r,
+      scale
+    );
+  }
+}
+
 function circlePx(cx,cy,r,mat,y=.07){
   const p=mapPx(cx,cy),m=new THREE.Mesh(new THREE.CircleGeometry(r*S,44),mat);
   m.rotation.x=-Math.PI/2;m.position.set(p.x,y,p.z);world.add(m);
 }
+
 circlePx(944,876,28,waterMat,.09);
 circlePx(1052,842,42,lawnMat,.055);
 
-const boundary=[[942,214],[1293,364],[1353,1030],[976,1768],[758,1688],[274,1112],[235,1003],[495,821],[908,265]];
-for(let i=0;i<boundary.length;i++){
-  const a=boundary[i],b=boundary[(i+1)%boundary.length];
-  const d=Math.hypot(b[0]-a[0],b[1]-a[1]);
-  treeLine(a,b,Math.max(5,Math.round(d/22)),.82,1.2);
-}
-[
-[[892,330],[1260,608]],[[786,433],[1176,728]],[[709,720],[971,924]],
-[[560,786],[884,1040]],[[433,908],[808,1192]],[[334,1063],[730,1368]],[[450,1408],[645,1561]]
-].forEach(([a,b])=>treeLine(a,b,Math.round(Math.hypot(b[0]-a[0],b[1]-a[1])/32),.68,1.0));
+// ==== TREE LINES BÁM THEO MAP 2D ====
+const TREE_LINES = [
+  [[980, 305], [1260, 418], 16, 0.60, 1.2],
+  [[930, 360], [1210, 470], 14, 0.58, 1.1],
+  [[880, 430], [1145, 535], 12, 0.56, 1.0],
 
-// A few denser landscape pockets
-for(let i=0;i<28;i++){const a=i/28*Math.PI*2;addTree(1052+Math.cos(a)*32,842+Math.sin(a)*32,.65)}
-for(let i=0;i<24;i++){const u=(i*.618)%1,v=(i*.347)%1;const A=1-u,B=u*(1-v),C=u*v;addTree(1000*A+1112*B+982*C,900*A+990*B+1010*C,.60)}
+  [[760, 520], [1015, 620], 12, 0.56, 1.0],
+  [[700, 610], [965, 715], 12, 0.56, 1.0],
+  [[645, 700], [910, 810], 12, 0.56, 1.0],
+
+  [[575, 790], [855, 905], 14, 0.56, 1.0],
+  [[515, 885], [790, 995], 14, 0.56, 1.0],
+  [[450, 980], [730, 1095], 14, 0.56, 1.0],
+
+  [[380, 1085], [660, 1200], 14, 0.56, 1.0],
+  [[435, 1325], [620, 1408], 9, 0.54, 0.8],
+  [[490, 1470], [590, 1548], 7, 0.54, 0.8],
+
+  [[1232, 470], [1308, 860], 12, 0.60, 1.2],
+  [[1275, 870], [1175, 1050], 8, 0.58, 1.0],
+  [[1160, 1055], [1030, 1240], 8, 0.56, 1.0],
+
+  [[420, 870], [285, 1025], 8, 0.58, 1.0],
+  [[275, 1040], [315, 1180], 6, 0.56, 0.8],
+  [[320, 1190], [435, 1415], 10, 0.56, 0.8],
+  [[440, 1420], [530, 1620], 8, 0.56, 0.8]
+];
+
+// ==== TREE CLUSTERS / GARDENS ====
+const TREE_CLUSTERS = [
+  { points: [[1115, 690], [1255, 860], [1080, 930]], count: 20, scale: 0.52 },
+  { points: [[1135, 930], [1250, 990], [1160, 1080]], count: 12, scale: 0.50 },
+  { points: [[300, 1130], [405, 1230], [330, 1320]], count: 14, scale: 0.50 },
+  { points: [[365, 1375], [470, 1480], [420, 1588]], count: 14, scale: 0.50 },
+  { points: [[905, 865], [970, 905], [915, 970]], count: 10, scale: 0.50 }
+];
+
+// ==== CENTRAL LANDSCAPE ====
+addRingTrees(1038, 835, 22, 10, 0.54);
+addRingTrees(965, 875, 16, 8, 0.50);
+
+TREE_LINES.forEach(([a, b, count, scale, jitter]) => {
+  addTreeLine(a, b, count, scale, jitter);
+});
+
+TREE_CLUSTERS.forEach(item => {
+  addTreeCluster(item.points, item.count, item.scale);
+});
 
 // Views
 function tween(pos,tgt){
@@ -221,12 +301,23 @@ function tween(pos,tgt){
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),bp=document.getElementById('bp');
-v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');tween(new THREE.Vector3(190,185,230),new THREE.Vector3(0,0,3))};
-vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
+v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');blueprintMat.opacity=.82;tween(new THREE.Vector3(190,185,230),new THREE.Vector3(0,0,3))};
+vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,360,.1),new THREE.Vector3(0,0,0))};
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
 document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';v3.click()};
+
+let treeVisibilityState=true;
+function updateTreeVisibility(){
+  const d=camera.position.distanceTo(controls.target);
+  const show=d<420;
+  if(show===treeVisibilityState) return;
+  treeVisibilityState=show;
+  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show;});
+}
+controls.addEventListener('change',updateTreeVisibility);
+updateTreeVisibility();
 
 (function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)})();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
