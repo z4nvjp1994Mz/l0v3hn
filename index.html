@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V51 SMOOTH ROAD EDGES</small>
+  <small>GitHub → Netlify · BUILD V52 FULL-RES ROAD MASK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V51 giữ trục đường của V50 nhưng sửa biên nham nhở: morphology vuông được thay bằng kernel tròn, sau đó road/curb/sidewalk được làm mượt bằng majority filter nhiều lượt để tạo mép cong và cạnh liền mạch hơn.</p>
+  <p>Bản V52 bỏ cách dựng medial-axis gây mép nham nhở. Lòng đường dùng trực tiếp mask road đã flood-fill từ masterplan ở full resolution; curb và sidewalk chỉ là các dải mỏng sinh ra bên ngoài mép đường.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V51 smooth roads</b><span>rounded morphology + anti-jagged edges</span></div>
+    <div class="stat"><b>V52 full-res roads</b><span>exact road mask + edge bands</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V51: smoothed medial roads + rounded curb/sidewalk</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V52: exact full-res road mask + clean edge bands</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -208,7 +208,7 @@ bpImg.onload=()=>{
     const roofData=window.__DA_LOC_ROOFS;
     if(!roofData){ setTimeout(buildPixelLockedRoadSurface,40); return; }
 
-    const DS=2;
+    const DS=1;
     const mw=Math.floor(c.width/DS), mh=Math.floor(c.height/DS);
     const mc=document.createElement('canvas'); mc.width=mw; mc.height=mh;
     const mctx=mc.getContext('2d',{willReadFrequently:true});
@@ -411,97 +411,38 @@ bpImg.onload=()=>{
       return out;
     };
 
-    // keep = the connected circulation zone from the masterplan.
-    // V50: derive a MEDIAL road network instead of treating the whole zone as asphalt.
-    // First compute a chamfer distance transform to the nearest circulation edge.
+    // V52: keep is already the connected road-surface segmentation from the blueprint.
+    // Do NOT skeletonize it; that was the source of the jagged / incorrect geometry.
+    const roadMask=keep;
+
+    // Build curb + sidewalk strictly OUTSIDE the exact road mask using a chamfer distance field.
     const INF=1<<28;
-    const dist=new Int32Array(keep.length);
-    for(let i=0;i<keep.length;i++) dist[i]=keep[i]?INF:0;
-
-    // forward pass
-    for(let y=0;y<mh;y++){
-      for(let x=0;x<mw;x++){
-        const i=y*mw+x;
-        if(!keep[i]) continue;
-        let d=dist[i];
-        if(x>0) d=Math.min(d,dist[i-1]+3);
-        if(y>0) d=Math.min(d,dist[i-mw]+3);
-        if(x>0&&y>0) d=Math.min(d,dist[i-mw-1]+4);
-        if(x<mw-1&&y>0) d=Math.min(d,dist[i-mw+1]+4);
-        dist[i]=d;
-      }
+    const edgeDist=new Int32Array(roadMask.length);
+    for(let i=0;i<roadMask.length;i++) edgeDist[i]=roadMask[i]?0:INF;
+    for(let y=0;y<mh;y++)for(let x=0;x<mw;x++){
+      const i=y*mw+x; let d=edgeDist[i];
+      if(x>0)d=Math.min(d,edgeDist[i-1]+3);
+      if(y>0)d=Math.min(d,edgeDist[i-mw]+3);
+      if(x>0&&y>0)d=Math.min(d,edgeDist[i-mw-1]+4);
+      if(x<mw-1&&y>0)d=Math.min(d,edgeDist[i-mw+1]+4);
+      edgeDist[i]=d;
     }
-    // backward pass
-    for(let y=mh-1;y>=0;y--){
-      for(let x=mw-1;x>=0;x--){
-        const i=y*mw+x;
-        if(!keep[i]) continue;
-        let d=dist[i];
-        if(x<mw-1) d=Math.min(d,dist[i+1]+3);
-        if(y<mh-1) d=Math.min(d,dist[i+mw]+3);
-        if(x<mw-1&&y<mh-1) d=Math.min(d,dist[i+mw+1]+4);
-        if(x>0&&y<mh-1) d=Math.min(d,dist[i+mw-1]+4);
-        dist[i]=d;
-      }
+    for(let y=mh-1;y>=0;y--)for(let x=mw-1;x>=0;x--){
+      const i=y*mw+x; let d=edgeDist[i];
+      if(x<mw-1)d=Math.min(d,edgeDist[i+1]+3);
+      if(y<mh-1)d=Math.min(d,edgeDist[i+mw]+3);
+      if(x<mw-1&&y<mh-1)d=Math.min(d,edgeDist[i+mw+1]+4);
+      if(x>0&&y<mh-1)d=Math.min(d,edgeDist[i+mw-1]+4);
+      edgeDist[i]=d;
     }
-
-    // Ridge pixels approximate the centerline / medial axis of each paved corridor.
-    const skeleton=new Uint8Array(keep.length);
-    for(let y=1;y<mh-1;y++){
-      for(let x=1;x<mw-1;x++){
-        const i=y*mw+x;
-        if(!keep[i] || dist[i]<10) continue; // ignore very thin/noisy circulation fragments
-        const d=dist[i];
-        const horiz=d>=dist[i-1]&&d>=dist[i+1];
-        const vert=d>=dist[i-mw]&&d>=dist[i+mw];
-        const diag1=d>=dist[i-mw-1]&&d>=dist[i+mw+1];
-        const diag2=d>=dist[i-mw+1]&&d>=dist[i+mw-1];
-        if((horiz&&vert)||(horiz&&diag1)||(horiz&&diag2)||(vert&&diag1)||(vert&&diag2)){
-          skeleton[i]=1;
-        }
-      }
+    const curbMask=new Uint8Array(roadMask.length);
+    const sidewalkMask=new Uint8Array(roadMask.length);
+    for(let i=0;i<roadMask.length;i++){
+      if(roadMask[i]) continue;
+      const d=edgeDist[i];
+      if(d<=9) curbMask[i]=1;          // ~3 px curb band
+      else if(d<=30) sidewalkMask[i]=1; // ~7 px sidewalk band
     }
-
-    // Clean isolated skeleton speckles.
-    const skelClean=new Uint8Array(skeleton.length);
-    for(let y=1;y<mh-1;y++){
-      for(let x=1;x<mw-1;x++){
-        const i=y*mw+x;if(!skeleton[i])continue;
-        let n=0;
-        for(let yy=y-1;yy<=y+1;yy++)for(let xx=x-1;xx<=x+1;xx++){
-          if(xx===x&&yy===y)continue;
-          if(skeleton[yy*mw+xx])n++;
-        }
-        if(n>=1) skelClean[i]=1;
-      }
-    }
-
-    // At DS=2 and S=.782 m/source-px:
-    // ROAD_RADIUS=6 -> ~9.4 m from centreline (~18.8 m total carriageway)
-    // CURB_RADIUS=1 -> ~1.6 m transition band
-    // SIDEWALK_RADIUS=4 -> ~6.3 m outer pedestrian/service edge
-    const ROAD_RADIUS=6;
-    const CURB_RADIUS=1;
-    const SIDEWALK_RADIUS=4;
-
-    const rawRoad=dilateMask(skelClean,ROAD_RADIUS);
-    const roadClipped=new Uint8Array(keep.length);
-    for(let i=0;i<keep.length;i++) roadClipped[i]=(rawRoad[i]&&keep[i])?1:0;
-    const roadMask=smoothBinaryMask(roadClipped,2,.46,3);
-
-    const roadPlusCurbRaw=dilateMask(roadMask,CURB_RADIUS);
-    const roadPlusCurbClipped=new Uint8Array(keep.length);
-    for(let i=0;i<keep.length;i++) roadPlusCurbClipped[i]=(roadPlusCurbRaw[i]&&keep[i])?1:0;
-    const roadPlusCurb=smoothBinaryMask(roadPlusCurbClipped,1,.45,2);
-
-    const walkOuterRaw=dilateMask(roadPlusCurb,SIDEWALK_RADIUS);
-    const walkOuterClipped=new Uint8Array(keep.length);
-    for(let i=0;i<keep.length;i++) walkOuterClipped[i]=(walkOuterRaw[i]&&keep[i])?1:0;
-    const walkOuter=smoothBinaryMask(walkOuterClipped,2,.46,2);
-
-    const curbMask=subtractMask(roadPlusCurb,roadMask);
-    const sidewalkMask=subtractMask(walkOuter,roadPlusCurb);
-
     const makeMaskTexture=(arr,softRadius=1)=>{
       const cc=document.createElement('canvas');
       cc.width=mw;cc.height=mh;
@@ -532,9 +473,9 @@ bpImg.onload=()=>{
       return tex;
     };
 
-    const roadMaskTex=makeMaskTexture(roadMask,2);
+    const roadMaskTex=makeMaskTexture(roadMask,1);
     const curbMaskTex=makeMaskTexture(curbMask,1);
-    const sidewalkMaskTex=makeMaskTexture(sidewalkMask,2);
+    const sidewalkMaskTex=makeMaskTexture(sidewalkMask,1);
 
     // ---------- procedural asphalt ----------
     const TILE=512;
@@ -671,7 +612,7 @@ bpImg.onload=()=>{
     addMaskedPlane('ROAD_SIDEWALK',sidewalkMat,.180,3);
     addMaskedPlane('ROAD_CURB',curbMat,.240,4);
 
-    coordBadge.textContent='COORD LOCK + SMOOTH ROAD / CURB / SIDEWALK';
+    coordBadge.textContent='COORD LOCK + FULL-RES ROAD / CURB / SIDEWALK';
   };
   setTimeout(buildPixelLockedRoadSurface,0);
 
