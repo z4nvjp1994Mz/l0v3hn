@@ -219,64 +219,134 @@ export async function installSecondaryRoadsV60({
   root.userData={version:60,siteFrameSignature:frameSignature,lines:masks.snapped.length};
   world.add(root);
 
-  const center=mapPx(IMG_W/2,IMG_H/2),planeW=IMG_W*metersPerPixel,planeH=IMG_H*metersPerPixel;
-
-  const curbMat=new THREE.MeshStandardMaterial({
-    alphaMap:alphaTexture(masks.outer,renderer),transparent:true,alphaTest:.20,
-    color:0xbfc0b9,roughness:.98,metalness:0,depthWrite:true
-  });
-  const curb=new THREE.Mesh(new THREE.PlaneGeometry(planeW,planeH),curbMat);
-  curb.rotation.x=-Math.PI/2;curb.position.set(center.x,.245,center.z);
-  curb.name='V60_SECONDARY_CURB_BAND';curb.receiveShadow=true;root.add(curb);
-
+  // V60.3: render REAL geometry instead of one full-sheet plane + alpha mask.
+  // This guarantees the Secondary roads toggle changes actual meshes in the scene.
+  const concreteTex=makeConcreteTexture(renderer);
+  concreteTex.repeat.set(3,3);
   const roadMat=new THREE.MeshStandardMaterial({
-    map:makeConcreteTexture(renderer),alphaMap:alphaTexture(masks.inner,renderer),
-    transparent:true,alphaTest:.20,color:0xd4d1c8,roughness:.97,metalness:0,depthWrite:true
+    map:concreteTex,
+    color:0xc9c7bf,
+    roughness:.96,
+    metalness:0
   });
-  const road=new THREE.Mesh(new THREE.PlaneGeometry(planeW,planeH),roadMat);
-  road.rotation.x=-Math.PI/2;road.position.set(center.x,.285,center.z);
-  road.name='V60_NARROW_SECONDARY_CONCRETE';road.receiveShadow=true;
-  road.userData={walkable:true,driveable:true,siteFrameSignature:frameSignature};
-  root.add(road);
+  const curbMat=new THREE.MeshStandardMaterial({
+    color:0xb0b2ad,
+    roughness:.94,
+    metalness:0
+  });
 
+  const roadMeshes=[];
+  const curbMeshes=[];
+  const jointMeshes=[];
+
+  function addRaisedStrip(pointsPx,widthPx){
+    if(!pointsPx||pointsPx.length<2)return;
+    const widthM=Math.max(4.8,widthPx*metersPerPixel);
+    const curbW=.24;
+    const yRoad=.30;
+    const yCurb=.37;
+
+    for(let i=1;i<pointsPx.length;i++){
+      const a=mapPx(pointsPx[i-1][0],pointsPx[i-1][1]);
+      const b=mapPx(pointsPx[i][0],pointsPx[i][1]);
+      const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
+      if(len<.15)continue;
+
+      const mx=(a.x+b.x)/2,mz=(a.z+b.z)/2;
+      const rot=Math.atan2(dx,dz);
+
+      const road=new THREE.Mesh(
+        new THREE.BoxGeometry(widthM,.10,len+.10),
+        roadMat
+      );
+      road.position.set(mx,yRoad,mz);
+      road.rotation.y=rot;
+      road.receiveShadow=true;
+      road.name='V60_SECONDARY_ROAD_SEGMENT';
+      road.userData={walkable:true,driveable:true,siteFrameSignature:frameSignature};
+      root.add(road);
+      roadMeshes.push(road);
+
+      const nx=-dz/len,nz=dx/len;
+      for(const side of [-1,1]){
+        const curb=new THREE.Mesh(
+          new THREE.BoxGeometry(curbW,.16,len+.14),
+          curbMat
+        );
+        const off=side*(widthM/2+curbW/2);
+        curb.position.set(mx+nx*off,yCurb,mz+nz*off);
+        curb.rotation.y=rot;
+        curb.castShadow=true;
+        curb.receiveShadow=true;
+        curb.name='V60_SECONDARY_CURB';
+        root.add(curb);
+        curbMeshes.push(curb);
+      }
+    }
+
+    // Small raised pads at polyline joints remove visible gaps at bends.
+    for(let i=1;i<pointsPx.length-1;i++){
+      const p=mapPx(pointsPx[i][0],pointsPx[i][1]);
+      const j=new THREE.Mesh(
+        new THREE.CylinderGeometry(widthM/2,widthM/2,.10,16),
+        roadMat
+      );
+      j.position.set(p.x,yRoad,p.z);
+      j.receiveShadow=true;
+      j.name='V60_SECONDARY_JOINT';
+      root.add(j);
+      jointMeshes.push(j);
+    }
+  }
+
+  for(const s of masks.snapped)addRaisedStrip(s.pts,s.widthPx);
+
+  // Keep the source-derived mask only for diagnostics/comparison; it is no longer
+  // responsible for drawing the visible road surface.
+  const originalBlueprintAlphaMap=blueprintMat?.alphaMap||null;
+  const blueprintCutoutCanvas=makeBlueprintCutoutMask(masks.outer);
+  const blueprintCutoutTex=alphaTexture(blueprintCutoutCanvas,renderer);
   for(const oldName of ['SECONDARY_ROADS_V58','SECONDARY_ROADS_V59_SOURCE_DERIVED']){
     const old=world.getObjectByName(oldName);if(old)old.visible=false;
   }
   document.getElementById('secondaryRoadsV58')?.remove();
   document.getElementById('secondaryRoadsV59')?.remove();
 
-  const originalBlueprintAlphaMap=blueprintMat?.alphaMap||null;
-  const blueprintCutoutCanvas=makeBlueprintCutoutMask(masks.outer);
-  const blueprintCutoutTex=alphaTexture(blueprintCutoutCanvas,renderer);
-
-  // Keep the corresponding 2D road pixels cut out all the time.
-  // Otherwise OFF would simply reveal the identical road already printed in the
-  // blueprint, making the toggle appear broken even though the 3D mesh is hidden.
-  if(blueprintMat){
-    blueprintMat.alphaMap=blueprintCutoutTex;
-    blueprintMat.alphaTest=.01;
-    blueprintMat.needsUpdate=true;
+  // Do not permanently alter the blueprint in normal mode. The 3D road layer now
+  // has real raised geometry, so ON/OFF is visible without punching holes in the map.
+  let enabled=true;
+  let stateBadge=document.getElementById('secondaryRoadState');
+  if(!stateBadge){
+    stateBadge=document.createElement('div');
+    stateBadge.id='secondaryRoadState';
+    Object.assign(stateBadge.style,{
+      position:'fixed',left:'16px',bottom:'82px',zIndex:'25',
+      padding:'7px 10px',borderRadius:'9px',
+      font:'700 10px Arial',
+      background:'rgba(7,18,12,.82)',color:'#bfe7cd',
+      border:'1px solid rgba(255,255,255,.12)',
+      pointerEvents:'none'
+    });
+    document.body.appendChild(stateBadge);
   }
 
-  let enabled=true;
   const setEnabled=(on)=>{
     enabled=!!on;
-
-    // This is the single source of truth for visibility.
-    // OFF must physically remove the secondary-road group from the rendered scene.
     root.visible=enabled;
+
+    // Explicitly sync every road object too. This is redundant with root.visible,
+    // but prevents any later scene utility from leaving child meshes visible.
+    for(const m of [...roadMeshes,...curbMeshes,...jointMeshes])m.visible=enabled;
 
     button.classList.toggle('active',enabled);
     button.textContent='Secondary roads: '+(enabled?'On':'Off');
     button.setAttribute('aria-pressed',enabled?'true':'false');
-    button.title=enabled
-      ? '3D secondary roads are visible'
-      : '3D secondary roads are hidden; the blueprint road pixels remain cut out for comparison';
+    button.title=enabled?'3D secondary roads visible':'3D secondary roads hidden';
+    stateBadge.textContent='SECONDARY ROAD LAYER: '+(enabled?'VISIBLE':'HIDDEN')+
+      ' · '+roadMeshes.length+' road segments · '+curbMeshes.length+' curbs';
 
-    // Force an immediate material refresh so the state change is obvious
-    // even before the next OrbitControls event.
-    curbMat.needsUpdate=true;
-    roadMat.needsUpdate=true;
+    // Force an immediate redraw instead of waiting for camera movement.
+    renderer.render(world.parent||world,camera);
   };
 
   const button=document.createElement('button');
@@ -287,7 +357,7 @@ export async function installSecondaryRoadsV60({
 
   window.__DALOC_V60={
     ready:true,version:60,frameSignature,lines:masks.snapped.length,
-    source:'masterplan-hires.jpg',mode:'source-snapped narrow centerline roads',
+    source:'masterplan-hires.jpg',mode:'source-snapped explicit raised geometry',
     setEnabled,
     restoreBlueprintRoads(){
       if(blueprintMat){
