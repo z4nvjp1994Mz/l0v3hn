@@ -758,8 +758,8 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Mast arm reaches inward from the sidewalk/green verge over the nearest lane.
     // Because local +X is travel-right, negative X points back toward the roadway.
-    // V110 hotfix: V109 removed sidewalkAndVerge but this old arm formula still
-    // referenced it, throwing ReferenceError and aborting the whole traffic bootstrap.
+    // V110 hotfix: remove the stale deleted-variable reference that was throwing
+    // ReferenceError and aborting the whole traffic bootstrap.
     const armReach=Math.min(5.2,Math.max(3.8,cornerClearance+1.55));
     const arm=new THREE.Mesh(signalGeo.arm,poleMat);
     arm.scale.x=armReach;
