@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V69 VERIFIED FRONTAGE ROADS</small>
+  <small>GitHub → Netlify · BUILD V70 CAD-LOCKED HYBRID</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V69 bỏ cách quét cả bốn phía từng nhà xưởng vì nó sinh ra các dải bê tông giả. Mỗi block giờ chỉ giữ một tuyến frontage đúng phía, thu hẹp đúng cấp đường con và chỉ thêm collector/feeder khi pixel nguồn 2D xác nhận có đường. Các điểm nối với đường lớn cũng tự dọn cây/bụi khỏi hành lang giao cắt.</p>
+  <p>V70 chuyển hẳn sang CAD-LOCKED HYBRID: file DXF khóa hệ tọa độ đường chính và nút giao; các đường con được xử lý một lần rồi đóng băng thành vector trong cùng hệ 1616×2048. Runtime không còn quét màu hay tự đoán offset.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V69 verified frontage</b><span>explicit raised concrete + curbs</span></div>
+    <div class="stat"><b>V70 CAD-locked hybrid</b><span>explicit raised concrete + curbs</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V69: one verified frontage per block, narrow service roads, source-checked collectors/feeders</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V70: DXF coordinate lock + frozen masterplan service-road vectors · no runtime guessing</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installSecondaryRoadsV69 } from './assets/secondary-roads-v69.js?v=69';
+import { installCadHybridV70 } from './assets/cad-hybrid-v70.js?v=70';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1139,33 +1139,31 @@ roofs.forEach((r,idx)=>{
 // V53: install after shared resources. Failure cannot stop the existing render loop.
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
  .then(()=>{
-   coordBadge.textContent='V53 roads ready · snapping V60 narrow secondary roads to 2D masterplan…';
-   return installSecondaryRoadsV69({
+   coordBadge.textContent='V53 main roads ready · loading V70 CAD-locked service-road vectors…';
+   return installCadHybridV70({
      world,
-     roofs,
      mapPx,
      metersPerPixel:S,
      frameSignature:SITE_FRAME_SIGNATURE,
-     renderer,
-     blueprintMat
+     renderer
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V69 verified frontage network ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
+   coordBadge.textContent='V70 CAD lock ready · '+(secondaryResult?.lines||0)+' frozen road segments · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>{
-     window.__DALOC_V69?.clearVegetation?.();
+     window.__DALOC_V70?.clearVegetation?.();
      return {secondaryResult,detailResult};
    });
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V69 ready · one-frontage verified road network · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V70 ready · CAD-locked + frozen vectors · '+(secondaryResult?.lines||0)+' road segments · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V69 detail warning: '+error.message;
+   coordBadge.textContent='V70 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1182,7 +1180,7 @@ vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.clas
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V69?.setEnabled?.(true);v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V70?.setEnabled?.(true);window.__DALOC_V70?.showCad?.(false);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
