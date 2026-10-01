@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V59 SOURCE-DERIVED SECONDARY ROADS</small>
+  <small>GitHub → Netlify · BUILD V60 NARROW SOURCE-SNAPPED ROADS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V59 không còn tự vẽ đường con bằng các đoạn hình học ước lượng. Hệ thống đọc trực tiếp masterplan 2D, dùng các tuyến V58 chỉ làm điểm dò, sau đó bám vào đúng vùng bê tông/xám liên thông của bản vẽ gốc để tạo mặt đường con 3D.</p>
+  <p>V60 bỏ hoàn toàn cách flood-fill khiến bê tông phủ kín quanh nhà xưởng. Mỗi đường con chỉ còn là một dải hẹp: topology V58 dùng làm mốc thô, sau đó centerline được dò và snap theo masterplan 2D, rồi mới phủ vật liệu bê tông + mép curb.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V59 source roads</b><span>derived from actual 2D concrete pixels</span></div>
+    <div class="stat"><b>V60 narrow roads</b><span>source-snapped centerlines + curb</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V59: secondary roads are source-derived from the actual 2D concrete network</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V60: narrow secondary roads snapped to the 2D masterplan — no parcel flood-fill</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installSecondaryRoadsV59 } from './assets/secondary-roads-v59.js';
+import { installSecondaryRoadsV60 } from './assets/secondary-roads-v60.js';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1139,8 +1139,8 @@ roofs.forEach((r,idx)=>{
 // V53: install after shared resources. Failure cannot stop the existing render loop.
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
  .then(()=>{
-   coordBadge.textContent='V53 roads ready · deriving V59 secondary roads from 2D masterplan…';
-   return installSecondaryRoadsV59({
+   coordBadge.textContent='V53 roads ready · snapping V60 narrow secondary roads to 2D masterplan…';
+   return installSecondaryRoadsV60({
      world,
      roofs,
      mapPx,
@@ -1150,18 +1150,18 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V59 source roads ready · '+(secondaryResult?.pixelCount||0)+' matched pixels · installing V54 detail…';
+   coordBadge.textContent='V60 narrow source-snapped roads ready · '+(secondaryResult?.pixelCount||0)+' matched pixels · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>({secondaryResult,detailResult}));
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V59 ready · source-derived secondary roads · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V60 ready · narrow source-snapped secondary roads · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V59 detail warning: '+error.message;
+   coordBadge.textContent='V60 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
