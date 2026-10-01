@@ -18,29 +18,73 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
   const group=new THREE.Group(); group.name='CIRCULATION_V53'; group.userData.source=data.source;
   const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  // V104 lightweight diorama surface library. These textures are generated once
+  // at startup, tiled by UV, and add zero post-processing cost per frame.
   function texture(kind){
-    const c=document.createElement('canvas');c.width=c.height=256;
-    const ctx=c.getContext('2d'),img=ctx.createImageData(256,256);
-    for(let y=0;y<256;y++)for(let x=0;x<256;x++){
-      let h=Math.imul(x+13,374761393)^Math.imul(y+71,668265263);h=Math.imul(h^(h>>>13),1274126177);
-      const noise=((h^(h>>>16))>>>0)/4294967295-.5,k=(y*256+x)*4;let rgb;
-      if(kind==='asphalt')rgb=[108+noise*12,113+noise*12,112+noise*12];
-      else if(kind==='height')rgb=[128+noise*45,128+noise*45,128+noise*45];
-      else if(kind==='grass')rgb=[92+noise*13,137+noise*17,72+noise*10];
-      else rgb=x%64<2||y%64<2?[170,173,167]:[199+noise*5,200+noise*5,192+noise*5];
-      img.data[k]=rgb[0];img.data[k+1]=rgb[1];img.data[k+2]=rgb[2];img.data[k+3]=255;
+    const size=256;
+    const c=document.createElement('canvas');c.width=c.height=size;
+    const ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+    const hash=(x,y)=>{
+      let h=Math.imul(x+13,374761393)^Math.imul(y+71,668265263);
+      h=Math.imul(h^(h>>>13),1274126177);
+      return ((h^(h>>>16))>>>0)/4294967295;
+    };
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const n=hash(x,y)-.5;
+      const fine=hash(x*7+19,y*11+31)-.5;
+      const k=(y*size+x)*4;
+      let r,g,b;
+
+      if(kind==='asphalt'||kind==='asphaltHeight'){
+        // Fine aggregate + faint rolling tonal variation. No large visible repeat.
+        const coarse=Math.sin(x*.031)+Math.cos(y*.027)+Math.sin((x+y)*.017);
+        const speck=(hash(x*17,y*23)>.965)?-18:0;
+        const v=n*11+fine*6+coarse*1.7+speck;
+        if(kind==='asphaltHeight')r=g=b=128+v*2.3;
+        else {r=91+v;g=96+v;b=95+v;}
+      }else if(kind==='grass'){
+        const wave=Math.sin(x*.047)+Math.cos(y*.039);
+        r=90+n*12+wave*2;g=137+n*17+wave*3;b=72+n*10+wave*1.5;
+      }else{
+        // Staggered 0.8 x 0.4 m concrete pavers with darker recessed joints.
+        const tileW=64,tileH=32;
+        const row=Math.floor(y/tileH);
+        const xx=(x+(row%2)*tileW/2)%tileW;
+        const yy=y%tileH;
+        const joint=xx<2||xx>tileW-3||yy<2||yy>tileH-3;
+        const tileTone=((Math.floor((x+(row%2)*tileW/2)/tileW)+row)%4-1.5)*2.2;
+        if(kind==='paverHeight'){
+          r=g=b=joint?92:148+n*9;
+        }else{
+          const base=joint?164:202+tileTone+n*6;
+          r=base+1;g=base;b=base-4;
+        }
+      }
+      img.data[k]=Math.max(0,Math.min(255,r));
+      img.data[k+1]=Math.max(0,Math.min(255,g));
+      img.data[k+2]=Math.max(0,Math.min(255,b));
+      img.data[k+3]=255;
     }
-    ctx.putImageData(img,0,0);const tex=new THREE.CanvasTexture(c);
-    tex.colorSpace=kind==='height'?THREE.NoColorSpace:THREE.SRGBColorSpace;
-    tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=anisotropy;return tex;
+    ctx.putImageData(img,0,0);
+    const tex=new THREE.CanvasTexture(c);
+    tex.colorSpace=(kind==='asphaltHeight'||kind==='paverHeight')?THREE.NoColorSpace:THREE.SRGBColorSpace;
+    tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+    tex.anisotropy=anisotropy;
+    return tex;
   }
   const materials={
-    carriageway:new THREE.MeshStandardMaterial({map:texture('asphalt'),bumpMap:texture('height'),bumpScale:.005,roughness:.97}),
-    curb:new THREE.MeshStandardMaterial({color:0xbfc2b8,roughness:.95}),
-    sidewalk:new THREE.MeshStandardMaterial({map:texture('pavers'),roughness:.96}),
+    carriageway:new THREE.MeshStandardMaterial({
+      map:texture('asphalt'),bumpMap:texture('asphaltHeight'),bumpScale:.018,
+      color:0xffffff,roughness:.93,metalness:.015
+    }),
+    curb:new THREE.MeshStandardMaterial({color:0xc7c8c2,roughness:.90}),
+    sidewalk:new THREE.MeshStandardMaterial({
+      map:texture('pavers'),bumpMap:texture('paverHeight'),bumpScale:.022,
+      color:0xffffff,roughness:.90
+    }),
     greenbelt:new THREE.MeshStandardMaterial({map:texture('grass'),roughness:1})
   };
-  const specs={carriageway:[0,.10,2],curb:[0,.28,2],sidewalk:[.10,.13,1.6],greenbelt:[0,.14,2]};
+  const specs={carriageway:[0,.10,2.5],curb:[0,.28,2],sidewalk:[.10,.13,1.35],greenbelt:[0,.14,2]};
 
   // V76: cut grass at CAD-verified access openings. No overlay mesh is created.
   // The greenbelt shader discards only fragments inside CAD opening rectangles,
@@ -182,7 +226,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:91,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,
+  window.__DALOC_V53={ready:true,version:104,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
