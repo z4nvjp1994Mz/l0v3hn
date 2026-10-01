@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V97 RED BLOOM PARK</small>
+  <small>GitHub → Netlify · BUILD V98 ROAD + BOUNDARY SAFETY</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V97 giữ toàn bộ V96 và tái thiết công viên theo bản minh họa: hoa đỏ/crimson chiếm chủ đạo, tạo dải hoa vòng cung và nan quạt dày đặc quanh quảng trường tròn, hoa trắng/hồng chỉ làm điểm nhấn.</p>
+  <p>V98 giữ toàn bộ V97, dọn sạch cây/shrub khỏi mặt đường và tâm ngã tư CAD, đồng thời đẩy các footprint nhà xưởng/phụ trợ đang lấn ranh đỏ vào hoàn toàn bên trong ranh giới dự án.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -54,6 +54,7 @@ import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=91';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=97';
+import { installSiteSafetyV98 } from './assets/site-safety-v98.js?v=98';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
@@ -1260,9 +1261,29 @@ installCirculationV53({
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
 
-     // Install V84 interiors only after the first render path is already alive.
-     // A failure here must never blank the whole project again.
-     return Promise.resolve()
+     // V98 runs after CAD + V53/V54 geometry exists, but before interiors/pedestrian
+     // portals are generated, so any boundary-corrected factory position propagates
+     // safely into all later detail systems.
+     return installSiteSafetyV98({
+       world,
+       buildings,
+       roofRecords:roofs,
+       supportGroup:verifiedSupportGroup,
+       mapPx,
+       metersPerPixel:S,
+       frameSignature:SITE_FRAME_SIGNATURE
+     })
+     .catch(error=>{
+       console.error('[DaLoc] V98 site safety fallback',error);
+       return {
+         ready:false,version:98,movedMain:[],movedSupport:[],
+         hiddenTreeGroups:0,hiddenSemanticPlants:0,clearedInstances:0,junctionCount:0,error
+       };
+     })
+     .then(safetyResult=>{
+       // Install V84 interiors only after the first render path is already alive.
+       // A failure here must never blank the whole project again.
+       return Promise.resolve()
        .then(()=>installFactoryInteriorsV84({world,buildings}))
        .then(interiorResult=>{
          factoryInteriorsV84=interiorResult;
@@ -1336,21 +1357,22 @@ installCirculationV53({
            .then(gateResult=>{
              v93GateResult=gateResult;
              v93GateGroup=gateResult?.group||null;
-             return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult};
+             return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult,safetyResult};
            });
          });
        });
      });
+     });
    });
  })
- .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult})=>{
+ .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult,safetyResult})=>{
    const st=detailResult?.stats||{};
    const v53Asphalt=world.getObjectByName('V53_CARRIAGEWAY');
    if(v53Asphalt){
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V97 ready · red-bloom ornamental park · corrected pond promenade · '+pondFishV82.fishCount+' pond fish · '+solarRoofV94.factoryCount+' solar-roof factories · '+(gateResult?.gateCount||0)+' gates · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V98 ready · '+(safetyResult?.hiddenTreeGroups||0)+' road trees cleared · '+(safetyResult?.clearedInstances||0)+' road/junction instances cleared · '+((safetyResult?.movedMain?.length||0)+(safetyResult?.movedSupport?.length||0))+' boundary buildings corrected · '+pondFishV82.fishCount+' pond fish · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1375,7 +1397,7 @@ installCirculationV53({
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
-     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn&&!o.userData?.hiddenByCadAccess&&!o.userData?.hiddenByGateV93&&!o.userData?.hiddenByMainGateV92;});
+     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn&&!o.userData?.hiddenByCadAccess&&!o.userData?.hiddenByGateV93&&!o.userData?.hiddenByMainGateV92&&!o.userData?.hiddenByRoadV98;});
      envButton.classList.toggle('active',envOn);
      envButton.textContent='3D Environment: '+(envOn?'On':'Off');
    };
@@ -1446,7 +1468,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V97 red-bloom park warning: '+error.message;
+   coordBadge.textContent='V98 road/boundary safety warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1472,7 +1494,7 @@ function updateTreeVisibility(){
   const show=d<2400;
   if(show===treeVisibilityState) return;
   treeVisibilityState=show;
-  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show&&!obj.userData?.hiddenByCadAccess&&!obj.userData?.hiddenByMainGateV92;});
+  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show&&!obj.userData?.hiddenByCadAccess&&!obj.userData?.hiddenByMainGateV92&&!obj.userData?.hiddenByGateV93&&!obj.userData?.hiddenByRoadV98;});
 }
 controls.addEventListener('change',updateTreeVisibility);
 updateTreeVisibility();
