@@ -1188,21 +1188,6 @@
       "widthPx": 7
     },
     {
-      "id": "CENTER_3_X1",
-      "kind": "crosslink",
-      "pointsPx": [
-        [
-          779.3,
-          1017.6
-        ],
-        [
-          779,
-          1017.9
-        ]
-      ],
-      "widthPx": 7
-    },
-    {
       "id": "CENTER_3_X2",
       "kind": "crosslink",
       "pointsPx": [
