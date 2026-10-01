@@ -20,7 +20,7 @@ export async function installCadSourceV72({
   const root=new THREE.Group();
   root.name='CAD_SOURCE_V72';
   root.userData={
-    version:72,
+    version:104,
     source:data.source,
     edgeLayer:data.edgeLayer,
     boundaryLayer:data.boundaryLayer,
@@ -46,8 +46,41 @@ export async function installCadSourceV72({
   boundaryGroup.name='V72_CAD_SITE_BOUNDARY';
   root.add(boundaryGroup);
 
-  const roadMat=new THREE.MeshStandardMaterial({color:0x727777,roughness:.98,metalness:0});
-  const junctionMat=new THREE.MeshStandardMaterial({color:0x757a7a,roughness:.98,metalness:0});
+  // V104 visible CAD-road material. Exact CAD geometry is untouched; only the
+  // shared material gets richer aggregate/bump detail generated once at startup.
+  function makeRoadTexture(height=false){
+    const size=256,c=document.createElement('canvas');c.width=c.height=size;
+    const ctx=c.getContext('2d'),img=ctx.createImageData(size,size);
+    const hash=(x,y)=>{
+      let h=Math.imul(x+17,374761393)^Math.imul(y+29,668265263);
+      h=Math.imul(h^(h>>>13),1274126177);
+      return ((h^(h>>>16))>>>0)/4294967295;
+    };
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const k=(y*size+x)*4,n=hash(x,y)-.5,f=hash(x*13+7,y*19+11)-.5;
+      const band=(Math.sin(x*.029)+Math.cos(y*.033)+Math.sin((x+y)*.015))*1.6;
+      const speck=hash(x*31,y*37)>.972?-16:0;
+      const v=n*10+f*5+band+speck;
+      const base=height?128:92;
+      img.data[k]=img.data[k+1]=img.data[k+2]=Math.max(0,Math.min(255,base+(height?v*2.2:v)));
+      if(!height){img.data[k+1]+=4;img.data[k+2]+=3;}
+      img.data[k+3]=255;
+    }
+    ctx.putImageData(img,0,0);
+    const tex=new THREE.CanvasTexture(c);
+    tex.colorSpace=height?THREE.NoColorSpace:THREE.SRGBColorSpace;
+    tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+    tex.repeat.set(7,7);
+    tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    return tex;
+  }
+  const cadRoadColor=makeRoadTexture(false);
+  const cadRoadBump=makeRoadTexture(true);
+  const roadMat=new THREE.MeshStandardMaterial({
+    map:cadRoadColor,bumpMap:cadRoadBump,bumpScale:.018,
+    color:0xffffff,roughness:.93,metalness:.012
+  });
+  const junctionMat=roadMat.clone();
   const edgeMat=new THREE.LineBasicMaterial({color:0x00d9a1,transparent:true,opacity:.95,depthTest:false});
   const boundaryMat=new THREE.LineBasicMaterial({color:0xe05b5b,transparent:true,opacity:.92,depthTest:false});
 
