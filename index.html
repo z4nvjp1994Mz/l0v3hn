@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V60 NARROW SOURCE-SNAPPED ROADS</small>
+  <small>GitHub → Netlify · BUILD V60.1 SECONDARY TOGGLE FIX</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V60 bỏ hoàn toàn cách flood-fill khiến bê tông phủ kín quanh nhà xưởng. Mỗi đường con chỉ còn là một dải hẹp: topology V58 dùng làm mốc thô, sau đó centerline được dò và snap theo masterplan 2D, rồi mới phủ vật liệu bê tông + mép curb.</p>
+  <p>V60.1 giữ nguyên đường con hẹp của V60 và sửa nút Secondary roads On/Off: khi bật, lớp đường 3D thay đúng phần đường tương ứng trên blueprint; khi tắt, lớp 3D biến mất và blueprint 2D gốc được khôi phục.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -1146,22 +1146,23 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
      mapPx,
      metersPerPixel:S,
      frameSignature:SITE_FRAME_SIGNATURE,
-     renderer
+     renderer,
+     blueprintMat
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V60 narrow source-snapped roads ready · '+(secondaryResult?.pixelCount||0)+' matched pixels · installing V54 detail…';
+   coordBadge.textContent='V60.1 secondary roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>({secondaryResult,detailResult}));
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V60 ready · narrow source-snapped secondary roads · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V60.1 ready · secondary toggle fixed · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V60 detail warning: '+error.message;
+   coordBadge.textContent='V60.1 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1178,7 +1179,7 @@ vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.clas
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V60?.setEnabled?.(true);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
