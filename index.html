@@ -46,7 +46,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=91';
-import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=91';
+import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=103';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=89';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=103';
@@ -256,10 +256,10 @@ const roofs=[
 ];
 
 window.__DA_LOC_ROOFS=roofs;
-const wallMat=new THREE.MeshStandardMaterial({color:0xf4f5f0,roughness:.76});
-const roofMat=new THREE.MeshStandardMaterial({color:0xfafbf8,roughness:.5});
-const blueMat=new THREE.MeshStandardMaterial({color:0x5a78bd,roughness:.34,metalness:.12});
-const padMat=new THREE.MeshStandardMaterial({color:0xd9ddd4,roughness:1});
+const wallMat=new THREE.MeshStandardMaterial({color:0xf1f2ee,roughness:.68,metalness:.01});
+const roofMat=new THREE.MeshStandardMaterial({color:0xf8f9f5,roughness:.44,metalness:.02});
+const blueMat=new THREE.MeshStandardMaterial({color:0x4d72b4,roughness:.30,metalness:.16});
+const padMat=new THREE.MeshStandardMaterial({color:0xd5d9d2,roughness:.94});
 
 const buildings=[];
 for(const [cx,cy,Lpx,Spx,a] of roofs){
