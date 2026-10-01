@@ -30,6 +30,9 @@ export async function installSiteDetailV54({
     dark:new THREE.MeshStandardMaterial({color:0x303737,roughness:.78}),
     steel:new THREE.MeshStandardMaterial({color:0x8d9998,roughness:.48,metalness:.22}),
     glass:new THREE.MeshStandardMaterial({color:0x6f9dac,roughness:.16,metalness:.04,transparent:true,opacity:.88}),
+    glassDark:new THREE.MeshStandardMaterial({color:0x426774,roughness:.20,metalness:.06}),
+    dockDoor:new THREE.MeshStandardMaterial({color:0x71807f,roughness:.66,metalness:.15}),
+    cladding:new THREE.MeshStandardMaterial({color:0xdfe3df,roughness:.82}),
     concrete:new THREE.MeshStandardMaterial({color:0xc8cbc5,roughness:.96}),
     white:new THREE.MeshStandardMaterial({color:0xeff1ec,roughness:.78}),
     yellow:new THREE.MeshStandardMaterial({color:0xe0be35,roughness:.76}),
@@ -55,7 +58,7 @@ export async function installSiteDetailV54({
   };
 
   // ---------- factory-attached detail: never changes the verified footprint ----------
-  const detailStats={factories:0,cameras:0,roofFans:0,ladders:0,utilityBoxes:0,roadDashes:0,edgeLines:0,lamps:0,shrubs:0,hydrants:0};
+  const detailStats={factories:0,cameras:0,roofFans:0,ladders:0,utilityBoxes:0,dockDoors:0,facadeBands:0,roadDashes:0,edgeLines:0,lamps:0,shrubs:0,hydrants:0};
 
   buildings.forEach((g,idx)=>{
     const body=g.children.find(o=>o.geometry?.type==='BoxGeometry' && o.position.y>1);
@@ -120,11 +123,35 @@ export async function installSiteDetailV54({
       step.position.set(L*.38,.07+s*.07,-D/2-1.0-s*.22); local.add(step);
     }
 
-    // Dock lights + numbered bay signs, tied to the long facade.
+    // V103 asset-first facade: a long glazed ribbon on the office/service side.
+    if(L>32 && D>14){
+      const bandW=Math.min(L*.72,82);
+      const glassBand=new THREE.Mesh(new THREE.BoxGeometry(bandW,1.18,.07),mats.glassDark);
+      glassBand.position.set(-L*.04,H*.61,-D/2-.075);
+      local.add(glassBand);
+      detailStats.facadeBands++;
+
+      // Slim cladding rail above/below the glazing gives the factory a more
+      // architectural silhouette without adding heavy geometry.
+      for(const dy of [-.76,.76]){
+        const rail=new THREE.Mesh(new THREE.BoxGeometry(bandW+.5,.10,.09),mats.cladding);
+        rail.position.set(-L*.04,H*.61+dy,-D/2-.09);
+        local.add(rail);
+      }
+    }
+
+    // Dock lights + real dock doors + numbered bay signs.
     if(L>45 && D>18){
       const bays=Math.max(3,Math.min(8,Math.round(L/16)));
+      const doorGeo=new THREE.BoxGeometry(3.25,3.35,.10);
+      const doorInst=new THREE.InstancedMesh(doorGeo,mats.dockDoor,bays);
+      const doorDummy=new THREE.Object3D();
       for(let i=0;i<bays;i++){
         const x=(-.38+i/(bays-1)*.76)*L;
+        doorDummy.position.set(x,1.92,D/2+.075);
+        doorDummy.updateMatrix();
+        doorInst.setMatrixAt(i,doorDummy.matrix);
+
         const light=new THREE.Mesh(new THREE.BoxGeometry(.48,.18,.28),mats.white);
         light.position.set(x,4.65,D/2+.18); local.add(light);
         const plate=new THREE.Mesh(new THREE.BoxGeometry(.72,.36,.04),mats.green);
@@ -134,6 +161,11 @@ export async function installSiteDetailV54({
           bollard.position.set(bx,.46,D/2+2.05); local.add(bollard);
         }
       }
+      doorInst.instanceMatrix.needsUpdate=true;
+      doorInst.castShadow=true;
+      doorInst.receiveShadow=true;
+      local.add(doorInst);
+      detailStats.dockDoors+=bays;
     }
 
     // Fire-hose / hydrant cabinet on every third factory for readable scale.
@@ -321,6 +353,6 @@ export async function installSiteDetailV54({
     ready:true,version:91,frameSignature,stats:detailStats,
     group:root,cadMiniLandscapeLock:true
   };
-  console.info('[DaLoc] V91 CAD-network-locked road micro detail ready',detailStats);
+  console.info('[DaLoc] V103 asset-first factory/road micro detail ready',detailStats);
   return {group:root,stats:detailStats};
 }
