@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V96 POND PROMENADE FIX</small>
+  <small>GitHub → Netlify · BUILD V97 RED BLOOM PARK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V96 giữ toàn bộ V95 và sửa đường dạo quanh hồ: bỏ RingGeometry bị méo/phóng quá lớn, thay bằng promenade elip rộng 2,8 m theo offset thật, đồng thời kéo ghế/đèn/đá/cây về đúng mép đường.</p>
+  <p>V97 giữ toàn bộ V96 và tái thiết công viên theo bản minh họa: hoa đỏ/crimson chiếm chủ đạo, tạo dải hoa vòng cung và nan quạt dày đặc quanh quảng trường tròn, hoa trắng/hồng chỉ làm điểm nhấn.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -53,7 +53,7 @@ import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=89';
 import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=91';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
-import { installLandscapeV95 } from './assets/landscape-v95.js?v=96';
+import { installLandscapeV95 } from './assets/landscape-v95.js?v=97';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
@@ -1350,7 +1350,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V96 ready · corrected 2.8m pond promenade · '+pondFishV82.fishCount+' pond fish · dense ornamental parks · '+solarRoofV94.factoryCount+' solar-roof factories · '+(gateResult?.gateCount||0)+' gates · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V97 ready · red-bloom ornamental park · corrected pond promenade · '+pondFishV82.fishCount+' pond fish · '+solarRoofV94.factoryCount+' solar-roof factories · '+(gateResult?.gateCount||0)+' gates · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1446,7 +1446,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V96 pond-promenade warning: '+error.message;
+   coordBadge.textContent='V97 red-bloom park warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
