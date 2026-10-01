@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadKenneyTreeAssets, createStaticInstancedAsset } from './real-assets-v105.js?v=105';
+import { loadKenneyTreeAssets, createStaticInstancedAsset } from './real-assets-v105.js?v=1051';
 
 // V95 — high-detail landscape pass for the lotus pond and ornamental parks.
 // All placement uses the same 1616x2048 masterplan pixel coordinate system.
