@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 
-// V82 animated fish for the Vietnamese lotus pond.
+// V95 density tune: 60 animated fish for the Vietnamese lotus pond (50% of the previous 120).
 // Fish remain inside the exact source-locked pond ellipse and swim near the surface
 // so they remain visible below the lotus canopy.
 export function installPondFishV82({world,mapPx,metersPerPixel}){
   const root=new THREE.Group();
   root.name='POND_FISH_V82';
-  root.userData={version:82,type:'animated lotus pond fish'};
+  root.userData={version:82,type:'animated lotus pond fish',densityRevision:95,previousFishCount:120};
   world.add(root);
 
   const centerPx={x:1053.34,y:850.71};
@@ -19,7 +19,7 @@ export function installPondFishV82({world,mapPx,metersPerPixel}){
   function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
   function rr(a,b){return a+(b-a)*rnd();}
 
-  const fishCount=120;
+  const fishCount=60;
   const materials=[
     new THREE.MeshStandardMaterial({color:0xe66c22,roughness:.46,metalness:.04}),
     new THREE.MeshStandardMaterial({color:0xd43e32,roughness:.44,metalness:.05}),
