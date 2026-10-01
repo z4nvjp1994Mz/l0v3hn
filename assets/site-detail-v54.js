@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 
 export async function installSiteDetailV54({
@@ -49,8 +50,9 @@ export async function installSiteDetailV54({
 
   const geo = {
     camera:new THREE.BoxGeometry(.32,.24,.50),
-    lampPole:new THREE.CylinderGeometry(.06,.09,7.2,8),
-    lampHead:new THREE.BoxGeometry(.72,.16,.34),
+    lampPole:new THREE.CylinderGeometry(.055,.085,7.2,10),
+    lampArm:new THREE.BoxGeometry(.78,.07,.08),
+    lampHead:new RoundedBoxGeometry(.78,.18,.38,2,.045),
     hydrant:new THREE.CylinderGeometry(.18,.22,.86,10),
     bollard:new THREE.CylinderGeometry(.08,.11,.90,8),
     shrub:new THREE.IcosahedronGeometry(.58,1),
@@ -295,17 +297,20 @@ export async function installSiteDetailV54({
 
   if(lightPositions.length){
     const pole=new THREE.InstancedMesh(geo.lampPole,mats.dark,lightPositions.length);
+    const arm=new THREE.InstancedMesh(geo.lampArm,mats.dark,lightPositions.length);
     const head=new THREE.InstancedMesh(geo.lampHead,mats.white,lightPositions.length);
     const dummy=new THREE.Object3D();
     lightPositions.forEach(([x,y,rot],i)=>{
       const p=mapPx(x,y);
       dummy.position.set(p.x,3.72,p.z);dummy.rotation.set(0,rot,0);dummy.updateMatrix();pole.setMatrixAt(i,dummy.matrix);
-      dummy.position.set(p.x,7.25,p.z);dummy.rotation.set(0,rot,0);dummy.updateMatrix();head.setMatrixAt(i,dummy.matrix);
+      dummy.position.set(p.x,7.14,p.z);dummy.rotation.set(0,rot,0);dummy.translateZ(.31);dummy.updateMatrix();arm.setMatrixAt(i,dummy.matrix);
+      dummy.position.set(p.x,7.24,p.z);dummy.rotation.set(0,rot,0);dummy.translateZ(.70);dummy.rotation.x=-.10;dummy.updateMatrix();head.setMatrixAt(i,dummy.matrix);
     });
-    pole.instanceMatrix.needsUpdate=true;head.instanceMatrix.needsUpdate=true;
-    pole.computeBoundingSphere();head.computeBoundingSphere();
-    pole.castShadow=head.castShadow=true;pole.receiveShadow=true;head.receiveShadow=true;
-    roadGroup.add(pole,head);detailStats.lamps=lightPositions.length;
+    for(const m of [pole,arm,head]){
+      m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();
+      m.castShadow=true;m.receiveShadow=true;
+    }
+    roadGroup.add(pole,arm,head);detailStats.lamps=lightPositions.length;
   }
 
   if(shrubPositions.length){
@@ -350,7 +355,7 @@ export async function installSiteDetailV54({
   updateDetailVisibility();
 
   window.__DALOC_V54={
-    ready:true,version:91,frameSignature,stats:detailStats,
+    ready:true,version:104,frameSignature,stats:detailStats,
     group:root,cadMiniLandscapeLock:true
   };
   console.info('[DaLoc] V103 asset-first factory/road micro detail ready',detailStats);
