@@ -19,9 +19,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V108';
+  root.name='AI_TRAFFIC_V109';
   root.userData={
-    version:108,
+    version:109,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
@@ -55,6 +55,38 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     };
   });
   if(!routes.length)throw new Error('V91 traffic routes missing');
+
+  // V109: world-space copy of the REAL circulation carriageway polygons.
+  // Traffic signal poles are validated against this mask, so a pole can never
+  // be accepted while its base is still inside asphalt/junction geometry.
+  function worldRingFromPx(ring){
+    return (ring||[]).map(([x,y])=>{
+      const q=corridorWarpV91.warpPx(x,y);
+      const p=mapPx(q.x,q.y);
+      return {x:p.x,z:p.z};
+    });
+  }
+  const carriagewayWorldPolys=(data.layers?.carriageway||[]).map(poly=>({
+    outer:worldRingFromPx(poly.outer),
+    holes:(poly.holes||[]).map(worldRingFromPx)
+  })).filter(poly=>poly.outer.length>=3);
+
+  function pointInRingXZ(point,ring){
+    let inside=false;
+    for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      const a=ring[i],b=ring[j];
+      const crosses=((a.z>point.z)!==(b.z>point.z)) &&
+        (point.x < (b.x-a.x)*(point.z-a.z)/((b.z-a.z)||1e-9)+a.x);
+      if(crosses)inside=!inside;
+    }
+    return inside;
+  }
+  function pointInsideCarriageway(point){
+    return carriagewayWorldPolys.some(poly=>{
+      if(!pointInRingXZ(point,poly.outer))return false;
+      return !poly.holes.some(hole=>pointInRingXZ(point,hole));
+    });
+  }
 
   // V91: derive real conflict points from the three source-locked route polylines.
   // Vehicles from different routes now share an exclusive reservation for each junction,
@@ -580,12 +612,12 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   let simTime=0;
 
   // -----------------------------------------------------------------------
-  // V107 TRAFFIC LIGHTS — exactly the two CAD-derived intersections.
+  // V109 TRAFFIC LIGHTS — exactly the two CAD-derived intersections.
   // central-spine receives the longer green; each cross-road gets its own phase.
   // The two junctions are offset so both crossings do not switch simultaneously.
   // -----------------------------------------------------------------------
   const signalGroup=new THREE.Group();
-  signalGroup.name='TRAFFIC_SIGNALS_V107';
+  signalGroup.name='TRAFFIC_SIGNALS_V109';
   root.add(signalGroup);
 
   const signalJunctions=junctions.slice(0,2);
@@ -667,19 +699,50 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const travel=sample.tangent.clone().multiplyScalar(dir).normalize();
     const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
 
-    // V108 curbside placement:
-    // Use the actual CAD/source road width. The pole base is moved completely
-    // outside the asphalt + curb/sidewalk buffer instead of using the old fixed
-    // 5.7 m offset that put poles inside the wide central carriageway.
-    const stopCenter=junction.point.clone().addScaledVector(travel,-6.2);
+    // V109 definitive corner placement.
+    // The pole belongs on the approach-side sidewalk corner, NOT beside the
+    // junction centre. Longitudinal offset comes from the CROSSING road width;
+    // lateral offset comes from this approach road width.
+    const crossRouteId=junction.routes.find(id=>id!==route.id);
+    const crossRoute=routes.find(r=>r.id===crossRouteId);
     const halfRoad=Math.max(4.8,(route.widthWorld||12)*.5);
-    const sidewalkAndVerge=3.0;
-    const poleSideOffset=halfRoad+sidewalkAndVerge;
-    const polePos=stopCenter.clone().addScaledVector(right,poleSideOffset);
+    const crossHalf=Math.max(4.8,(crossRoute?.widthWorld||12)*.5);
+    const cornerClearance=2.6;
+
+    // Put the stop bar just before the crossing carriageway.
+    const stopDistance=crossHalf+1.0;
+    const stopCenter=junction.point.clone().addScaledVector(travel,-stopDistance);
+
+    // Initial pole corner = upstream of crossing + outside this road edge.
+    let longitudinal=crossHalf+cornerClearance;
+    let lateral=halfRoad+cornerClearance;
+    let polePos=junction.point.clone()
+      .addScaledVector(travel,-longitudinal)
+      .addScaledVector(right,lateral);
+
+    // The rendered junction polygon can flare wider than nominal route widths.
+    // Push diagonally outward until the BASE is genuinely outside the actual
+    // carriageway polygon, then add an extra verge margin.
+    const outward=right.clone().sub(travel).normalize();
+    let maskPush=0;
+    while(pointInsideCarriageway(polePos)&&maskPush<32){
+      polePos.addScaledVector(outward,.75);
+      maskPush+=.75;
+    }
+    polePos.addScaledVector(outward,1.25);
+
+    // Safety validation: if the extra margin somehow re-enters a concave road
+    // polygon, keep walking outward until definitely clear.
+    while(pointInsideCarriageway(polePos)&&maskPush<48){
+      polePos.addScaledVector(outward,.75);
+      maskPush+=.75;
+    }
+
+    const poleSideOffset=lateral+maskPush/Math.SQRT2;
     const heading=Math.atan2(travel.x,travel.z);
 
     const g=new THREE.Group();
-    g.name='V108_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.name='V109_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
     g.position.set(polePos.x,.02,polePos.z);
     g.rotation.y=heading;
 
@@ -721,7 +784,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Scale stop bar to the actual source-road width instead of a fixed 8.2 m.
     const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
-    stopLine.name='V108_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.name='V109_STOP_LINE_'+junction.id+'_'+approachIndex;
     stopLine.position.set(stopCenter.x,.13,stopCenter.z);
     stopLine.rotation.y=heading;
     stopLine.scale.x=Math.max(6.5,(route.widthWorld||10)*.88);
@@ -730,7 +793,8 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     return {
       junction,routeId:route.id,dir,group:g,red,yellow,green,lastColor:null,
-      halfRoad,poleSideOffset
+      halfRoad,crossHalf,poleSideOffset,maskPush,
+      baseOutsideCarriageway:!pointInsideCarriageway(polePos)
     };
   }
 
@@ -763,6 +827,10 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     yellowSeconds:SIGNAL_TIMING.yellow,
     allRedSeconds:SIGNAL_TIMING.allRed,
     curbsidePlacement:true,
+    polygonValidatedPlacement:true,
+    carriagewayPolygonCount:carriagewayWorldPolys.length,
+    basesOutsideCarriageway:signalHeads.every(h=>h.baseOutsideCarriageway),
+    maxMaskPush:Number(Math.max(0,...signalHeads.map(h=>h.maskPush||0)).toFixed(2)),
     sourceRoadWidths:Object.fromEntries(routes.map(r=>[r.id,Number(r.widthWorld.toFixed(2))]))
   };
 
@@ -1269,12 +1337,12 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:108,group:root,agents,counts,junctions,
+    ready:true,version:109,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V108 curbside traffic-light controlled anti-gridlock traffic installed',{
+  console.info('[DaLoc] V109 polygon-validated sidewalk traffic lights installed',{
     ...counts,
     trafficLights:trafficLightStats,
     serviceAgents:serviceAgentCount,
