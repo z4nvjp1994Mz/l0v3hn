@@ -19,9 +19,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V109';
+  root.name='AI_TRAFFIC_V110';
   root.userData={
-    version:109,
+    version:110,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
@@ -617,7 +617,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   // The two junctions are offset so both crossings do not switch simultaneously.
   // -----------------------------------------------------------------------
   const signalGroup=new THREE.Group();
-  signalGroup.name='TRAFFIC_SIGNALS_V109';
+  signalGroup.name='TRAFFIC_SIGNALS_V110';
   root.add(signalGroup);
 
   const signalJunctions=junctions.slice(0,2);
@@ -742,7 +742,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const heading=Math.atan2(travel.x,travel.z);
 
     const g=new THREE.Group();
-    g.name='V109_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.name='V110_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
     g.position.set(polePos.x,.02,polePos.z);
     g.rotation.y=heading;
 
@@ -758,7 +758,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Mast arm reaches inward from the sidewalk/green verge over the nearest lane.
     // Because local +X is travel-right, negative X points back toward the roadway.
-    const armReach=Math.min(4.4,sidewalkAndVerge+1.55);
+    // V110 hotfix: V109 removed sidewalkAndVerge but this old arm formula still
+    // referenced it, throwing ReferenceError and aborting the whole traffic bootstrap.
+    const armReach=Math.min(5.2,Math.max(3.8,cornerClearance+1.55));
     const arm=new THREE.Mesh(signalGeo.arm,poleMat);
     arm.scale.x=armReach;
     arm.position.set(-armReach*.5,5.02,0);
@@ -784,7 +786,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Scale stop bar to the actual source-road width instead of a fixed 8.2 m.
     const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
-    stopLine.name='V109_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.name='V110_STOP_LINE_'+junction.id+'_'+approachIndex;
     stopLine.position.set(stopCenter.x,.13,stopCenter.z);
     stopLine.rotation.y=heading;
     stopLine.scale.x=Math.max(6.5,(route.widthWorld||10)*.88);
@@ -1337,12 +1339,12 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:109,group:root,agents,counts,junctions,
+    ready:true,version:110,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V109 polygon-validated sidewalk traffic lights installed',{
+  console.info('[DaLoc] V110 restored traffic + polygon-validated sidewalk lights installed',{
     ...counts,
     trafficLights:trafficLightStats,
     serviceAgents:serviceAgentCount,
