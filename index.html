@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V93 DUAL CAD-LOCKED GATES</small>
+  <small>GitHub → Netlify · BUILD V94 SOLAR ROOF PILOT</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V93 giữ toàn bộ V91, chuyển cổng tham chiếu trước sang đầu xa/cuối tuyến CAD 77505 và bổ sung cổng HAPLAST dạng cong mới ở đầu đối diện của cùng tuyến đường.</p>
+  <p>V94 giữ toàn bộ V93 và thử nghiệm một cụm 3 nhà xưởng liền kề có mái lắp hệ pin năng lượng mặt trời, giữ lối bảo trì và né cụm HVAC/skylight.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -56,6 +56,7 @@ import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
+import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=94';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1146,6 +1147,10 @@ function addFactoryRichDetail(g,idx){
 }
 buildings.forEach(addFactoryRichDetail);
 
+// V94: small photovoltaic pilot cluster on three adjacent factories.
+const solarRoofV94=installSolarRoofZoneV94({buildings});
+let solarRoofOn=true;
+
 
 // Road-edge lamps at verified building-linked positions only
 function addScaleLampAtPx(px,py,h=8){
@@ -1338,7 +1343,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V93 ready · '+(gateResult?.gateCount||0)+' CAD-locked gates · old gate moved to far end · new curved gate at front end · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V94 ready · '+solarRoofV94.factoryCount+' solar-roof factories · '+solarRoofV94.moduleEquivalent+' PV-module equivalent · '+(gateResult?.gateCount||0)+' CAD-locked gates · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1353,6 +1358,7 @@ installCirculationV53({
      if(v54DetailGroup)v54DetailGroup.visible=envOn;
      if(v78ExteriorGroup)v78ExteriorGroup.visible=envOn;
      if(v93GateGroup)v93GateGroup.visible=envOn;
+     solarRoofV94?.setVisible?.(envOn&&solarRoofOn);
      if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
      if(pedestrianController?.group)pedestrianController.group.visible=envOn;
@@ -1366,6 +1372,18 @@ installCirculationV53({
      envButton.textContent='3D Environment: '+(envOn?'On':'Off');
    };
    document.querySelector('.controls')?.appendChild(envButton);
+
+   const solarButton=document.createElement('button');
+   solarButton.id='solarRoofV94';
+   solarButton.className='active';
+   solarButton.textContent='Solar Roof Pilot: On';
+   solarButton.onclick=()=>{
+     solarRoofOn=!solarRoofOn;
+     solarRoofV94?.setVisible?.(envOn&&solarRoofOn);
+     solarButton.classList.toggle('active',solarRoofOn);
+     solarButton.textContent='Solar Roof Pilot: '+(solarRoofOn?'On':'Off');
+   };
+   document.querySelector('.controls')?.appendChild(solarButton);
 
    const trafficButton=document.createElement('button');
    trafficButton.id='trafficV91';
@@ -1408,7 +1426,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V93 dual-gate/CAD-network warning: '+error.message;
+   coordBadge.textContent='V94 solar-roof/CAD-network warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
