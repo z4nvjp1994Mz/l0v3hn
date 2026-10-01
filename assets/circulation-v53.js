@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { computeFactoryAccessV56 } from './factory-access-v56.js';
+import { computeFactoryServiceV57 } from './factory-service-v57.js';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls}) {
@@ -59,9 +59,9 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
 
   // V56 concrete access lanes cut through the planted green belt.
   // Exclude those exact access polygons before supplementary V53 trees are instanced.
-  const v56Access=computeFactoryAccessV56(window.__DA_LOC_ROOFS||[],data.paths||[]);
-  const v56NoPlant=v56Access.flatMap(a=>[a.driveway,a.apron]);
-  const inV56Access=(x,y)=>v56NoPlant.some(poly=>insideRing(x,y,poly));
+  const v57Service=computeFactoryServiceV57(window.__DA_LOC_ROOFS||[],data.paths||[]);
+  const v57NoPlant=v57Service.flatMap(a=>a.noPlantPolygons||[]);
+  const inV57Service=(x,y)=>v57NoPlant.some(poly=>insideRing(x,y,poly));
 
   const existing=world.children.filter(o=>o.userData.isTreeGroup).map(o=>o.position),planting=[];
   // Supplementary planting belongs ONLY to the green belt. Existing tree positions never move.
@@ -72,8 +72,8 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
       for(let t=14-accumulated;t<len;t+=14)for(const side of [-1,1]){
         const off=path.widthPx/2+1.93/.782+3.7;
         const x=a[0]+dx*t/len-side*dy/len*off,y=a[1]+dy*t/len+side*dx/len*off,v=mapPx(x,y);
-        if(!inGreen(x,y)||inV56Access(x,y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
-        let safe=true;for(let k=0;k<8;k++){const tx=x+Math.cos(k*Math.PI/4)*2,ty=y+Math.sin(k*Math.PI/4)*2;if(!inGreen(tx,ty)||inV56Access(tx,ty))safe=false;}
+        if(!inGreen(x,y)||inV57Service(x,y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
+        let safe=true;for(let k=0;k<8;k++){const tx=x+Math.cos(k*Math.PI/4)*2,ty=y+Math.sin(k*Math.PI/4)*2;if(!inGreen(tx,ty)||inV57Service(tx,ty))safe=false;}
         if(safe&&!planting.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<7))planting.push(v);
       }accumulated=(accumulated+len)%14;
     }
