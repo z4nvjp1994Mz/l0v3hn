@@ -50,9 +50,13 @@ export async function installSiteDetailV54({
 
   const geo = {
     camera:new THREE.BoxGeometry(.32,.24,.50),
+    roofFanBase:geo.roofFanBase,
+    roofFanCap:geo.roofFanCap,
+    ladderRung:geo.ladderRung,
     lampPole:new THREE.CylinderGeometry(.055,.085,7.2,10),
     lampArm:new THREE.BoxGeometry(.78,.07,.08),
     lampHead:new RoundedBoxGeometry(.78,.18,.38,2,.045),
+    dockDoor:new RoundedBoxGeometry(3.25,3.35,.10,2,.035),
     hydrant:new THREE.CylinderGeometry(.18,.22,.86,10),
     bollard:new THREE.CylinderGeometry(.08,.11,.90,8),
     shrub:new THREE.IcosahedronGeometry(.58,1),
@@ -145,8 +149,7 @@ export async function installSiteDetailV54({
     // Dock lights + real dock doors + numbered bay signs.
     if(L>45 && D>18){
       const bays=Math.max(3,Math.min(8,Math.round(L/16)));
-      const doorGeo=new THREE.BoxGeometry(3.25,3.35,.10);
-      const doorInst=new THREE.InstancedMesh(doorGeo,mats.dockDoor,bays);
+      const doorInst=new THREE.InstancedMesh(geo.dockDoor,mats.dockDoor,bays);
       const doorDummy=new THREE.Object3D();
       for(let i=0;i<bays;i++){
         const x=(-.38+i/(bays-1)*.76)*L;
