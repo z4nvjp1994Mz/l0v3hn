@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { installEntranceGateV92 } from './main-gate-v92.js?v=92';
 
 // V93 dual-gate system.
@@ -21,7 +22,7 @@ export async function installDualEntranceGatesV93({
 
   const root=new THREE.Group();
   root.name='DA_LOC_DUAL_GATES_V93';
-  root.userData={version:93,roadHandle:'77505',source:'two supplied HAPLAST gate references'};
+  root.userData={version:104,roadHandle:'77505',source:'two supplied HAPLAST gate references'};
   world.add(root);
 
   function endpointPlacement(endpoint,neighbor,insetPx=18){
@@ -217,23 +218,23 @@ export async function installDualEntranceGatesV93({
     wood.position.set(side*(pylonX+4.0),0,.04);wood.scale.x=side;
     wood.castShadow=true;wood.receiveShadow=true;frontGate.add(wood);
 
-    const plinth=new THREE.Mesh(new THREE.BoxGeometry(9.2,.48,6.4),concrete);
+    const plinth=new THREE.Mesh(new RoundedBoxGeometry(9.2,.48,6.4,2,.12),concrete);
     plinth.position.set(side*(pylonX+3.0),.24,0);
     plinth.castShadow=true;plinth.receiveShadow=true;frontGate.add(plinth);
   }
 
   // Main horizontal beam.
   const beamW=clearSpan+13.0;
-  const beam=new THREE.Mesh(new THREE.BoxGeometry(beamW,beamH,2.25),beamMat);
+  const beam=new THREE.Mesh(new RoundedBoxGeometry(beamW,beamH,2.25,3,.14),beamMat);
   beam.position.set(0,beamBottom+beamH/2,0);
   beam.castShadow=true;beam.receiveShadow=true;frontGate.add(beam);
 
-  const under=new THREE.Mesh(new THREE.BoxGeometry(beamW-1.0,.38,2.38),darkUnder);
+  const under=new THREE.Mesh(new RoundedBoxGeometry(beamW-1.0,.38,2.38,2,.08),darkUnder);
   under.position.set(0,beamBottom-.15,0);under.castShadow=true;frontGate.add(under);
 
   // Slight end blocks behind the marble hooks, as visible in the architectural rendering.
   for(const side of [-1,1]){
-    const endBlock=new THREE.Mesh(new THREE.BoxGeometry(5.6,beamH+1.2,2.45),beamMat);
+    const endBlock=new THREE.Mesh(new RoundedBoxGeometry(5.6,beamH+1.2,2.45,3,.14),beamMat);
     endBlock.position.set(side*(beamW/2-2.0),beamBottom+beamH/2-.25,.05);
     endBlock.castShadow=true;frontGate.add(endBlock);
   }
