@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V54 DEEP GAME DETAIL</small>
+  <small>GitHub → Netlify · BUILD V55 MAP-LOCKED SUPPORTS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V54 giữ nguyên hệ đường V53 đã xác nhận và nâng cấp sâu chi tiết game-ready: mặt đứng nhà xưởng, camera, thang mái, quạt thông gió, tủ kỹ thuật, dock, đèn đường, vạch sơn và cây bụi. Tất cả chi tiết dự án tiếp tục bám hệ tọa độ masterplan.</p>
+  <p>V55 giữ nguyên đường V53 và chi tiết V54, đồng thời dựng lại các công trình phụ không có mái xanh theo footprint đọc trực tiếp từ masterplan 2D. Các khối phụ dùng cùng PIN tọa độ 1616×2048, không đặt bằng tọa độ world ước lượng.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,17 +36,18 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V54 deep detail</b><span>factory + road + landscape micro-assets</span></div>
+    <div class="stat"><b>V55 support blocks</b><span>20 map-locked auxiliary footprints</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V54: deep game-ready details on locked coordinates</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V55: 20 auxiliary footprints locked to the 2D masterplan</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
+import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -515,15 +516,18 @@ function addVerifiedSupport(cx,cy,wPx,hPx,cvAngle,h=2.7,roofMat=supportRoofMat,g
 
 // Chỉ giữ các footprint low-saturation/roof-color rõ nhất trên masterplan.
 // Các box nhiễu ở ranh đỏ/cây/annotation đã bị loại bỏ.
-[
-  [911.31,885.04,21.91,46.59,-56.31,3.5,brownRoofMat,true],
-  [990.24,971.40,14.67,31.20,-68.20,2.8,supportRoofMat,false],
-  [968.60,955.30,17.89,15.65,-63.43,2.6,supportRoofMat,false],
-  [897.65,439.09,15.28,9.22,-14.04,2.5,supportRoofMat,false],
-  [1054.50,306.00,10.00,15.00,-90.00,2.5,supportRoofMat,false],
-  [1303.25,532.14,9.20,24.31,-15.95,2.6,supportRoofMat,false],
-  [839.94,685.08,8.20,13.60,-53.13,2.4,supportRoofMat,false]
-].forEach(v=>addVerifiedSupport(...v));
+// V55 supersedes the old partial seven-block list.
+// The verifiedSupportGroup is populated below from source-image footprint coordinates.
+
+const v55Support=installSupportStructuresV55({
+  group:verifiedSupportGroup,
+  mapPx,
+  metersPerPixel:S,
+  frameSignature:SITE_FRAME_SIGNATURE,
+  controls,
+  camera
+});
+coordBadge.textContent='V55: '+v55Support.count+' auxiliary footprints locked to 2D';
 
 // -------- Factory detail deferred in V36 --------
 // Building footprints and physical scale are now prioritized.
