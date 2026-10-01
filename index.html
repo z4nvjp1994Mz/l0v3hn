@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V94 SOLAR ROOF PILOT</small>
+  <small>GitHub → Netlify · BUILD V95 DENSE POND + PARK LANDSCAPE</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V94 giữ toàn bộ V93 và thử nghiệm một cụm 3 nhà xưởng liền kề có mái lắp hệ pin năng lượng mặt trời, giữ lối bảo trì và né cụm HVAC/skylight.</p>
+  <p>V95 giữ toàn bộ V94, giảm cá hồ sen từ 120 xuống 60 và bổ sung tiểu cảnh chi tiết quanh hồ cùng hệ công viên cây xanh dày đặc, ghế ngồi, đèn sân vườn và pergola.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -52,7 +52,8 @@ import { installCadSourceV72 } from './assets/cad-source-v72.js?v=89';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=89';
 import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=91';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
-import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
+import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
+import { installLandscapeV95 } from './assets/landscape-v95.js?v=95';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
@@ -514,6 +515,12 @@ const pondFishV82=installPondFishV82({
   mapPx,
   metersPerPixel:S
 });
+const landscapeV95=installLandscapeV95({
+  world,
+  mapPx,
+  metersPerPixel:S
+});
+let landscapeV95On=true;
 
 // Lawn around the water feature, again confined to its visible landscaped island.
 const POND_GARDEN=[[1000,817],[1051,805],[1108,831],[1114,873],[1075,903],[1019,894],[986,859]];
@@ -1343,7 +1350,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V94 ready · '+solarRoofV94.factoryCount+' solar-roof factories · '+solarRoofV94.moduleEquivalent+' PV-module equivalent · '+(gateResult?.gateCount||0)+' CAD-locked gates · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V95 ready · '+pondFishV82.fishCount+' pond fish · detailed pond landscape · dense ornamental parks · '+solarRoofV94.factoryCount+' solar-roof factories · '+(gateResult?.gateCount||0)+' gates · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1361,6 +1368,7 @@ installCirculationV53({
      solarRoofV94?.setVisible?.(envOn&&solarRoofOn);
      if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
+     landscapeV95?.setVisible?.(envOn&&landscapeV95On);
      if(pedestrianController?.group)pedestrianController.group.visible=envOn;
      factoryInteriorsV84?.setVisible?.(envOn);
      const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
@@ -1401,15 +1409,27 @@ installCirculationV53({
    const fishButton=document.createElement('button');
    fishButton.id='pondFishV82';
    fishButton.className='active';
-   fishButton.textContent='Pond Fish: On';
+   fishButton.textContent='Pond Fish 60: On';
    let fishOn=true;
    fishButton.onclick=()=>{
      fishOn=!fishOn;
      pondFishV82?.setEnabled?.(fishOn);
      fishButton.classList.toggle('active',fishOn);
-     fishButton.textContent='Pond Fish: '+(fishOn?'On':'Off');
+     fishButton.textContent='Pond Fish 60: '+(fishOn?'On':'Off');
    };
    document.querySelector('.controls')?.appendChild(fishButton);
+
+   const landscapeButton=document.createElement('button');
+   landscapeButton.id='landscapeV95';
+   landscapeButton.className='active';
+   landscapeButton.textContent='Pond + Parks: On';
+   landscapeButton.onclick=()=>{
+     landscapeV95On=!landscapeV95On;
+     landscapeV95?.setVisible?.(envOn&&landscapeV95On);
+     landscapeButton.classList.toggle('active',landscapeV95On);
+     landscapeButton.textContent='Pond + Parks: '+(landscapeV95On?'On':'Off');
+   };
+   document.querySelector('.controls')?.appendChild(landscapeButton);
 
    const peopleButton=document.createElement('button');
    peopleButton.id='pedestriansV84';
@@ -1426,7 +1446,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V94 solar-roof/CAD-network warning: '+error.message;
+   coordBadge.textContent='V95 landscape/CAD-network warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
