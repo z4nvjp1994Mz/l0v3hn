@@ -7,21 +7,28 @@ import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 // Vehicles stop at red, wait in queue, start on green, while V101 anti-gridlock
 // reservations/downstream-box checks remain active as the safety layer.
 export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAccess=null}){
-  const [response,cadResponse]=await Promise.all([
+  const [response,cadResponse,cadJunctionResponse]=await Promise.all([
     fetch(new URL('./circulation-v53.json',import.meta.url)),
-    fetch(new URL('./cad-source-v72.json',import.meta.url))
+    fetch(new URL('./cad-source-v72.json',import.meta.url)),
+    fetch(new URL('./cad-roads-v71.json',import.meta.url))
   ]);
   if(!response.ok)throw new Error('V91 traffic routes HTTP '+response.status);
   if(!cadResponse.ok)throw new Error('V91 CAD routes HTTP '+cadResponse.status);
+  if(!cadJunctionResponse.ok)throw new Error('V114 CAD junction source HTTP '+cadJunctionResponse.status);
   const data=await response.json();
   const cadData=await cadResponse.json();
-  if(data.frameSignature!==frameSignature||cadData.frameSignature!==frameSignature)throw new Error('V91 traffic coordinate frame mismatch');
+  const cadJunctionData=await cadJunctionResponse.json();
+  if(
+    data.frameSignature!==frameSignature||
+    cadData.frameSignature!==frameSignature||
+    cadJunctionData.frameSignature!==frameSignature
+  )throw new Error('V114 traffic coordinate frame mismatch');
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V113';
+  root.name='AI_TRAFFIC_V114';
   root.userData={
-    version:113,
+    version:114,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
@@ -33,6 +40,105 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     Math.hypot(pxX.x-pxO.x,pxX.z-pxO.z)+
     Math.hypot(pxY.x-pxO.x,pxY.z-pxO.z)
   )*.5;
+  // V114 authoritative visible-road occupancy mask.
+  // This reproduces the SAME geometry used by cad-source-v72.js:
+  //   - only the surfaced TIM____NG handles
+  //   - road widths from DXF
+  //   - exact RG_NUT junction polygons from cad-roads-v71.json
+  // Signal poles are validated against this mask, not the older circulation mask.
+  const cadSurfaceHandles=new Set(['77505','77536','77537','7754C','774F9']);
+
+  const cadRoadCapsules=[];
+  for(const road of (cadData.roads||[])){
+    if(!cadSurfaceHandles.has(road.handle)||!road.pointsPx?.length)continue;
+    const widthWorld=road.widthCad*cadData.pxPerCadUnit*worldPerPx;
+    const pts=road.pointsPx.map(([x,y])=>{
+      const p=mapPx(x,y);
+      return new THREE.Vector3(p.x,.42,p.z);
+    });
+    for(let i=1;i<pts.length;i++){
+      cadRoadCapsules.push({
+        a:pts[i-1],
+        b:pts[i],
+        halfWidth:widthWorld*.5,
+        handle:road.handle
+      });
+    }
+  }
+
+  const cadCal=cadJunctionData.cadToPixel?.matrix;
+  function cadJunctionToPx(p){
+    return [
+      cadCal[0][0]*p[0]+cadCal[0][1]*p[1]+cadCal[0][2],
+      cadCal[1][0]*p[0]+cadCal[1][1]*p[1]+cadCal[1][2]
+    ];
+  }
+  const cadJunctionWorldPolys=(cadJunctionData.junctions||[]).map(j=>({
+    handle:j.handle,
+    ring:(j.pointsCad||[]).map(pt=>{
+      const [x,y]=cadJunctionToPx(pt);
+      const p=mapPx(x,y);
+      return {x:p.x,z:p.z};
+    })
+  })).filter(j=>j.ring.length>=3);
+
+  function distancePointToSegmentXZ(point,a,b){
+    const vx=b.x-a.x,vz=b.z-a.z;
+    const wx=point.x-a.x,wz=point.z-a.z;
+    const vv=vx*vx+vz*vz;
+    const t=vv?THREE.MathUtils.clamp((wx*vx+wz*vz)/vv,0,1):0;
+    const x=a.x+vx*t,z=a.z+vz*t;
+    return Math.hypot(point.x-x,point.z-z);
+  }
+
+  function pointInsideAuthoritativeCadRoad(point){
+    for(const j of cadJunctionWorldPolys){
+      if(pointInRingXZ(point,j.ring))return true;
+    }
+    for(const seg of cadRoadCapsules){
+      if(distancePointToSegmentXZ(point,seg.a,seg.b)<=seg.halfWidth)return true;
+    }
+    return false;
+  }
+
+  function cadSignalBaseClear(point,radius=.62){
+    if(pointInsideAuthoritativeCadRoad(point))return false;
+    for(let i=0;i<12;i++){
+      const a=i*Math.PI/6;
+      const q=new THREE.Vector3(
+        point.x+Math.cos(a)*radius,
+        point.y,
+        point.z+Math.sin(a)*radius
+      );
+      if(pointInsideAuthoritativeCadRoad(q))return false;
+    }
+    return true;
+  }
+
+  function findCadRightRoadEdge(origin,right,nominalHalf){
+    let lastInside=origin.clone();
+    let firstOutside=null;
+    const max=Math.max(48,nominalHalf+36);
+    for(let d=0;d<=max;d+=.30){
+      const q=origin.clone().addScaledVector(right,d);
+      if(pointInsideAuthoritativeCadRoad(q)){
+        lastInside=q;
+      }else if(d>=Math.max(1,nominalHalf*.35)){
+        firstOutside=q;
+        break;
+      }
+    }
+    if(!firstOutside){
+      firstOutside=origin.clone().addScaledVector(right,nominalHalf+10);
+    }
+    let a=lastInside.clone(),b=firstOutside.clone();
+    for(let i=0;i<10;i++){
+      const mid=a.clone().lerp(b,.5);
+      if(pointInsideAuthoritativeCadRoad(mid))a=mid;else b=mid;
+    }
+    return b;
+  }
+
   const routes=(data.paths||[]).filter(p=>routeIds.has(p.id)).map(path=>{
     const pts=path.pointsPx.map(([x,y])=>{
       const q=corridorWarpV91.warpPx(x,y);
@@ -677,7 +783,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   // The two junctions are offset so both crossings do not switch simultaneously.
   // -----------------------------------------------------------------------
   const signalGroup=new THREE.Group();
-  signalGroup.name='TRAFFIC_SIGNALS_V113';
+  signalGroup.name='TRAFFIC_SIGNALS_V114';
   root.add(signalGroup);
 
   const signalJunctions=junctions.slice(0,2);
@@ -777,12 +883,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const travel=sample.tangent.clone().multiplyScalar(dir).normalize();
     const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
 
-    // V113: standard near-side RIGHT-hand signal placement.
-    // 1) locate stop station before the crossing road;
-    // 2) scan PERPENDICULARLY from that station to the actual rendered road edge;
-    // 3) put the pole 1.35 m behind that edge on sidewalk/green verge.
-    // This prevents the previous diagonal "corner push" from scattering poles
-    // around the junction or placing them on unrelated corners.
+    // V114: place the pole against the EXACT visible CAD road surface.
+    // The previous V113 scan used the derived circulation mask, while the user
+    // is actually looking at CAD road meshes + RG_NUT junction polygons.
     const crossRouteId=junction.routes.find(id=>id!==route.id);
     const crossRoute=routes.find(r=>r.id===crossRouteId);
     const halfRoad=Math.max(4.8,(route.widthWorld||12)*.5);
@@ -791,27 +894,36 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const stopDistance=crossHalf+1.35;
     const stopCenter=junction.point.clone().addScaledVector(travel,-stopDistance);
 
-    const roadEdge=findRightRoadEdge(stopCenter,right,halfRoad);
-    let polePos=roadEdge.clone().addScaledVector(right,1.35);
+    // Scan sideways until we leave the actual DXF road/junction surface.
+    const roadEdge=findCadRightRoadEdge(stopCenter,right,halfRoad);
 
-    // Ensure the whole concrete base footprint clears asphalt. Only push
-    // SIDEWAYS away from the approach road; never diagonally toward another arm.
+    // Put the base 1.8 m beyond the CAD asphalt edge and 1.2 m upstream.
+    // Apply BOTH offsets before validating so the final move cannot re-enter road.
+    let polePos=roadEdge.clone()
+      .addScaledVector(right,1.80)
+      .addScaledVector(travel,-1.20);
+
     let sidePush=0;
-    while(!signalBaseClear(polePos,.58)&&sidePush<8){
-      polePos.addScaledVector(right,.35);
-      sidePush+=.35;
+    while(!cadSignalBaseClear(polePos,.62)&&sidePush<18){
+      polePos.addScaledVector(right,.40);
+      sidePush+=.40;
     }
 
-    // Keep the pole slightly upstream from the painted stop bar so it reads as
-    // a conventional roadside signal and never sits on the junction flare.
-    polePos.addScaledVector(travel,-.65);
+    // Final belt-and-suspenders fallback: walk diagonally outward/upstream until
+    // the entire concrete base footprint is guaranteed clear of CAD asphalt.
+    let cornerPush=0;
+    const cornerOut=right.clone().sub(travel).normalize();
+    while(!cadSignalBaseClear(polePos,.62)&&cornerPush<18){
+      polePos.addScaledVector(cornerOut,.40);
+      cornerPush+=.40;
+    }
 
     const poleSideOffset=polePos.clone().sub(stopCenter).dot(right);
     const heading=Math.atan2(travel.x,travel.z);
 
 
     const g=new THREE.Group();
-    g.name='V113_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.name='V114_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
     g.position.set(polePos.x,.02,polePos.z);
     g.rotation.y=heading;
 
@@ -853,7 +965,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Scale stop bar to the actual source-road width instead of a fixed 8.2 m.
     const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
-    stopLine.name='V113_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.name='V114_STOP_LINE_'+junction.id+'_'+approachIndex;
     stopLine.position.set(stopCenter.x,.13,stopCenter.z);
     stopLine.rotation.y=heading;
     stopLine.scale.x=Math.max(6.5,(route.widthWorld||10)*.88);
@@ -862,9 +974,10 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     return {
       junction,routeId:route.id,dir,group:g,red,yellow,green,lastColor:null,
-      halfRoad,crossHalf,poleSideOffset,sidePush,
+      halfRoad,crossHalf,poleSideOffset,sidePush,cornerPush,
       roadEdge:{x:roadEdge.x,z:roadEdge.z},
-      baseOutsideCarriageway:signalBaseClear(polePos,.58)
+      baseOutsideCarriageway:signalBaseClear(polePos,.58),
+      baseOutsideCadSurface:cadSignalBaseClear(polePos,.62)
     };
   }
 
@@ -901,10 +1014,14 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     allRedSeconds:SIGNAL_TIMING.allRed,
     curbsidePlacement:true,
     polygonValidatedPlacement:true,
-    placementMode:'near-side right road-edge scan',
+    placementMode:'authoritative CAD surface + RG_NUT edge scan',
     carriagewayPolygonCount:carriagewayWorldPolys.length,
+    cadRoadCapsuleCount:cadRoadCapsules.length,
+    cadJunctionPolygonCount:cadJunctionWorldPolys.length,
     basesOutsideCarriageway:signalHeads.every(h=>h.baseOutsideCarriageway),
+    basesOutsideCadSurface:signalHeads.every(h=>h.baseOutsideCadSurface),
     maxSidePush:Number(Math.max(0,...signalHeads.map(h=>h.sidePush||0)).toFixed(2)),
+    maxCornerPush:Number(Math.max(0,...signalHeads.map(h=>h.cornerPush||0)).toFixed(2)),
     sourceRoadWidths:Object.fromEntries(routes.map(r=>[r.id,Number(r.widthWorld.toFixed(2))]))
   };
 
@@ -1518,7 +1635,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:113,group:root,agents,counts,junctions,
+    ready:true,version:114,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
     getJunctionDiagnostics:()=>junctions.map(j=>({
       id:j.id,
