@@ -19,9 +19,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V111';
+  root.name='AI_TRAFFIC_V112';
   root.userData={
-    version:110,
+    version:112,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
@@ -634,23 +634,19 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   // The two junctions are offset so both crossings do not switch simultaneously.
   // -----------------------------------------------------------------------
   const signalGroup=new THREE.Group();
-  signalGroup.name='TRAFFIC_SIGNALS_V111';
+  signalGroup.name='TRAFFIC_SIGNALS_V112';
   root.add(signalGroup);
 
   const signalJunctions=junctions.slice(0,2);
   const SIGNAL_TIMING=Object.freeze({
-    mainGreen:16.0,
-    yellow:3.0,
-    allRed:1.5,
-    crossGreen:12.0
+    minGreen:7.0,
+    maxMainGreen:22.0,
+    maxCrossGreen:18.0,
+    yellow:2.8,
+    allRed:1.3,
+    queueLookahead:95,
+    switchDemandRatio:1.35
   });
-  const SIGNAL_CYCLE=
-    SIGNAL_TIMING.mainGreen+
-    SIGNAL_TIMING.yellow+
-    SIGNAL_TIMING.allRed+
-    SIGNAL_TIMING.crossGreen+
-    SIGNAL_TIMING.yellow+
-    SIGNAL_TIMING.allRed;
 
   const poleMat=new THREE.MeshStandardMaterial({color:0x303737,roughness:.72,metalness:.32});
   const boxMat=new THREE.MeshStandardMaterial({color:0x1e2424,roughness:.76,metalness:.18});
@@ -671,20 +667,42 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     stopLine:new THREE.BoxGeometry(1,.045,.34)
   };
 
-  function signalStateAt(junction,time=simTime){
+  function signalStateAt(junction){
     const cfg=junction.signal;
     if(!cfg)return {phase:'off',greenRoute:null};
-    let t=(time+cfg.offset)%SIGNAL_CYCLE;
-    if(t<SIGNAL_TIMING.mainGreen)return {phase:'main-green',greenRoute:cfg.mainRoute,color:'green'};
-    t-=SIGNAL_TIMING.mainGreen;
-    if(t<SIGNAL_TIMING.yellow)return {phase:'main-yellow',greenRoute:null,yellowRoute:cfg.mainRoute,color:'yellow'};
-    t-=SIGNAL_TIMING.yellow;
-    if(t<SIGNAL_TIMING.allRed)return {phase:'all-red-1',greenRoute:null,color:'red'};
-    t-=SIGNAL_TIMING.allRed;
-    if(t<SIGNAL_TIMING.crossGreen)return {phase:'cross-green',greenRoute:cfg.crossRoute,color:'green'};
-    t-=SIGNAL_TIMING.crossGreen;
-    if(t<SIGNAL_TIMING.yellow)return {phase:'cross-yellow',greenRoute:null,yellowRoute:cfg.crossRoute,color:'yellow'};
-    return {phase:'all-red-2',greenRoute:null,color:'red'};
+    if(cfg.phase==='main-green')return {phase:cfg.phase,greenRoute:cfg.mainRoute,color:'green'};
+    if(cfg.phase==='main-yellow')return {phase:cfg.phase,greenRoute:null,yellowRoute:cfg.mainRoute,color:'yellow'};
+    if(cfg.phase==='cross-green')return {phase:cfg.phase,greenRoute:cfg.crossRoute,color:'green'};
+    if(cfg.phase==='cross-yellow')return {phase:cfg.phase,greenRoute:null,yellowRoute:cfg.crossRoute,color:'yellow'};
+    return {phase:cfg.phase||'all-red',greenRoute:null,color:'red'};
+  }
+
+  function signalQueueDemand(junction,routeId){
+    let count=0,weighted=0;
+    for(const agent of agents){
+      if(agent.route.id!==routeId)continue;
+      if(agent.service&&agent.service.phase!=='cruise')continue;
+      const js=junction.routeS[routeId];
+      if(!Number.isFinite(js))continue;
+      const signed=(js-agent.s)*agent.dir;
+      if(signed<=0)continue;
+      const policy=junctionGeometryPolicy(agent,junction);
+      const horizon=Math.max(SIGNAL_TIMING.queueLookahead,policy.lookahead*1.7);
+      if(signed>horizon)continue;
+      const typeWeight=
+        agent.type==='container'?1.85:
+        agent.type==='cargo'?1.45:
+        agent.type==='motorcycle'?0.24:1.0;
+      const proximity=.35+.65*(1-THREE.MathUtils.clamp(signed/horizon,0,1));
+      count++;
+      weighted+=typeWeight*proximity;
+    }
+    return {count,weighted};
+  }
+
+  function setSignalPhase(junction,phase){
+    junction.signal.phase=phase;
+    junction.signal.phaseStarted=simTime;
   }
 
   function signalColorForRoute(junction,routeId){
@@ -759,7 +777,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const heading=Math.atan2(travel.x,travel.z);
 
     const g=new THREE.Group();
-    g.name='V111_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.name='V112_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
     g.position.set(polePos.x,.02,polePos.z);
     g.rotation.y=heading;
 
@@ -803,7 +821,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Scale stop bar to the actual source-road width instead of a fixed 8.2 m.
     const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
-    stopLine.name='V111_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.name='V112_STOP_LINE_'+junction.id+'_'+approachIndex;
     stopLine.position.set(stopCenter.x,.13,stopCenter.z);
     stopLine.rotation.y=heading;
     stopLine.scale.x=Math.max(6.5,(route.widthWorld||10)*.88);
@@ -825,8 +843,10 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       enabled:true,
       mainRoute,
       crossRoute,
-      offset:ji*(SIGNAL_CYCLE*.5),
-      phase:'init'
+      phase:ji%2===0?'main-green':'cross-green',
+      phaseStarted:0,
+      mainDemand:{count:0,weighted:0},
+      crossDemand:{count:0,weighted:0}
     };
     let approachIndex=0;
     for(const routeId of junction.routes){
@@ -840,9 +860,10 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const trafficLightStats={
     junctionCount:signalJunctions.length,
     signalHeads:signalHeads.length,
-    cycleSeconds:SIGNAL_CYCLE,
-    mainGreenSeconds:SIGNAL_TIMING.mainGreen,
-    crossGreenSeconds:SIGNAL_TIMING.crossGreen,
+    adaptive:true,
+    minGreenSeconds:SIGNAL_TIMING.minGreen,
+    maxMainGreenSeconds:SIGNAL_TIMING.maxMainGreen,
+    maxCrossGreenSeconds:SIGNAL_TIMING.maxCrossGreen,
     yellowSeconds:SIGNAL_TIMING.yellow,
     allRedSeconds:SIGNAL_TIMING.allRed,
     curbsidePlacement:true,
@@ -855,8 +876,47 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
   function updateTrafficSignals(){
     for(const junction of signalJunctions){
-      junction.signalState=signalStateAt(junction,simTime);
-      junction.signal.phase=junction.signalState.phase;
+      const sig=junction.signal;
+      sig.mainDemand=signalQueueDemand(junction,sig.mainRoute);
+      sig.crossDemand=signalQueueDemand(junction,sig.crossRoute);
+      const elapsed=simTime-sig.phaseStarted;
+      const boxClear=!junction.owner && junctionConflictOccupants(junction).length===0;
+
+      if(sig.phase==='main-green'){
+        const demandSwitch=
+          sig.crossDemand.weighted>0.05 &&
+          (
+            sig.mainDemand.weighted<0.05 ||
+            sig.crossDemand.weighted>sig.mainDemand.weighted*SIGNAL_TIMING.switchDemandRatio
+          );
+        if(
+          elapsed>=SIGNAL_TIMING.maxMainGreen ||
+          (elapsed>=SIGNAL_TIMING.minGreen&&demandSwitch)
+        )setSignalPhase(junction,'main-yellow');
+      }else if(sig.phase==='main-yellow'){
+        if(elapsed>=SIGNAL_TIMING.yellow)setSignalPhase(junction,'all-red-to-cross');
+      }else if(sig.phase==='all-red-to-cross'){
+        if(elapsed>=SIGNAL_TIMING.allRed&&boxClear)setSignalPhase(junction,'cross-green');
+      }else if(sig.phase==='cross-green'){
+        const demandSwitch=
+          sig.mainDemand.weighted>0.05 &&
+          (
+            sig.crossDemand.weighted<0.05 ||
+            sig.mainDemand.weighted>sig.crossDemand.weighted*SIGNAL_TIMING.switchDemandRatio
+          );
+        if(
+          elapsed>=SIGNAL_TIMING.maxCrossGreen ||
+          (elapsed>=SIGNAL_TIMING.minGreen&&demandSwitch)
+        )setSignalPhase(junction,'cross-yellow');
+      }else if(sig.phase==='cross-yellow'){
+        if(elapsed>=SIGNAL_TIMING.yellow)setSignalPhase(junction,'all-red-to-main');
+      }else if(sig.phase==='all-red-to-main'){
+        if(elapsed>=SIGNAL_TIMING.allRed&&boxClear)setSignalPhase(junction,'main-green');
+      }else{
+        setSignalPhase(junction,'all-red-to-main');
+      }
+
+      junction.signalState=signalStateAt(junction);
     }
     for(const head of signalHeads){
       setSignalHeadColor(head,signalColorForRoute(head.junction,head.routeId));
@@ -1424,7 +1484,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:111,group:root,agents,counts,junctions,
+    ready:true,version:112,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
     getJunctionDiagnostics:()=>junctions.map(j=>({
       id:j.id,
@@ -1437,7 +1497,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V111 geometry-aware anti-gridlock signal traffic installed',{
+  console.info('[DaLoc] V112 adaptive geometry-aware anti-gridlock signal traffic installed',{
     ...counts,
     trafficLights:trafficLightStats,
     serviceAgents:serviceAgentCount,
@@ -1449,7 +1509,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   });
 
   return {
-    ready:true,version:111,group:root,counts,junctions,signalGroup,trafficLightStats,
+    ready:true,version:112,group:root,counts,junctions,signalGroup,trafficLightStats,
     carCount:counts.cars,cargoTruckCount:counts.cargoTrucks,
     containerTruckCount:counts.containerTrucks,motorcycleCount:counts.motorcycles,
     supercarCount:counts.supercars,totalCount:counts.total,
