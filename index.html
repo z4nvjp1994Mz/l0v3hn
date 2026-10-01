@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V84.3 SOUTH EXIT ROAD HOTFIX</small>
+  <small>GitHub → Netlify · BUILD V85 JUNCTION SAFETY + SOUTH AXIS LOCK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V84 giữ nguyên traffic/rừng/hồ sen và nâng nhà xưởng lên interior 3D chi tiết. 50 người áo xanh không còn suy từ tim đường: 24 người ra/vào xưởng, 14 người đi quanh sân xưởng và 12 người chỉ đi trên polygon vỉa hè V53.</p>
 </div>
@@ -48,9 +48,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=76';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installCadSourceV72 } from './assets/cad-source-v72.js?v=77';
+import { installCadSourceV72 } from './assets/cad-source-v72.js?v=85';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=79';
-import { installTrafficAIV83 } from './assets/traffic-ai-v83.js?v=83';
+import { installTrafficAIV85 } from './assets/traffic-ai-v85.js?v=85';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=842';
@@ -649,22 +649,25 @@ function addRoad(x,z,w,l,rot=0){
 addRoad(760,20,18,1700,-.10);
 addRoad(-720,620,16,1250,.92);
 
-// V84.3: removed the obsolete 1,650 m transverse foreground road.
-// It incorrectly crossed the source-locked southern end of CAD road 77505.
-// Replace it with a short continuation aligned exactly to the registered V77 axis.
-const southExitRoadV843=new THREE.Group();
-southExitRoadV843.name='V843_SOUTH_EXIT_CONTINUATION';
-world.add(southExitRoadV843);
+// V85: one canonical south-exit axis for CAD asphalt, verge and tree rows.
+// The final CAD endpoint is projected exactly onto the V53 central-spine/tree corridor.
+const southExitRoadV85=new THREE.Group();
+southExitRoadV85.name='V85_SOUTH_EXIT_AXIS_LOCK';
+world.add(southExitRoadV85);
 {
-  const prev=mapPx(673.9909258589748,1067.9921641772735);
-  const tip=mapPx(325.8244141578689,1544.6951245152172);
-  const dx=tip.x-prev.x,dz=tip.z-prev.z;
+  const axisSouth=mapPx(358.6,1500.2);
+  const axisNorth=mapPx(435.06,1395.044);
+  const tip=mapPx(326.1009432434449,1544.8961916334333);
+
+  const dx=axisSouth.x-axisNorth.x,dz=axisSouth.z-axisNorth.z;
   const baseLen=Math.hypot(dx,dz);
   const ux=dx/baseLen,uz=dz/baseLen;
+  const nx=-uz,nz=ux;
+
   const extension=92;
   const ex=tip.x+ux*extension,ez=tip.z+uz*extension;
   const cx=(tip.x+ex)/2,cz=(tip.z+ez)/2;
-  const rot=Math.atan2(ex-tip.x,ez-tip.z);
+  const rot=Math.atan2(ux,uz);
   const width=20*1.20434303125*S;
 
   const shoulder=new THREE.Mesh(
@@ -674,7 +677,7 @@ world.add(southExitRoadV843);
   shoulder.position.set(cx,.255,cz);
   shoulder.rotation.y=rot;
   shoulder.receiveShadow=true;
-  southExitRoadV843.add(shoulder);
+  southExitRoadV85.add(shoulder);
 
   const asphalt=new THREE.Mesh(
     new THREE.BoxGeometry(width,.16,extension+.30),
@@ -684,11 +687,43 @@ world.add(southExitRoadV843);
   asphalt.rotation.y=rot;
   asphalt.receiveShadow=true;
   asphalt.userData={
-    source:'V77 registered CAD 77505 continuation',
-    endpointPx:[325.8244141578689,1544.6951245152172],
-    extensionMeters:extension
+    source:'V85 exact V53 tree-axis + CAD 77505 continuation',
+    endpointPx:[326.1009432434449,1544.8961916334333],
+    extensionMeters:extension,
+    treeAxisPx:[[358.6,1500.2],[435.06,1395.044]]
   };
-  southExitRoadV843.add(asphalt);
+  southExitRoadV85.add(asphalt);
+
+  // Continue the two landscaped/tree edges from the same exact axis.
+  const vergeMat=new THREE.MeshStandardMaterial({color:0x76a95d,roughness:1});
+  const vergeWidth=4.2;
+  const treeOffset=width*.5+5.1;
+  for(const side of [-1,1]){
+    const strip=new THREE.Mesh(
+      new THREE.BoxGeometry(vergeWidth,.08,extension+1.0),
+      vergeMat
+    );
+    strip.position.set(cx+nx*treeOffset*side,.27,cz+nz*treeOffset*side);
+    strip.rotation.y=rot;
+    strip.receiveShadow=true;
+    southExitRoadV85.add(strip);
+
+    const treeSpacing=12.5;
+    const count=Math.floor(extension/treeSpacing);
+    for(let i=0;i<count;i++){
+      const t=(i+.55)/(count+.1);
+      const along=extension*t;
+      const x=tip.x+ux*along+nx*treeOffset*side;
+      const z=tip.z+uz*along+nz*treeOffset*side;
+      const tg=new THREE.Group();
+      tg.position.set(x,.02,z);
+      const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.18,.28,3.8,7),forestTrunkMat);
+      trunk.position.y=1.9;tg.add(trunk);
+      const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(1.45,1),treeLeafMat2);
+      crown.position.y=4.9;crown.castShadow=true;tg.add(crown);
+      southExitRoadV85.add(tg);
+    }
+  }
 }
 
 // village houses outside the project
@@ -1319,7 +1354,7 @@ installCirculationV53({
        v78ExteriorGroup=forestResult?.group||null;
        v78TreeCount=forestResult?.treeCount||0;
        v78HouseCount=forestResult?.houseCount||0;
-       return installTrafficAIV83({
+       return installTrafficAIV85({
          world,
          mapPx,
          frameSignature:SITE_FRAME_SIGNATURE
@@ -1360,7 +1395,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V84.2 ready · '+pedestrianCount+' pedestrians loaded · '+(pedestrianResult.counts?.factory||0)+' entering/exiting · '+(pedestrianResult.counts?.yard||0)+' yard walkers · '+(pedestrianResult.counts?.sidewalk||0)+' sidewalk-only · '+(pedestrianResult.effectivePortalCount||0)+' usable factory portals · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V85 ready · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles · south road/tree axis locked';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1429,7 +1464,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V84.2 pedestrians warning: '+error.message;
+   coordBadge.textContent='V85 safety/alignment warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
