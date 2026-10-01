@@ -68,18 +68,18 @@ export async function installExteriorForestV78({
     });
   }
 
-  // V84.3: reserve forest clearance for the real southern exit continuation.
-  // The obsolete transverse road at z=900 was removed from the viewer.
+  // V85: forest clearance uses the exact same V53 tree-axis as the south road.
   {
-    const prev=mapPx(673.9909258589748,1067.9921641772735);
-    const tip=mapPx(325.8244141578689,1544.6951245152172);
-    const dx=tip.x-prev.x,dz=tip.z-prev.z,len=Math.hypot(dx,dz);
+    const axisSouth=mapPx(358.6,1500.2);
+    const axisNorth=mapPx(435.06,1395.044);
+    const tip=mapPx(326.1009432434449,1544.8961916334333);
+    const dx=axisSouth.x-axisNorth.x,dz=axisSouth.z-axisNorth.z,len=Math.hypot(dx,dz);
     if(len>.001){
       const ux=dx/len,uz=dz/len,extension=92;
       roadCorridors.push({
         a:{x:tip.x,z:tip.z},
         b:{x:tip.x+ux*extension,z:tip.z+uz*extension},
-        radius:(20*1.20434303125*metersPerPixel)*.5+7
+        radius:(20*1.20434303125*metersPerPixel)*.5+8
       });
     }
   }
