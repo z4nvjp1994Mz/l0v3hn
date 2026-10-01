@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { installEntranceGateV92 } from './main-gate-v92.js?v=104';
+import { installEntranceGateV92 } from './main-gate-v92.js?v=1041';
 
 // V93 dual-gate system.
 // - Existing V92 reference gate is moved to the FAR/opposite endpoint of raw CAD road 77505.
