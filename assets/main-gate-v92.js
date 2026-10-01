@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // V92: main entrance gate inspired by the supplied Da Loc gate rendering.
 // Placement is source-locked to the southern end of raw CAD road 77505.
@@ -33,7 +34,7 @@ export async function installEntranceGateV92({
   group.position.set(c.x,.02,c.z);
   group.rotation.y=rotationY;
   group.userData={
-    version:92,
+    version:104,
     source:'reference gate image + raw CAD road 77505',
     siteFrameSignature:frameSignature,
     roadHandle:'77505',
@@ -190,26 +191,26 @@ export async function installEntranceGateV92({
       group.add(stripe);
     }
 
-    const base=new THREE.Mesh(new THREE.BoxGeometry(7.7,.52,5.8),plinthMat);
+    const base=new THREE.Mesh(new RoundedBoxGeometry(7.7,.52,5.8,2,.12),plinthMat);
     base.position.set(side*(clearSpan/2+pylonOuter*.45),.26,0);
     base.castShadow=true;base.receiveShadow=true;group.add(base);
 
     // Outer vertical return wall gives the monumental "portal" silhouette.
-    const returnWall=new THREE.Mesh(new THREE.BoxGeometry(2.15,10.4,2.25),marbleLight);
+    const returnWall=new THREE.Mesh(new RoundedBoxGeometry(2.15,10.4,2.25,3,.16),marbleLight);
     returnWall.position.set(side*(clearSpan/2+pylonOuter+1.0),5.2,.05);
     returnWall.castShadow=true;returnWall.receiveShadow=true;group.add(returnWall);
 
-    const sideBeam=new THREE.Mesh(new THREE.BoxGeometry(6.2,1.25,1.95),marbleLight);
+    const sideBeam=new THREE.Mesh(new RoundedBoxGeometry(6.2,1.25,1.95,3,.12),marbleLight);
     sideBeam.position.set(side*(clearSpan/2+pylonOuter+3.0),9.95,.05);
     sideBeam.castShadow=true;group.add(sideBeam);
   }
   addPylon(-1);addPylon(1);
 
-  const beam=new THREE.Mesh(new THREE.BoxGeometry(clearSpan+8.1,beamH,beamDepth),marbleLight);
+  const beam=new THREE.Mesh(new RoundedBoxGeometry(clearSpan+8.1,beamH,beamDepth,3,.14),marbleLight);
   beam.position.set(0,beamBottom+beamH/2,0);
   beam.castShadow=true;beam.receiveShadow=true;group.add(beam);
 
-  const underBeam=new THREE.Mesh(new THREE.BoxGeometry(clearSpan+6.7,.42,beamDepth+.16),undersideMat);
+  const underBeam=new THREE.Mesh(new RoundedBoxGeometry(clearSpan+6.7,.42,beamDepth+.16,2,.08),undersideMat);
   underBeam.position.set(0,beamBottom-.18,0);
   underBeam.castShadow=true;group.add(underBeam);
 
