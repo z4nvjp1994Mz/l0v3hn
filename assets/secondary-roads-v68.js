@@ -542,6 +542,58 @@ function computeSecondaryRoadsAllSidesV68(roofs,paths,pixels,blocked){
     }
   }
 
+
+  // 6) Perpendicular branch sweep. Some masterplan branches start between factory
+  // corners, so neither endpoint nor the 22/50/78% samples land on them. Sweep
+  // several stations across both sides of each long service lane and stop only
+  // when the 2D source supports a real connection to another lane or main asphalt.
+  for(let bi=0;bi<bands.length;bi++){
+    const b=bands[bi];
+    if(b.axis!=='long')continue;
+    const tdir=roadDirectionV68(b.a,b.b);
+    const nbase=[-tdir[1],tdir[0]];
+    for(const t of [.08,.18,.30,.42,.58,.70,.82,.92]){
+      const p=[b.a[0]+(b.b[0]-b.a[0])*t,b.a[1]+(b.b[1]-b.a[1])*t];
+      for(const side of [-1,1]){
+        const n=[nbase[0]*side,nbase[1]*side];
+        let target=null;
+
+        for(let d=10;d<=92;d+=2){
+          const probe=[p[0]+n[0]*d,p[1]+n[1]*d];
+
+          // Another measured secondary lane.
+          for(let j=0;j<bands.length;j++){
+            if(j===bi)continue;
+            const hit=pointToSegmentV68(probe,bands[j].a,bands[j].b);
+            if(hit.d<=Math.max(2.6,bands[j].width*.42)){
+              target={p:hit.q,width:Math.min(b.width,bands[j].width),kind:'service-junction',force:false};
+              break;
+            }
+          }
+          if(target)break;
+
+          // Main asphalt edge. Aim slightly inside the carriageway so the raised
+          // concrete surface completely opens the green belt / curb / sidewalk.
+          const near=nearestToPathsV68(probe,paths);
+          if(near && near.hit.d<=Math.max(2.5,(near.path.widthPx||12)*.55)){
+            const q=near.hit.q;
+            const half=(near.path.widthPx||12)*.5;
+            const stop=[
+              q[0]-n[0]*Math.max(0,half-2.2),
+              q[1]-n[1]*Math.max(0,half-2.2)
+            ];
+            target={p:stop,width:b.width,kind:'main-crossing',force:true};
+            break;
+          }
+        }
+
+        if(target){
+          addVerified(p,target.p,target.width,target.kind,target.force);
+        }
+      }
+    }
+  }
+
   return [{id:'V68_COMPLETE_SOURCE_NETWORK',members:roofs.map((_,i)=>i),roads}];
 }
 
@@ -1017,7 +1069,7 @@ export async function installSecondaryRoadsV68({
   setEnabled(true);
 
   window.__DALOC_V68={
-    ready:true,version:67,frameSignature,lines:masks.snapped.length,
+    ready:true,version:68,frameSignature,lines:masks.snapped.length,
     source:'masterplan-hires.jpg',mode:'four-side scan + residual edge-lock + T-junction recovery + open main-road crossings',
     setEnabled,
     clearVegetation,
