@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadKenneyTreeAssets, createStaticInstancedAsset } from './real-assets-v105.js?v=105';
 
 export async function installExteriorForestV78({
   scene,mapPx,metersPerPixel,frameSignature,renderer
@@ -157,90 +158,77 @@ export async function installExteriorForestV78({
     if(rnd()<.72)deciduous.push(item);else conifers.push(item);
   }
 
-  // V103 asset-first trees: richer silhouettes while still using only a few
-  // InstancedMesh draw calls for the entire forest.
-  const trunkGeo=new THREE.CylinderGeometry(.18,.38,4.9,8);
-  const crownGeo=new THREE.DodecahedronGeometry(1.62,1);
-  const crown2Geo=new THREE.DodecahedronGeometry(1.28,1);
-  const crown3Geo=new THREE.DodecahedronGeometry(.98,1);
-  const coneGeo=new THREE.ConeGeometry(1.82,4.4,10);
-  const cone2Geo=new THREE.ConeGeometry(1.46,3.7,10);
-  const cone3Geo=new THREE.ConeGeometry(1.12,3.0,10);
-  const trunkMat=new THREE.MeshStandardMaterial({color:0x6a4931,roughness:.96});
-  const leafMatA=new THREE.MeshStandardMaterial({color:0x2f7140,roughness:.93});
-  const leafMatB=new THREE.MeshStandardMaterial({color:0x4f8b50,roughness:.94});
-  const leafMatC=new THREE.MeshStandardMaterial({color:0x6a9f5c,roughness:.95});
-  const pineMat=new THREE.MeshStandardMaterial({color:0x245f38,roughness:.95});
-  const pineMat2=new THREE.MeshStandardMaterial({color:0x327548,roughness:.95});
-  const pineMat3=new THREE.MeshStandardMaterial({color:0x3f8250,roughness:.96});
-
-  function fillInstances(items,type){
-    const trunk=new THREE.InstancedMesh(trunkGeo,trunkMat,items.length);
-    const crownA=new THREE.InstancedMesh(type==='deciduous'?crownGeo:coneGeo,type==='deciduous'?leafMatA:pineMat,items.length);
-    const crownB=new THREE.InstancedMesh(type==='deciduous'?crown2Geo:cone2Geo,type==='deciduous'?leafMatB:pineMat2,items.length);
-    const crownC=new THREE.InstancedMesh(type==='deciduous'?crown3Geo:cone3Geo,type==='deciduous'?leafMatC:pineMat3,items.length);
-    const dummy=new THREE.Object3D();
-    items.forEach((p,i)=>{
-      const sway=(i%7-3)*.035;
-      dummy.rotation.set(0,p.rot,0);
-      dummy.scale.set(p.scale*(1+sway),p.scale*(1-sway*.5),p.scale*(1-sway*.25));
-      dummy.position.set(p.x,2.45*p.scale-.42,p.z);
-      dummy.updateMatrix();trunk.setMatrixAt(i,dummy.matrix);
-
-      if(type==='deciduous'){
-        dummy.scale.setScalar(p.scale);
-        dummy.position.set(p.x-.28*p.scale,5.35*p.scale-.42,p.z+.12*p.scale);
-        dummy.updateMatrix();crownA.setMatrixAt(i,dummy.matrix);
-
-        dummy.scale.set(p.scale*.94,p.scale*1.04,p.scale*.94);
-        dummy.position.set(p.x+.62*p.scale,6.12*p.scale-.42,p.z-.24*p.scale);
-        dummy.updateMatrix();crownB.setMatrixAt(i,dummy.matrix);
-
-        dummy.scale.set(p.scale*.84,p.scale*.92,p.scale*.84);
-        dummy.position.set(p.x-.62*p.scale,6.20*p.scale-.42,p.z-.30*p.scale);
-        dummy.updateMatrix();crownC.setMatrixAt(i,dummy.matrix);
-      }else{
-        dummy.scale.setScalar(p.scale);
-        dummy.position.set(p.x,4.75*p.scale-.42,p.z);
-        dummy.updateMatrix();crownA.setMatrixAt(i,dummy.matrix);
-
-        dummy.scale.setScalar(p.scale*.94);
-        dummy.position.set(p.x,6.38*p.scale-.42,p.z);
-        dummy.updateMatrix();crownB.setMatrixAt(i,dummy.matrix);
-
-        dummy.scale.setScalar(p.scale*.86);
-        dummy.position.set(p.x,7.64*p.scale-.42,p.z);
-        dummy.updateMatrix();crownC.setMatrixAt(i,dummy.matrix);
-      }
+  // V105 REAL ASSETS: use vendored Kenney Nature Kit GLBs, still batched
+  // through InstancedMesh. 14,000 trees do NOT become 14,000 draw calls.
+  let treeAssetMode='kenney-glb-instanced';
+  let treeDrawMeshes=0;
+  try{
+    const assets=await loadKenneyTreeAssets();
+    const oakPlacements=deciduous.map(p=>({
+      position:new THREE.Vector3(p.x,-.42,p.z),
+      rotationY:p.rot,
+      scale:p.scale
+    }));
+    const pinePlacements=conifers.map(p=>({
+      position:new THREE.Vector3(p.x,-.42,p.z),
+      rotationY:p.rot,
+      scale:p.scale
+    }));
+    const oakBatch=createStaticInstancedAsset(root,assets.oak,oakPlacements,{
+      name:'V105_KENNEY_OAK_FOREST',castShadow:false,receiveShadow:true
     });
-    for(const mesh of [trunk,crownA,crownB,crownC]){
-      mesh.receiveShadow=true;
-      mesh.castShadow=false;
-      mesh.computeBoundingSphere();
-      root.add(mesh);
-    }
+    const pineBatch=createStaticInstancedAsset(root,assets.pine,pinePlacements,{
+      name:'V105_KENNEY_PINE_FOREST',castShadow:false,receiveShadow:true
+    });
+    treeDrawMeshes=oakBatch.meshes.length+pineBatch.meshes.length;
+  }catch(error){
+    console.error('[DaLoc] V105 real forest asset fallback',error);
+    treeAssetMode='procedural-fallback';
+
+    const trunkGeo=new THREE.CylinderGeometry(.18,.38,4.9,8);
+    const crownGeo=new THREE.DodecahedronGeometry(1.62,1);
+    const coneGeo=new THREE.ConeGeometry(1.82,6.8,10);
+    const trunkMat=new THREE.MeshStandardMaterial({color:0x6a4931,roughness:.96});
+    const leafMat=new THREE.MeshStandardMaterial({color:0x3d824a,roughness:.94});
+    const pineMat=new THREE.MeshStandardMaterial({color:0x2b6940,roughness:.95});
+
+    const fillFallback=(items,type)=>{
+      const trunk=new THREE.InstancedMesh(trunkGeo,trunkMat,items.length);
+      const crown=new THREE.InstancedMesh(type==='oak'?crownGeo:coneGeo,type==='oak'?leafMat:pineMat,items.length);
+      const d=new THREE.Object3D();
+      items.forEach((p,i)=>{
+        d.position.set(p.x,2.05*p.scale-.42,p.z);d.rotation.set(0,p.rot,0);d.scale.setScalar(p.scale);d.updateMatrix();trunk.setMatrixAt(i,d.matrix);
+        d.position.set(p.x,type==='oak'?5.15*p.scale-.42:5.45*p.scale-.42,p.z);d.updateMatrix();crown.setMatrixAt(i,d.matrix);
+      });
+      for(const mesh of [trunk,crown]){mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();mesh.receiveShadow=true;root.add(mesh);}
+      treeDrawMeshes+=2;
+    };
+    fillFallback(deciduous,'oak');
+    fillFallback(conifers,'pine');
   }
-  fillInstances(deciduous,'deciduous');
-  fillInstances(conifers,'conifer');
 
   root.userData.treeCount=deciduous.length+conifers.length;
+  root.userData.treeAssetMode=treeAssetMode;
+  root.userData.treeDrawMeshes=treeDrawMeshes;
   root.userData.houseCount=houseSites.length;
 
   window.__DALOC_V79={
-    ready:true,version:79,group:root,
+    ready:true,version:105,group:root,
     treeCount:root.userData.treeCount,
     houseCount:root.userData.houseCount,
     boundaryPoints:boundary.length
   };
 
-  console.info('[DaLoc] V103 asset-first instanced exterior forest installed',{
+  console.info('[DaLoc] V105 real Kenney instanced exterior forest installed',{
     trees:root.userData.treeCount,
+    assetMode:treeAssetMode,
+    treeDrawMeshes,
     houses:root.userData.houseCount,
     boundaryPoints:boundary.length
   });
 
   return {
-    ready:true,version:78,group:root,
+    ready:true,version:105,group:root,
     treeCount:root.userData.treeCount,
     houseCount:root.userData.houseCount
   };
