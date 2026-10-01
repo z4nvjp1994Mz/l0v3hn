@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V70 CAD-LOCKED HYBRID</small>
+  <small>GitHub → Netlify · BUILD V71 CAD-DIRECT ROADS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V70 chuyển hẳn sang CAD-LOCKED HYBRID: file DXF khóa hệ tọa độ đường chính và nút giao; các đường con được xử lý một lần rồi đóng băng thành vector trong cùng hệ 1616×2048. Runtime không còn quét màu hay tự đoán offset.</p>
+  <p>V71 bỏ toàn bộ frontage/service roads suy ra từ mái xưởng. Mặt đường chính và nút giao giờ lấy trực tiếp từ DXF gốc; không còn dùng frozen roof-derived road vectors của V70.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V70 CAD-locked hybrid</b><span>explicit raised concrete + curbs</span></div>
+    <div class="stat"><b>V71 CAD-direct roads</b><span>explicit raised concrete + curbs</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V70: DXF coordinate lock + frozen masterplan service-road vectors · no runtime guessing</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V71: direct DXF centerlines + DXF junction polygons · no roof-derived road inference</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installCadHybridV70 } from './assets/cad-hybrid-v70.js?v=70';
+import { installCadRoadsV71 } from './assets/cad-roads-v71.js?v=71';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1139,8 +1139,8 @@ roofs.forEach((r,idx)=>{
 // V53: install after shared resources. Failure cannot stop the existing render loop.
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
  .then(()=>{
-   coordBadge.textContent='V53 main roads ready · loading V70 CAD-locked service-road vectors…';
-   return installCadHybridV70({
+   coordBadge.textContent='V53 circulation ready · loading V71 direct DXF road geometry…';
+   return installCadRoadsV71({
      world,
      mapPx,
      metersPerPixel:S,
@@ -1149,21 +1149,21 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V70 CAD lock ready · '+(secondaryResult?.lines||0)+' frozen road segments · installing V54 detail…';
+   coordBadge.textContent='V71 DXF roads ready · '+(secondaryResult?.roads||0)+' CAD paths · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>{
-     window.__DALOC_V70?.clearVegetation?.();
+     
      return {secondaryResult,detailResult};
    });
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V70 ready · CAD-locked + frozen vectors · '+(secondaryResult?.lines||0)+' road segments · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V71 ready · direct DXF roads · '+(secondaryResult?.roads||0)+' road paths · '+(secondaryResult?.junctions||0)+' CAD junctions · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V70 detail warning: '+error.message;
+   coordBadge.textContent='V71 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1180,7 +1180,7 @@ vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.clas
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V70?.setEnabled?.(true);window.__DALOC_V70?.showCad?.(false);v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V71?.setEnabled?.(true);window.__DALOC_V71?.showCad?.(false);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
