@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V98 ROAD + BOUNDARY SAFETY</small>
+  <small>GitHub → Netlify · BUILD V99 FACTORY ACCESS ROADS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V98 giữ toàn bộ V97, dọn sạch cây/shrub khỏi mặt đường và tâm ngã tư CAD, đồng thời đẩy các footprint nhà xưởng/phụ trợ đang lấn ranh đỏ vào hoàn toàn bên trong ranh giới dự án.</p>
+  <p>V99 giữ toàn bộ V98 và phục hồi các đường kết nối từ sân dịch vụ/nhà xưởng ra trục đường nội bộ theo masterplan 2D; các khe mở CAD giờ có mặt đường thật thay vì chỉ cắt cỏ để lộ nền xanh.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -55,6 +55,7 @@ import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=97';
 import { installSiteSafetyV98 } from './assets/site-safety-v98.js?v=98';
+import { installFactoryAccessV99 } from './assets/factory-access-v99.js?v=99';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
@@ -1221,6 +1222,8 @@ let v78TreeCount=0;
 let v78HouseCount=0;
 let v93GateGroup=null;
 let v93GateResult=null;
+let v99AccessGroup=null;
+let v99AccessResult=null;
 let trafficController=null;
 let pedestrianController=null;
 let pedestrianCount=0;
@@ -1281,6 +1284,26 @@ installCirculationV53({
        };
      })
      .then(safetyResult=>{
+       return installFactoryAccessV99({
+         world,
+         buildings,
+         supportGroup:verifiedSupportGroup,
+         mapPx,
+         metersPerPixel:S,
+         frameSignature:SITE_FRAME_SIGNATURE
+       })
+       .catch(error=>{
+         console.error('[DaLoc] V99 factory-access fallback',error);
+         return {
+           ready:false,version:99,group:null,cadAccessPads:0,drivewayCount:0,
+           driveways:[],skippedFactories:[],hiddenTrees:0,hiddenSemantic:0,
+           clearedInstances:0,error,setVisible(){}
+         };
+       })
+       .then(accessResult=>{
+         v99AccessResult=accessResult;
+         v99AccessGroup=accessResult?.group||null;
+
        // Install V84 interiors only after the first render path is already alive.
        // A failure here must never blank the whole project again.
        return Promise.resolve()
@@ -1357,22 +1380,23 @@ installCirculationV53({
            .then(gateResult=>{
              v93GateResult=gateResult;
              v93GateGroup=gateResult?.group||null;
-             return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult,safetyResult};
+             return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult,safetyResult,accessResult};
            });
          });
        });
      });
      });
+     });
    });
  })
- .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult,safetyResult})=>{
+ .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult,safetyResult,accessResult})=>{
    const st=detailResult?.stats||{};
    const v53Asphalt=world.getObjectByName('V53_CARRIAGEWAY');
    if(v53Asphalt){
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V98 ready · '+(safetyResult?.hiddenTreeGroups||0)+' road trees cleared · '+(safetyResult?.clearedInstances||0)+' road/junction instances cleared · '+((safetyResult?.movedMain?.length||0)+(safetyResult?.movedSupport?.length||0))+' boundary buildings corrected · '+pondFishV82.fishCount+' pond fish · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V99 ready · '+(accessResult?.cadAccessPads||0)+' CAD access pads · '+(accessResult?.drivewayCount||0)+' factory driveways · '+(accessResult?.hiddenTrees||0)+' access trees cleared · '+(accessResult?.clearedInstances||0)+' access props cleared · '+((safetyResult?.movedMain?.length||0)+(safetyResult?.movedSupport?.length||0))+' boundary buildings corrected · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1387,6 +1411,7 @@ installCirculationV53({
      if(v54DetailGroup)v54DetailGroup.visible=envOn;
      if(v78ExteriorGroup)v78ExteriorGroup.visible=envOn;
      if(v93GateGroup)v93GateGroup.visible=envOn;
+     if(v99AccessGroup)v99AccessGroup.visible=envOn;
      solarRoofV94?.setVisible?.(envOn&&solarRoofOn);
      if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
@@ -1397,7 +1422,7 @@ installCirculationV53({
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
-     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn&&!o.userData?.hiddenByCadAccess&&!o.userData?.hiddenByGateV93&&!o.userData?.hiddenByMainGateV92&&!o.userData?.hiddenByRoadV98;});
+     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn&&!o.userData?.hiddenByCadAccess&&!o.userData?.hiddenByGateV93&&!o.userData?.hiddenByMainGateV92&&!o.userData?.hiddenByRoadV98&&!o.userData?.hiddenByFactoryAccessV99;});
      envButton.classList.toggle('active',envOn);
      envButton.textContent='3D Environment: '+(envOn?'On':'Off');
    };
@@ -1468,7 +1493,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V98 road/boundary safety warning: '+error.message;
+   coordBadge.textContent='V99 factory-access warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1494,7 +1519,7 @@ function updateTreeVisibility(){
   const show=d<2400;
   if(show===treeVisibilityState) return;
   treeVisibilityState=show;
-  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show&&!obj.userData?.hiddenByCadAccess&&!obj.userData?.hiddenByMainGateV92&&!obj.userData?.hiddenByGateV93&&!obj.userData?.hiddenByRoadV98;});
+  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show&&!obj.userData?.hiddenByCadAccess&&!obj.userData?.hiddenByMainGateV92&&!obj.userData?.hiddenByGateV93&&!obj.userData?.hiddenByRoadV98&&!obj.userData?.hiddenByFactoryAccessV99;});
 }
 controls.addEventListener('change',updateTreeVisibility);
 updateTreeVisibility();
