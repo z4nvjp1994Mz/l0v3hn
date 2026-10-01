@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V105 REAL GLB ASSETS</small>
+  <small>GitHub → Netlify · BUILD V106 REAL ASSETS + SKY LIFE</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -61,6 +61,7 @@ import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=1041';
 import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=94';
 import { installVisualQualityV102 } from './assets/visual-quality-v102.js?v=103';
+import { installAtmosphereV106 } from './assets/atmosphere-v106.js?v=106';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -124,6 +125,19 @@ const IMG_H=SITE_FRAME.imageHeight;
 const S=SITE_FRAME.metersPerPixel;
 const PLANE_W=IMG_W*S;
 const PLANE_H=IMG_H*S;
+
+// V106 lightweight atmosphere: many clouds + many animated bird flocks.
+// Uses only five InstancedMesh draw calls and no post-processing.
+const atmosphereV106=installAtmosphereV106({
+  scene,
+  centerX:0,
+  centerZ:0,
+  spanX:PLANE_W*1.45,
+  spanZ:PLANE_H*1.25,
+  cloudCount:40,
+  flockCount:18
+});
+let skyLifeOn=true;
 
 function mapPx(x,y){
   if(!Number.isFinite(x)||!Number.isFinite(y)){
@@ -1408,7 +1422,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V105 ready · people: '+(pedestrianResult?.assetMode||'unknown')+' · forest: '+(forestResult?.treeAssetMode||'unknown')+' · park trees: '+(landscapeV95?.parkTreeAssetMode||'loading')+' · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V106 ready · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks / '+atmosphereV106.stats.birdCount+' birds · people: '+(pedestrianResult?.assetMode||'unknown')+' · forest: '+(forestResult?.treeAssetMode||'unknown')+' · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1429,6 +1443,7 @@ installCirculationV53({
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
      landscapeV95?.setVisible?.(envOn&&landscapeV95On);
      if(pedestrianController?.group)pedestrianController.group.visible=envOn;
+     atmosphereV106?.setEnabled?.(envOn&&skyLifeOn);
      factoryInteriorsV84?.setVisible?.(envOn);
      const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
      if(legacyAsphalt)legacyAsphalt.visible=false;
@@ -1439,6 +1454,18 @@ installCirculationV53({
      envButton.textContent='3D Environment: '+(envOn?'On':'Off');
    };
    document.querySelector('.controls')?.appendChild(envButton);
+
+   const skyLifeButton=document.createElement('button');
+   skyLifeButton.id='skyLifeV106';
+   skyLifeButton.className='active';
+   skyLifeButton.textContent='Clouds + Birds: On';
+   skyLifeButton.onclick=()=>{
+     skyLifeOn=!skyLifeOn;
+     atmosphereV106?.setEnabled?.(envOn&&skyLifeOn);
+     skyLifeButton.classList.toggle('active',skyLifeOn);
+     skyLifeButton.textContent='Clouds + Birds: '+(skyLifeOn?'On':'Off');
+   };
+   document.querySelector('.controls')?.appendChild(skyLifeButton);
 
    const solarButton=document.createElement('button');
    solarButton.id='solarRoofV94';
@@ -1574,6 +1601,7 @@ let lastFrameTime=performance.now();
   trafficController?.update?.(dt);
   pondFishV82?.update?.(dt);
   pedestrianController?.update?.(dt);
+  atmosphereV106?.update?.(dt);
   controls.update();
   visualQualityV102.update();
   const d=camera.position.distanceTo(controls.target);
