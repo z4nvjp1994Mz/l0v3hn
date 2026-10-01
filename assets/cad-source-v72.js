@@ -10,7 +10,7 @@ export async function installCadSourceV72({
   const [srcRes,junctionRes,registrationRes]=await Promise.all([
     fetch(new URL('./cad-source-v72.json',import.meta.url)),
     fetch(new URL('./cad-roads-v71.json',import.meta.url)),
-    fetch(new URL('./cad-road-registration-v77.json',import.meta.url))
+    fetch(new URL('./cad-road-registration-v85.json',import.meta.url))
   ]);
   if(!srcRes.ok)throw new Error('V72 CAD source HTTP '+srcRes.status);
   if(!junctionRes.ok)throw new Error('V72 junction source HTTP '+junctionRes.status);
@@ -30,7 +30,7 @@ export async function installCadSourceV72({
     sourceLocked:true,
     roofDerivedRoads:false,
     runtimeInference:false,
-    visualRegistrationVersion:77,
+    visualRegistrationVersion:85,
     registeredRoadHandle:roadRegistration.roadHandle
   };
   world.add(root);
@@ -88,7 +88,7 @@ export async function installCadSourceV72({
         layer:'TIM____NG',
         handle:road.handle,
         widthCad:road.widthCad,
-        visualRegistration:road.handle===roadRegistration.roadHandle?'V77':null,
+        visualRegistration:road.handle===roadRegistration.roadHandle?'V85':null,
         rawCadPreserved:true
       };
       surfaceGroup.add(mesh);
@@ -181,13 +181,13 @@ export async function installCadSourceV72({
   controls?.appendChild(compareButton);
 
   window.__DALOC_V72={
-    ready:true,version:77,group:root,surfaceGroup,edgeGroup,boundaryGroup,
+    ready:true,version:85,group:root,surfaceGroup,edgeGroup,boundaryGroup,
     source:data.source,roads:surfaceRoads,roadEdges:data.roadEdges,siteBoundaryPx:data.siteBoundaryPx,
     roadRegistration,
     setEnabled,showEdges
   };
 
-  console.info('[DaLoc] V77 registered CAD road surface installed',{
+  console.info('[DaLoc] V85 registered CAD road surface installed',{
     surfacedRoads:surfaceRoads.map(r=>r.handle),
     registeredRoad:roadRegistration.roadHandle,
     fit:roadRegistration.fit,
@@ -198,7 +198,7 @@ export async function installCadSourceV72({
 
   return {
     ready:true,
-    version:77,
+    version:85,
     roads:surfaceRoads.length,
     edges:data.roadEdges?.length||0,
     sourceLocked:true,
