@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadKenneyTreeAssets, createStaticInstancedAsset } from './real-assets-v105.js?v=105';
+import { loadKenneyTreeAssets, createStaticInstancedAsset } from './real-assets-v105.js?v=1051';
 
 export async function installExteriorForestV78({
   scene,mapPx,metersPerPixel,frameSignature,renderer
