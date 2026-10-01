@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V82 FISH + MOTORCYCLES + SUPERCARS</small>
+  <small>GitHub → Netlify · BUILD V83 RIDERS + 50 GREEN-SHIRT PEDESTRIANS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V82 giữ nguyên rừng, sen và traffic công nghiệp; bổ sung 120 cá bơi động trong hồ, 24 xe máy và 6 siêu xe chạy cùng hệ giao thông source-locked.</p>
+  <p>V83 giữ nguyên toàn bộ V82, tách xe máy thành nhiều micro-lane để không nối đuôi cứng, bổ sung người lái 3D trên từng xe máy và 50 người áo sơ mi xanh lá đi bộ ngẫu nhiên trên vỉa hè nội khu.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V82 fish + traffic</b><span>CAD roads + restored 3D layers</span></div>
+    <div class="stat"><b>V83 riders + pedestrians</b><span>CAD roads + restored 3D layers</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V82: lotus pond + 120 fish + 24 motorcycles + 6 supercars</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V83: motorcycle riders + de-queued bikes + 50 green-shirt pedestrians</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -50,9 +50,10 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=77';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=79';
-import { installTrafficAIV82 } from './assets/traffic-ai-v82.js?v=82';
+import { installTrafficAIV83 } from './assets/traffic-ai-v83.js?v=83';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
+import { installPedestriansV83 } from './assets/pedestrians-v83.js?v=83';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1182,6 +1183,8 @@ let v78ExteriorGroup=null;
 let v78TreeCount=0;
 let v78HouseCount=0;
 let trafficController=null;
+let pedestrianController=null;
+let pedestrianCount=0;
 let trafficCarCount=0;
 let trafficCargoCount=0;
 let trafficContainerCount=0;
@@ -1228,7 +1231,7 @@ installCirculationV53({
        v78ExteriorGroup=forestResult?.group||null;
        v78TreeCount=forestResult?.treeCount||0;
        v78HouseCount=forestResult?.houseCount||0;
-       return installTrafficAIV82({
+       return installTrafficAIV83({
          world,
          mapPx,
          frameSignature:SITE_FRAME_SIGNATURE
@@ -1240,14 +1243,23 @@ installCirculationV53({
          trafficMotorcycleCount=trafficResult?.motorcycleCount||0;
          trafficSupercarCount=trafficResult?.supercarCount||0;
          trafficTotalCount=trafficResult?.totalCount||0;
-         return {cadResult,detailResult,forestResult,trafficResult};
+         return installPedestriansV83({
+           world,
+           mapPx,
+           frameSignature:SITE_FRAME_SIGNATURE,
+           metersPerPixel:S
+         }).then(pedestrianResult=>{
+           pedestrianController=pedestrianResult;
+           pedestrianCount=pedestrianResult?.count||0;
+           return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult};
+         });
        });
      });
    });
  })
- .then(({cadResult,detailResult,forestResult,trafficResult})=>{
+ .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V82 ready · '+pondFishV82.fishCount+' pond fish · '+trafficMotorcycleCount+' motorcycles · '+trafficSupercarCount+' supercars · '+trafficTotalCount+' moving vehicles · '+v78TreeCount+' exterior trees · '+(st.factories||0)+' factory detail sets';
+   coordBadge.textContent='V83 ready · '+trafficMotorcycleCount+' motorcycles with riders · '+trafficSupercarCount+' supercars · '+pedestrianCount+' green-shirt pedestrians · '+pondFishV82.fishCount+' pond fish · '+trafficTotalCount+' moving vehicles · '+(st.factories||0)+' factory detail sets';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1263,6 +1275,7 @@ installCirculationV53({
      if(v78ExteriorGroup)v78ExteriorGroup.visible=envOn;
      if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
+     if(pedestrianController?.group)pedestrianController.group.visible=envOn;
      const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
@@ -1274,7 +1287,7 @@ installCirculationV53({
    document.querySelector('.controls')?.appendChild(envButton);
 
    const trafficButton=document.createElement('button');
-   trafficButton.id='trafficV82';
+   trafficButton.id='trafficV83';
    trafficButton.className='active';
    trafficButton.textContent='Traffic 50: On';
    let trafficOn=true;
@@ -1298,10 +1311,23 @@ installCirculationV53({
      fishButton.textContent='Pond Fish: '+(fishOn?'On':'Off');
    };
    document.querySelector('.controls')?.appendChild(fishButton);
+
+   const peopleButton=document.createElement('button');
+   peopleButton.id='pedestriansV83';
+   peopleButton.className='active';
+   peopleButton.textContent='Pedestrians 50: On';
+   let peopleOn=true;
+   peopleButton.onclick=()=>{
+     peopleOn=!peopleOn;
+     pedestrianController?.setEnabled?.(peopleOn);
+     peopleButton.classList.toggle('active',peopleOn);
+     peopleButton.textContent='Pedestrians 50: '+(peopleOn?'On':'Off');
+   };
+   document.querySelector('.controls')?.appendChild(peopleButton);
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V82 fish/traffic warning: '+error.message;
+   coordBadge.textContent='V83 riders/pedestrians warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1356,6 +1382,7 @@ let lastFrameTime=performance.now();
   lastFrameTime=t;
   trafficController?.update?.(dt);
   pondFishV82?.update?.(dt);
+  pedestrianController?.update?.(dt);
   controls.update();
   const d=camera.position.distanceTo(controls.target);
   world.traverse(o=>{
