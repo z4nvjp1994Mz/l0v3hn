@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { computeFactoryAccessV56 } from './factory-access-v56.js';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls}) {
@@ -55,6 +56,13 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   }
   const green=data.layers.greenbelt;
   const inGreen=(x,y)=>green.some(p=>insideRing(x,y,p.outer)&&!p.holes.some(h=>insideRing(x,y,h)));
+
+  // V56 concrete access lanes cut through the planted green belt.
+  // Exclude those exact access polygons before supplementary V53 trees are instanced.
+  const v56Access=computeFactoryAccessV56(window.__DA_LOC_ROOFS||[],data.paths||[]);
+  const v56NoPlant=v56Access.flatMap(a=>[a.driveway,a.apron]);
+  const inV56Access=(x,y)=>v56NoPlant.some(poly=>insideRing(x,y,poly));
+
   const existing=world.children.filter(o=>o.userData.isTreeGroup).map(o=>o.position),planting=[];
   // Supplementary planting belongs ONLY to the green belt. Existing tree positions never move.
   for(const path of data.paths){
@@ -64,8 +72,8 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
       for(let t=14-accumulated;t<len;t+=14)for(const side of [-1,1]){
         const off=path.widthPx/2+1.93/.782+3.7;
         const x=a[0]+dx*t/len-side*dy/len*off,y=a[1]+dy*t/len+side*dx/len*off,v=mapPx(x,y);
-        if(!inGreen(x,y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
-        let safe=true;for(let k=0;k<8;k++)if(!inGreen(x+Math.cos(k*Math.PI/4)*2,y+Math.sin(k*Math.PI/4)*2))safe=false;
+        if(!inGreen(x,y)||inV56Access(x,y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
+        let safe=true;for(let k=0;k<8;k++){const tx=x+Math.cos(k*Math.PI/4)*2,ty=y+Math.sin(k*Math.PI/4)*2;if(!inGreen(tx,ty)||inV56Access(tx,ty))safe=false;}
         if(safe&&!planting.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<7))planting.push(v);
       }accumulated=(accumulated+len)%14;
     }
