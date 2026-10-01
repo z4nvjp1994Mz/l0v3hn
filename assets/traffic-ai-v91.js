@@ -626,6 +626,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   }
 
   function signalColorForRoute(junction,routeId){
+    // Any future non-signalized conflict point continues using the V101
+    // reservation scheduler rather than being accidentally held on red forever.
+    if(!junction.signal)return 'green';
     const state=junction.signalState||signalStateAt(junction);
     if(state.greenRoute===routeId)return 'green';
     if(state.yellowRoute===routeId)return 'yellow';
@@ -633,6 +636,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   }
 
   function signalAllowsNewEntry(junction,routeId){
+    if(!junction.signal)return true;
     return signalColorForRoute(junction,routeId)==='green';
   }
 
