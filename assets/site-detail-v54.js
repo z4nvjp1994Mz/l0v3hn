@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCadCorridorWarpV89 } from './corridor-warp-v89.js?v=89';
+import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 
 export async function installSiteDetailV54({
   world, buildings, mapPx, frameSignature, renderer, camera, controls
@@ -14,11 +14,11 @@ export async function installSiteDetailV54({
   const circulation = await response.json();
   const cadData = await cadResponse.json();
   if (circulation.frameSignature !== frameSignature || cadData.frameSignature !== frameSignature) throw new Error('V90 coordinate frame mismatch');
-  const corridorWarpV89=buildCadCorridorWarpV89({circulation,cad:cadData});
+  const corridorWarpV91=buildCadCorridorWarpV91({circulation,cad:cadData});
 
   const root = new THREE.Group();
   root.name = 'SITE_DETAIL_V90';
-  root.userData = { version:90, siteFrameSignature:frameSignature, cadMiniLandscapeLock:true };
+  root.userData = { version:91, siteFrameSignature:frameSignature, cadMiniLandscapeLock:true, networkCorridorLock:true };
   world.add(root);
 
   const factoryGroup = new THREE.Group(); factoryGroup.name='V54_FACTORY_MICRODETAIL';
@@ -150,13 +150,13 @@ export async function installSiteDetailV54({
   const paths=circulation.paths||[];
 
   function warpPointPx(x,y){
-    const q=corridorWarpV89.warpPx(x,y);
+    const q=corridorWarpV91.warpPx(x,y);
     return [q.x,q.y];
   }
   function warpRotationPx(x,y,dx,dy){
     const len=Math.hypot(dx,dy)||1;
-    const q1=corridorWarpV89.warpPx(x,y);
-    const q2=corridorWarpV89.warpPx(x+dx/len*2,y+dy/len*2);
+    const q1=corridorWarpV91.warpPx(x,y);
+    const q2=corridorWarpV91.warpPx(x+dx/len*2,y+dy/len*2);
     return Math.atan2(q2.x-q1.x,q2.y-q1.y);
   }
 
@@ -318,9 +318,9 @@ export async function installSiteDetailV54({
   updateDetailVisibility();
 
   window.__DALOC_V54={
-    ready:true,version:90,frameSignature,stats:detailStats,
+    ready:true,version:91,frameSignature,stats:detailStats,
     group:root,cadMiniLandscapeLock:true
   };
-  console.info('[DaLoc] V90 CAD-locked road micro detail ready',detailStats);
+  console.info('[DaLoc] V91 CAD-network-locked road micro detail ready',detailStats);
   return {group:root,stats:detailStats};
 }
