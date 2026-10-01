@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V84 FACTORY INTERIORS + SAFE PEDESTRIANS</small>
+  <small>GitHub → Netlify · BUILD V84.1 HOTFIX · SAFE DEFERRED INTERIORS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V84 giữ nguyên traffic/rừng/hồ sen và nâng nhà xưởng lên interior 3D chi tiết. 50 người áo xanh không còn suy từ tim đường: 24 người ra/vào xưởng, 14 người đi quanh sân xưởng và 12 người chỉ đi trên polygon vỉa hè V53.</p>
 </div>
@@ -1175,13 +1175,26 @@ roofs.forEach((r,idx)=>{
   }
 });
 
-// V84: production-floor interiors and personnel-safe factory portals.
-const factoryInteriorsV84=installFactoryInteriorsV84({world,buildings});
+// V84.1 HOTFIX: do NOT construct all factory interiors synchronously here.
+// The V84 synchronous pass could abort the module before the first render.
+// Start with a safe no-op controller, render the existing V83/V82 scene first,
+// then install interiors inside the async asset chain below.
+let factoryInteriorsV84={
+  ready:false,
+  factoryCount:0,
+  portals:[],
+  failedFactories:[],
+  setVisible(){},
+  setCutaway(){}
+};
+let factoryInteriorLoadError=null;
 let factoryCutawayOn=false;
 const factoryCutawayButton=document.createElement('button');
 factoryCutawayButton.id='factoryCutawayV84';
-factoryCutawayButton.textContent='Factory Cutaway: Off';
+factoryCutawayButton.textContent='Factory Cutaway: Loading';
+factoryCutawayButton.disabled=true;
 factoryCutawayButton.onclick=()=>{
+  if(!factoryInteriorsV84?.ready)return;
   factoryCutawayOn=!factoryCutawayOn;
   factoryInteriorsV84.setCutaway(factoryCutawayOn);
   factoryCutawayButton.classList.toggle('active',factoryCutawayOn);
@@ -1236,13 +1249,32 @@ installCirculationV53({
      v54DetailGroup=detailResult?.group||null;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
-     return installExteriorForestV78({
-       scene,
-       mapPx,
-       metersPerPixel:S,
-       frameSignature:SITE_FRAME_SIGNATURE,
-       renderer
-     }).then(forestResult=>{
+
+     // Install V84 interiors only after the first render path is already alive.
+     // A failure here must never blank the whole project again.
+     return Promise.resolve()
+       .then(()=>installFactoryInteriorsV84({world,buildings}))
+       .then(interiorResult=>{
+         factoryInteriorsV84=interiorResult;
+         factoryCutawayButton.disabled=false;
+         factoryCutawayButton.textContent='Factory Cutaway: Off';
+         return interiorResult;
+       })
+       .catch(error=>{
+         console.error('[DaLoc] V84.1 factory interior fallback',error);
+         factoryInteriorLoadError=error;
+         factoryCutawayButton.disabled=true;
+         factoryCutawayButton.textContent='Factory Cutaway: unavailable';
+         return factoryInteriorsV84;
+       })
+       .then(()=>installExteriorForestV78({
+         scene,
+         mapPx,
+         metersPerPixel:S,
+         frameSignature:SITE_FRAME_SIGNATURE,
+         renderer
+       }))
+       .then(forestResult=>{
        v78ExteriorGroup=forestResult?.group||null;
        v78TreeCount=forestResult?.treeCount||0;
        v78HouseCount=forestResult?.houseCount||0;
@@ -1263,7 +1295,19 @@ installCirculationV53({
            mapPx,
            frameSignature:SITE_FRAME_SIGNATURE,
            factoryPortals:factoryInteriorsV84.portals
-         }).then(pedestrianResult=>{
+         })
+         .catch(error=>{
+           console.error('[DaLoc] V84.1 pedestrian fallback',error);
+           return {
+             ready:false,
+             group:null,
+             count:0,
+             counts:{factory:0,yard:0,sidewalk:0,total:0},
+             update(){},
+             setEnabled(){}
+           };
+         })
+         .then(pedestrianResult=>{
            pedestrianController=pedestrianResult;
            pedestrianCount=pedestrianResult?.count||0;
            return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult};
@@ -1274,7 +1318,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V84 ready · '+factoryInteriorsV84.factoryCount+' detailed factory interiors · '+pedestrianResult.counts.factory+' entering/exiting · '+pedestrianResult.counts.yard+' yard walkers · '+pedestrianResult.counts.sidewalk+' sidewalk-only · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V84.1 ready · '+factoryInteriorsV84.factoryCount+' factory interiors · '+(pedestrianResult.counts?.factory||0)+' entering/exiting · '+(pedestrianResult.counts?.yard||0)+' yard walkers · '+(pedestrianResult.counts?.sidewalk||0)+' sidewalk-only · '+trafficTotalCount+' vehicles'+(factoryInteriorLoadError?' · interior fallback active':'');
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1291,7 +1335,7 @@ installCirculationV53({
      if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
      if(pedestrianController?.group)pedestrianController.group.visible=envOn;
-     factoryInteriorsV84.setVisible(envOn);
+     factoryInteriorsV84?.setVisible?.(envOn);
      const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
@@ -1353,15 +1397,15 @@ function tween(pos,tgt){
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),vd=document.getElementById('vd'),bp=document.getElementById('bp');
-v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.18;factoryCutawayOn=false;factoryInteriorsV84.setCutaway(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent='Factory Cutaway: Off';tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
-vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;factoryCutawayOn=false;factoryInteriorsV84.setCutaway(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent='Factory Cutaway: Off';tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
-vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.10;factoryCutawayOn=true;factoryInteriorsV84.setCutaway(true);factoryCutawayButton.classList.add('active');factoryCutawayButton.textContent='Factory Cutaway: On';tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
+v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.18;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
+vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
+vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.10;factoryCutawayOn=!!factoryInteriorsV84?.ready;factoryInteriorsV84?.setCutaway?.(factoryCutawayOn);factoryCutawayButton.classList.toggle('active',factoryCutawayOn);factoryCutawayButton.textContent=factoryCutawayOn?'Factory Cutaway: On':'Factory Cutaway: Loading';tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
 
 let bpOn=false;
 blueprint.visible=false;
 ground.visible=true;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=false;blueprint.visible=false;ground.visible=true;bp.classList.remove('active');bp.textContent='Blueprint Off';factoryCutawayOn=false;factoryInteriorsV84.setCutaway(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent='Factory Cutaway: Off';window.__DALOC_V72?.setEnabled?.(true);window.__DALOC_V72?.showEdges?.(false);v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=false;blueprint.visible=false;ground.visible=true;bp.classList.remove('active');bp.textContent='Blueprint Off';factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';window.__DALOC_V72?.setEnabled?.(true);window.__DALOC_V72?.showEdges?.(false);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
