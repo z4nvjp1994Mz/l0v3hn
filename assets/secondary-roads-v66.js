@@ -642,7 +642,7 @@ export async function installSecondaryRoadsV66({
   setEnabled(true);
 
   window.__DALOC_V66={
-    ready:true,version:65,frameSignature,lines:masks.snapped.length,
+    ready:true,version:66,frameSignature,lines:masks.snapped.length,
     source:'masterplan-hires.jpg',mode:'direct warehouse-outward scan of 2D secondary-road edge bands',
     setEnabled,
     restoreBlueprintRoads(){
