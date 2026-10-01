@@ -7,7 +7,7 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
 
   const root=new THREE.Group();
   root.name='LANDSCAPE_V95';
-  root.userData={version:96,type:'pond + dense ornamental parks',promenadeFix:true};
+  root.userData={version:97,type:'pond + dense ornamental parks',promenadeFix:true,redBloomPark:true};
   world.add(root);
 
   const pondGroup=new THREE.Group();
@@ -110,6 +110,15 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
     new THREE.MeshStandardMaterial({color:0xc6535f,roughness:.92}),
     new THREE.MeshStandardMaterial({color:0xf0d9db,roughness:.92})
   ];
+  // V97: red-dominant ornamental flower palette matching the supplied 2D/render reference.
+  const redFlowerMats=[
+    new THREE.MeshStandardMaterial({color:0xb91f2f,roughness:.88}),
+    new THREE.MeshStandardMaterial({color:0xd12f3f,roughness:.88}),
+    new THREE.MeshStandardMaterial({color:0xe24b4d,roughness:.88}),
+    new THREE.MeshStandardMaterial({color:0xc62839,roughness:.88}),
+    new THREE.MeshStandardMaterial({color:0xf1d7d9,roughness:.90})
+  ];
+  const hedgeMat=new THREE.MeshStandardMaterial({color:0x477943,roughness:1});
   const grassMat=new THREE.MeshStandardMaterial({color:0x6e9a55,roughness:1});
   const trunkMat=new THREE.MeshStandardMaterial({color:0x6c4a32,roughness:1});
   const canopyMats=[
@@ -211,6 +220,56 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
       mesh.castShadow=true;
       group.add(mesh);
     });
+  }
+
+  function instancedRedFlowerBeds(group,items){
+    if(!items.length)return;
+    // Larger/denser than generic flowers so red beds read clearly from Top View.
+    const geo=new THREE.IcosahedronGeometry(.245,1);
+    const buckets=redFlowerMats.map(()=>[]);
+    items.forEach((p,i)=>{
+      // ~80% red tones, ~20% pale accent.
+      const mod=i%10;
+      const mi=mod<8?(mod%4):4;
+      buckets[mi].push(p);
+    });
+    const d=new THREE.Object3D();
+    buckets.forEach((bucket,mi)=>{
+      if(!bucket.length)return;
+      const mesh=new THREE.InstancedMesh(geo,redFlowerMats[mi],bucket.length);
+      mesh.name='V97_RED_FLOWER_BED_'+mi;
+      bucket.forEach((p,i)=>{
+        const v=wp(p.x,p.y,.31);
+        d.position.copy(v);
+        d.rotation.set(rr(-.10,.10),rr(0,Math.PI*2),rr(-.10,.10));
+        const sc=p.s||1;
+        d.scale.set(sc,sc*.72,sc);
+        d.updateMatrix();
+        mesh.setMatrixAt(i,d.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate=true;
+      mesh.castShadow=true;
+      group.add(mesh);
+    });
+  }
+
+  function instancedLowHedges(group,items){
+    if(!items.length)return;
+    const geo=new THREE.IcosahedronGeometry(.34,1);
+    const mesh=new THREE.InstancedMesh(geo,hedgeMat,items.length);
+    mesh.name='V97_FLOWER_BED_HEDGES';
+    const d=new THREE.Object3D();
+    items.forEach((p,i)=>{
+      const v=wp(p.x,p.y,.34);
+      d.position.copy(v);
+      d.rotation.set(0,rr(0,Math.PI*2),0);
+      const sc=p.s||1;
+      d.scale.set(sc,sc*.62,sc);
+      d.updateMatrix();mesh.setMatrixAt(i,d.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate=true;
+    mesh.castShadow=true;
+    group.add(mesh);
   }
 
   // ---------------- Pond landscape ----------------
@@ -320,13 +379,12 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
 
   const mainShrubs=[],mainFlowers=[];
   const mx=PARK_MAIN.map(p=>p[0]),my=PARK_MAIN.map(p=>p[1]);
-  for(let i=0;i<650;i++){
+  for(let i=0;i<520;i++){
     const x=rr(Math.min(...mx),Math.max(...mx));
     const y=rr(Math.min(...my),Math.max(...my));
     if(!pointInPoly(x,y,PARK_MAIN))continue;
     const d=Math.hypot(x-PARK_CENTER[0],y-PARK_CENTER[1]);
     if(d<18||d>63)continue;
-    // preserve radial paths approximately
     let onPath=false;
     for(let k=0;k<8;k++){
       const a=k*Math.PI/4;
@@ -335,10 +393,70 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
       if(distPointSeg(x,y,a0,a1)<3.0){onPath=true;break;}
     }
     if(onPath)continue;
-    (i%3===0?mainFlowers:mainShrubs).push({x,y,s:rr(.62,1.10)});
+    // Generic planting becomes background only; V97 flower beds carry the visual identity.
+    (i%5===0?mainFlowers:mainShrubs).push({x,y,s:rr(.62,1.02)});
   }
   instancedPlants(parkGroup,mainShrubs,false);
   instancedPlants(parkGroup,mainFlowers,true);
+
+  // V97 structured red-flower composition:
+  // concentric red ribbons + fan-shaped beds between the eight radial paths.
+  const redMainBeds=[];
+  const redMainHedges=[];
+  const spokeAngles=Array.from({length:8},(_,k)=>k*Math.PI/4);
+
+  function awayFromRadialPaths(x,y,clearance=3.6){
+    for(const a of spokeAngles){
+      const a0=[PARK_CENTER[0]+Math.cos(a)*15,PARK_CENTER[1]+Math.sin(a)*15];
+      const a1=[PARK_CENTER[0]+Math.cos(a)*54,PARK_CENTER[1]+Math.sin(a)*54];
+      if(distPointSeg(x,y,a0,a1)<clearance)return false;
+    }
+    return true;
+  }
+
+  // Dense concentric ribbons like the supplied ornamental garden reference.
+  for(const band of [
+    {r0:20,r1:25,count:420},
+    {r0:30,r1:36,count:560},
+    {r0:42,r1:49,count:620}
+  ]){
+    for(let i=0;i<band.count;i++){
+      const a=rr(0,Math.PI*2);
+      const r=Math.sqrt(rr(band.r0*band.r0,band.r1*band.r1));
+      const x=PARK_CENTER[0]+Math.cos(a)*r;
+      const y=PARK_CENTER[1]+Math.sin(a)*r;
+      if(!pointInPoly(x,y,PARK_MAIN)||!awayFromRadialPaths(x,y,3.4))continue;
+      redMainBeds.push({x,y,s:rr(.72,1.10)});
+    }
+  }
+
+  // Wedge beds between spokes: these create the strong red fan pattern visible in the 2D/render.
+  for(let sector=0;sector<8;sector++){
+    const centerA=(sector+.5)*Math.PI/4;
+    for(let i=0;i<170;i++){
+      const r=rr(24,53);
+      const a=centerA+rr(-.22,.22);
+      const x=PARK_CENTER[0]+Math.cos(a)*r;
+      const y=PARK_CENTER[1]+Math.sin(a)*r;
+      if(!pointInPoly(x,y,PARK_MAIN)||!awayFromRadialPaths(x,y,3.0))continue;
+      redMainBeds.push({x,y,s:rr(.68,1.06)});
+    }
+  }
+
+  // Low clipped hedge rings visually frame the red flower beds.
+  for(const r of [18.8,27.7,39.3,51.2]){
+    const n=Math.max(40,Math.round(r*2.8));
+    for(let i=0;i<n;i++){
+      const a=i/n*Math.PI*2;
+      const x=PARK_CENTER[0]+Math.cos(a)*r;
+      const y=PARK_CENTER[1]+Math.sin(a)*r;
+      if(pointInPoly(x,y,PARK_MAIN)&&awayFromRadialPaths(x,y,2.4)){
+        redMainHedges.push({x,y,s:.72});
+      }
+    }
+  }
+  instancedLowHedges(parkGroup,redMainHedges);
+  instancedRedFlowerBeds(parkGroup,redMainBeds);
 
   // Denser canopy around perimeter, never on the radial walking paths.
   let treeAdded=0;
@@ -353,18 +471,32 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
 
   // ---------------- Secondary park ----------------
   const sx=PARK_SECONDARY.map(p=>p[0]),sy=PARK_SECONDARY.map(p=>p[1]);
-  const secondaryShrubs=[],secondaryFlowers=[];
+  const secondaryShrubs=[],secondaryFlowers=[],secondaryRedBeds=[];
   const pathA=[[1160,918],[1265,972]],pathB=[[1200,900],[1218,1013]];
 
-  for(let i=0;i<750;i++){
+  for(let i=0;i<650;i++){
     const x=rr(Math.min(...sx),Math.max(...sx));
     const y=rr(Math.min(...sy),Math.max(...sy));
     if(!pointInPoly(x,y,PARK_SECONDARY))continue;
     if(distPointSeg(x,y,...pathA)<3.2||distPointSeg(x,y,...pathB)<3.0)continue;
-    (i%4===0?secondaryFlowers:secondaryShrubs).push({x,y,s:rr(.62,1.12)});
+    (i%6===0?secondaryFlowers:secondaryShrubs).push({x,y,s:rr(.62,1.06)});
   }
   instancedPlants(parkGroup,secondaryShrubs,false);
   instancedPlants(parkGroup,secondaryFlowers,true);
+
+  // Dense red drifts in the secondary park while preserving the crossing paths.
+  for(let i=0;i<1100;i++){
+    const x=rr(Math.min(...sx),Math.max(...sx));
+    const y=rr(Math.min(...sy),Math.max(...sy));
+    if(!pointInPoly(x,y,PARK_SECONDARY))continue;
+    if(distPointSeg(x,y,...pathA)<4.8||distPointSeg(x,y,...pathB)<4.4)continue;
+    // cluster bias toward two broad red gardens rather than uniform noise
+    const d1=Math.hypot(x-1192,y-950);
+    const d2=Math.hypot(x-1264,y-971);
+    if(Math.min(d1,d2)>56&&rnd()>.28)continue;
+    secondaryRedBeds.push({x,y,s:rr(.68,1.08)});
+  }
+  instancedRedFlowerBeds(parkGroup,secondaryRedBeds);
 
   let secTrees=0;
   for(let tries=0;tries<300&&secTrees<32;tries++){
@@ -391,16 +523,19 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
     pondGrasses:pondGrasses.length,
     mainShrubs:mainShrubs.length,
     mainFlowers:mainFlowers.length,
+    redMainFlowers:redMainBeds.length,
+    redMainHedges:redMainHedges.length,
     secondaryShrubs:secondaryShrubs.length,
     secondaryFlowers:secondaryFlowers.length,
+    secondaryRedFlowers:secondaryRedBeds.length,
     mainTrees:treeAdded+3,
     secondaryTrees:secTrees
   };
   root.userData.stats=stats;
 
   function setVisible(v){root.visible=!!v;}
-  const controller={ready:true,version:96,group:root,pondGroup,parkGroup,stats,setVisible};
+  const controller={ready:true,version:97,group:root,pondGroup,parkGroup,stats,setVisible};
   window.__DALOC_LANDSCAPE_V95=controller;
-  console.info('[DaLoc] V96 corrected pond promenade + dense parks installed',stats);
+  console.info('[DaLoc] V97 red-bloom ornamental parks + corrected pond installed',stats);
   return controller;
 }
