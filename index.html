@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V47 SOURCE-MATCH ROADS</small>
+  <small>GitHub → Netlify · BUILD V48 GAME ASPHALT MATERIAL</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V47 bỏ kiểu tô asphalt xám riêng. Road layer lấy màu trực tiếp từ chính pixel đường trên masterplan, dùng seed màu + flood-fill theo độ tương đồng để bám sát hình và sắc độ đường 2D hơn.</p>
+  <p>Bản V48 giữ chính xác road mask lấy từ masterplan nhưng chỉ dùng nó làm khuôn hình học. Bề mặt hiển thị được thay bằng vật liệu asphalt procedural kiểu game: hạt đá, noise nhiều tầng, mảng vá nhẹ, roughness cao và bump nhỏ.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V47 source-match roads</b><span>sampled from exact blueprint pixels</span></div>
+    <div class="stat"><b>V48 game asphalt</b><span>blueprint shape + procedural material</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V47: road color/shape sampled from blueprint source</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V48: exact road mask + game-style asphalt material</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -334,38 +334,156 @@ bpImg.onload=()=>{
       }
     }
 
-    // Use the ORIGINAL road pixels themselves, slightly darkened for 3D readability.
-    // Therefore the road texture matches the source plan instead of becoming a new grey blob.
-    const out=mctx.createImageData(mw,mh),od=out.data;
+    // V48: the blueprint-derived component is now ONLY an alpha mask.
+    // The visible surface is a tiled procedural asphalt material, game-style.
+    const maskCanvas=document.createElement('canvas');
+    maskCanvas.width=mw;maskCanvas.height=mh;
+    const maskCtx=maskCanvas.getContext('2d');
+    const maskImg=maskCtx.createImageData(mw,mh),md=maskImg.data;
+
     for(let y=0;y<mh;y++){
       for(let x=0;x<mw;x++){
-        const i=y*mw+x;if(!keep[i])continue;
-        const k=i*4;
-        od[k]=Math.round(sd[k]*.82);
-        od[k+1]=Math.round(sd[k+1]*.82);
-        od[k+2]=Math.round(sd[k+2]*.82);
-        // soft 1-pixel boundary, solid interior
+        const i=y*mw+x;
+        if(!keep[i]) continue;
+
         let n=0,total=0;
-        for(let yy=Math.max(0,y-1);yy<=Math.min(mh-1,y+1);yy++){
-          for(let xx=Math.max(0,x-1);xx<=Math.min(mw-1,x+1);xx++){
-            total++;if(keep[yy*mw+xx])n++;
+        for(let yy=Math.max(0,y-2);yy<=Math.min(mh-1,y+2);yy++){
+          for(let xx=Math.max(0,x-2);xx<=Math.min(mw-1,x+2);xx++){
+            total++; if(keep[yy*mw+xx]) n++;
           }
         }
-        od[k+3]=Math.round(135+100*(n/total));
+        const coverage=n/total;
+        const v=Math.round(165+90*coverage);
+        const k=i*4;
+        md[k]=v;md[k+1]=v;md[k+2]=v;md[k+3]=255;
       }
     }
+    maskCtx.putImageData(maskImg,0,0);
 
-    mctx.putImageData(out,0,0);
-    const roadTex=new THREE.CanvasTexture(mc);
-    roadTex.colorSpace=THREE.SRGBColorSpace;
-    roadTex.minFilter=THREE.LinearMipmapLinearFilter;
-    roadTex.magFilter=THREE.LinearFilter;
-    roadTex.generateMipmaps=true;
-    roadTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    const maskTex=new THREE.CanvasTexture(maskCanvas);
+    maskTex.colorSpace=THREE.NoColorSpace;
+    maskTex.minFilter=THREE.LinearMipmapLinearFilter;
+    maskTex.magFilter=THREE.LinearFilter;
+    maskTex.generateMipmaps=true;
+    maskTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 
-    const roadMat=new THREE.MeshBasicMaterial({
-      map:roadTex,transparent:true,opacity:.90,depthWrite:false,depthTest:true,
-      polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
+    // Procedural asphalt albedo tile.
+    const TILE=512;
+    const asphaltCanvas=document.createElement('canvas');
+    asphaltCanvas.width=TILE;asphaltCanvas.height=TILE;
+    const actx=asphaltCanvas.getContext('2d');
+    const aimg=actx.createImageData(TILE,TILE),ad=aimg.data;
+
+    // Deterministic hash so the texture does not change on every refresh.
+    const hash=(x,y)=>{
+      let h=(x*374761393+y*668265263)^0x5bd1e995;
+      h=(h^(h>>>13))*1274126177;
+      return ((h^(h>>>16))>>>0)/4294967295;
+    };
+
+    for(let y=0;y<TILE;y++){
+      for(let x=0;x<TILE;x++){
+        const k=(y*TILE+x)*4;
+        const n1=hash(x,y);
+        const n2=hash(x>>2,y>>2);
+        const n3=hash(x>>4,y>>4);
+
+        // mid-dark road asphalt, not flat black
+        let base=73 + (n1-.5)*18 + (n2-.5)*12 + (n3-.5)*8;
+
+        // occasional brighter aggregate grains
+        const grain=hash(x*3+17,y*5+31);
+        if(grain>.985) base+=34;
+        if(grain<.012) base-=20;
+
+        const warm=hash(x+901,y+613)-.5;
+        ad[k]=Math.max(35,Math.min(125,base+warm*4));
+        ad[k+1]=Math.max(37,Math.min(128,base+warm*3));
+        ad[k+2]=Math.max(38,Math.min(130,base+warm*2));
+        ad[k+3]=255;
+      }
+    }
+    actx.putImageData(aimg,0,0);
+
+    // Subtle repaired asphalt patches.
+    actx.save();
+    actx.globalAlpha=.10;
+    actx.fillStyle='#9aa09b';
+    for(let i=0;i<9;i++){
+      const x=hash(i,17)*TILE,y=hash(i,43)*TILE;
+      const w=35+hash(i,71)*95,h=14+hash(i,89)*45;
+      actx.translate(x,y);
+      actx.rotate((hash(i,111)-.5)*.65);
+      actx.fillRect(-w/2,-h/2,w,h);
+      actx.setTransform(1,0,0,1,0,0);
+    }
+    actx.restore();
+
+    // Fine crack lines.
+    actx.save();
+    actx.strokeStyle='rgba(25,28,27,.20)';
+    actx.lineWidth=1;
+    for(let i=0;i<26;i++){
+      let x=hash(i,201)*TILE,y=hash(i,202)*TILE;
+      actx.beginPath();actx.moveTo(x,y);
+      for(let p=0;p<4;p++){
+        x+=(hash(i*11+p,203)-.5)*32;
+        y+=(hash(i*13+p,204)-.5)*32;
+        actx.lineTo(x,y);
+      }
+      actx.stroke();
+    }
+    actx.restore();
+
+    const asphaltTex=new THREE.CanvasTexture(asphaltCanvas);
+    asphaltTex.colorSpace=THREE.SRGBColorSpace;
+    asphaltTex.wrapS=THREE.RepeatWrapping;
+    asphaltTex.wrapT=THREE.RepeatWrapping;
+    asphaltTex.repeat.set(Math.max(10,PLANE_W/36),Math.max(10,PLANE_H/36));
+    asphaltTex.minFilter=THREE.LinearMipmapLinearFilter;
+    asphaltTex.magFilter=THREE.LinearFilter;
+    asphaltTex.generateMipmaps=true;
+    asphaltTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+
+    // Separate micro-height tile for bump; same aggregate pattern but grayscale.
+    const bumpCanvas=document.createElement('canvas');
+    bumpCanvas.width=256;bumpCanvas.height=256;
+    const bctx=bumpCanvas.getContext('2d');
+    const bimg=bctx.createImageData(256,256),bd=bimg.data;
+    for(let y=0;y<256;y++){
+      for(let x=0;x<256;x++){
+        const n=hash(x*7+77,y*9+91);
+        const coarse=hash((x>>2)+13,(y>>2)+29);
+        const v=Math.round(105+n*90+coarse*35);
+        const k=(y*256+x)*4;
+        bd[k]=v;bd[k+1]=v;bd[k+2]=v;bd[k+3]=255;
+      }
+    }
+    bctx.putImageData(bimg,0,0);
+    const bumpTex=new THREE.CanvasTexture(bumpCanvas);
+    bumpTex.colorSpace=THREE.NoColorSpace;
+    bumpTex.wrapS=THREE.RepeatWrapping;
+    bumpTex.wrapT=THREE.RepeatWrapping;
+    bumpTex.repeat.copy(asphaltTex.repeat);
+    bumpTex.minFilter=THREE.LinearMipmapLinearFilter;
+    bumpTex.magFilter=THREE.LinearFilter;
+    bumpTex.generateMipmaps=true;
+
+    const roadMat=new THREE.MeshStandardMaterial({
+      map:asphaltTex,
+      alphaMap:maskTex,
+      transparent:true,
+      opacity:1,
+      alphaTest:.10,
+      depthWrite:false,
+      depthTest:true,
+      roughness:.94,
+      metalness:0,
+      bumpMap:bumpTex,
+      bumpScale:.18,
+      polygonOffset:true,
+      polygonOffsetFactor:-2,
+      polygonOffsetUnits:-2
     });
 
     const roadPlane=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),roadMat);
@@ -373,11 +491,12 @@ bpImg.onload=()=>{
     const bpC=mapPx(IMG_W/2,IMG_H/2);
     roadPlane.position.set(bpC.x,.075,bpC.z);
     roadPlane.renderOrder=2;
-    roadPlane.name='SOURCE_MATCHED_ROADS';
+    roadPlane.receiveShadow=true;
+    roadPlane.name='GAME_ASPHALT_ROADS';
     roadPlane.userData.siteFrameSignature=SITE_FRAME_SIGNATURE;
     world.add(roadPlane);
 
-    coordBadge.textContent='COORD LOCK + SOURCE-MATCH ROAD PIXELS · same blueprint';
+    coordBadge.textContent='COORD LOCK + GAME ASPHALT · blueprint mask only';
   };
   setTimeout(buildPixelLockedRoadSurface,0);
 
