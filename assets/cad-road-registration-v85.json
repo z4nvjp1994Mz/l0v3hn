@@ -1,0 +1,25 @@
+{
+  "version": 85,
+  "name": "V85 exact south-spine tree-axis registration",
+  "purpose": "Keep CAD road 77505 exactly on the V53/masterplan central-spine tree corridor through the southern endpoint and exit continuation.",
+  "rawCadPreserved": true,
+  "roadHandle": "77505",
+  "targetPath": "central-spine",
+  "anchorPx": [673.9909258589748, 1067.9921641772735],
+  "treeAxisPx": [[358.6,1500.2],[435.06,1395.044]],
+  "originalSouthEndpointPx": [311.57,1533.95],
+  "previousCorrectedSouthEndpointPx": [325.8244141578689,1544.6951245152172],
+  "correctedSouthEndpointPx": [326.1009432434449,1544.8961916334333],
+  "visualPointsPx": [
+    [1430.69,736.41],
+    [875.94,808.35],
+    [673.9909258589748,1067.9921641772735],
+    [326.1009432434449,1544.8961916334333]
+  ],
+  "fit": {
+    "southernEndpointDistanceToTreeAxisPx": 0.0,
+    "previousEndpointDistanceToTreeAxisPx": 0.3419010400645395,
+    "axisRule": "southern endpoint is orthogonal projection onto the final V53 central-spine/tree-corridor axis"
+  },
+  "notes": "V85 removes the residual south-end drift by using the tree/greenbelt axis as the final visual registration constraint. Raw CAD remains unchanged in cad-source-v72.json."
+}
