@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V60.2 TRUE ROAD LAYER TOGGLE</small>
+  <small>GitHub → Netlify · BUILD V60.3 EXPLICIT SECONDARY ROAD GEOMETRY</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V60.2 sửa triệt để nút Secondary roads: phần đường tương ứng trên blueprint luôn được khoét khỏi lớp tham chiếu, vì vậy ON sẽ hiện đường con 3D còn OFF sẽ thật sự để trống phần đường đó. Không còn hiện tượng tắt mesh 3D nhưng blueprint bên dưới làm người dùng tưởng nút không hoạt động.</p>
+  <p>V60.3 bỏ cách vẽ Secondary roads bằng một plane toàn bản đồ + alpha mask. Đường con giờ là các mesh 3D thật có mặt bê tông nâng cao và curb hai bên; nút On/Off ẩn hiện trực tiếp các mesh này và có badge trạng thái để kiểm tra.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V60 narrow roads</b><span>source-snapped centerlines + curb</span></div>
+    <div class="stat"><b>V60.3 road meshes</b><span>explicit raised concrete + curbs</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V60: narrow secondary roads snapped to the 2D masterplan — no parcel flood-fill</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V60.3: explicit secondary-road meshes — On/Off hides real 3D geometry</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1151,18 +1151,18 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V60.2 secondary roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
+   coordBadge.textContent='V60.3 explicit secondary roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>({secondaryResult,detailResult}));
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V60.2 ready · true road-layer toggle · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V60.3 ready · explicit road geometry toggle · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V60.2 detail warning: '+error.message;
+   coordBadge.textContent='V60.3 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
