@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 
-// V100 mixed traffic + factory logistics.
-// Existing road traffic is preserved, while cargo/container trucks can leave the
-// main road, enter a factory service yard, reverse to a loading dock, wait for
-// loading, then return to the road and continue their route.
+// V101 mixed traffic + factory logistics + anti-gridlock junction scheduler.
+// Cargo/container loading missions are preserved, but junction entry now uses
+// fair reservations, downstream box-clear checks, service-turn exclusion zones,
+// and a watchdog so one stalled vehicle cannot lock the whole intersection.
 export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAccess=null}){
   const [response,cadResponse]=await Promise.all([
     fetch(new URL('./circulation-v53.json',import.meta.url)),
@@ -18,9 +18,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V100';
+  root.name='AI_TRAFFIC_V101';
   root.userData={
-    version:100,
+    version:101,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
@@ -77,7 +77,12 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
               [rb.id]:rb.cumulative[bi-1]+bSeg*hit.tb
             },
             routes:[ra.id,rb.id],
-            owner:null
+            owner:null,
+            lockSince:0,
+            ownerLastSigned:null,
+            ownerLastProgressAt:0,
+            lastGrantedKey:null,
+            lastGrantTime:-Infinity
           });
         }
       }
@@ -416,7 +421,8 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       s:route.total*cfg.progress,dir:cfg.dir,baseSpeed:cfg.speed,speed:cfg.speed*.72,lane:cfg.lane,
       weaveAmp:cfg.weaveAmp||0,weaveSpeed:cfg.weaveSpeed||0,weavePhase:cfg.weavePhase||0,
       length:sp.length,minGap:sp.minGap,sense:sp.sense,response:sp.response,
-      service:null
+      service:null,
+      junctionWait:Object.create(null)
     };
   });
 
@@ -438,11 +444,21 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
         outward:new THREE.Vector3(d.outwardWorld.x,0,d.outwardWorld.z).normalize(),
         mergeS:projection.s,
         mergePoint:projection.point,
-        mergeDistance:projection.d
+        mergeDistance:projection.d,
+        junctionGap:Math.min(
+          Infinity,
+          ...junctions
+            .map(j=>j.routeS[route.id])
+            .filter(Number.isFinite)
+            .map(js=>Math.abs(js-projection.s))
+        )
       };
     })
     .filter(Boolean)
-    .filter(t=>t.mergeDistance<35);
+    .filter(t=>t.mergeDistance<35)
+    // Never ask a freight truck to turn into a factory directly beside a
+    // conflict box. This was one source of diagonal trucks blocking the junction.
+    .filter(t=>t.junctionGap>38);
 
   const serviceTargetsByRoute=new Map();
   for(const target of serviceTargets){
@@ -651,6 +667,218 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
   agents.forEach(placeAgent);
 
+  // -----------------------------------------------------------------------
+  // V101 SMART JUNCTION SCHEDULER
+  // -----------------------------------------------------------------------
+  const gridlockStats={
+    grants:0,
+    blockedBoxEntries:0,
+    staleLocksReleased:0,
+    emergencyEvacuations:0
+  };
+
+  function approachKey(agent){
+    return agent.route.id+':'+agent.dir;
+  }
+
+  function junctionSigned(agent,junction){
+    const js=junction.routeS[agent.route.id];
+    return Number.isFinite(js)?(js-agent.s)*agent.dir:Infinity;
+  }
+
+  function downstreamClear(agent,junction){
+    const js=junction.routeS[agent.route.id];
+    if(!Number.isFinite(js))return true;
+    const policy=junctionPolicy(agent);
+    const required=
+      policy.release+
+      agent.length*.5+
+      agent.minGap+
+      (agent.type==='container'?13:agent.type==='cargo'?9:6);
+
+    for(const other of agents){
+      if(other===agent||other.route!==agent.route||other.dir!==agent.dir)continue;
+      if(other.service&&other.service.phase!=='cruise')continue;
+
+      const after=(other.s-js)*agent.dir;
+      if(after < -agent.length*.45)continue;
+
+      // Motorcycles in a clearly separate micro-lane do not block a truck/car lane.
+      if(agent.type==='motorcycle'||other.type==='motorcycle'){
+        if(Math.abs(currentLane(agent)-currentLane(other))>.85)continue;
+      }
+
+      const occupiedTo=after+(other.length+agent.length)*.5;
+      if(occupiedTo<required)return false;
+    }
+    return true;
+  }
+
+  function approachLeader(candidate,junction){
+    const mySigned=junctionSigned(candidate,junction);
+    for(const other of agents){
+      if(other===candidate||other.route!==candidate.route||other.dir!==candidate.dir)continue;
+      if(other.service&&other.service.phase!=='cruise')continue;
+      const signed=junctionSigned(other,junction);
+      if(signed>=-.5&&signed<mySigned-0.8){
+        if(candidate.type==='motorcycle'||other.type==='motorcycle'){
+          if(Math.abs(currentLane(candidate)-currentLane(other))>.85)continue;
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function updateJunctionWaits(dt){
+    for(const agent of agents){
+      for(const junction of junctions){
+        const js=junction.routeS[agent.route.id];
+        if(js===undefined)continue;
+        const signed=(js-agent.s)*agent.dir;
+        const policy=junctionPolicy(agent);
+        if((!agent.service||agent.service.phase==='cruise')&&signed>0&&signed<policy.lookahead){
+          agent.junctionWait[junction.id]=(agent.junctionWait[junction.id]||0)+dt;
+        }else if(signed<-policy.release||signed>policy.lookahead*1.25){
+          agent.junctionWait[junction.id]=0;
+        }
+      }
+    }
+  }
+
+  function releaseJunction(junction,owner){
+    if(owner)owner.junctionWait[junction.id]=0;
+    junction.owner=null;
+    junction.lockSince=0;
+    junction.ownerLastSigned=null;
+    junction.ownerLastProgressAt=simTime;
+  }
+
+  function emergencyEvacuate(owner,junction){
+    const js=junction.routeS[owner.route.id];
+    if(!Number.isFinite(js))return false;
+    const policy=junctionPolicy(owner);
+
+    // Move only as a last-resort watchdog, and only to a downstream point that
+    // is not already occupied. Normal traffic should never use this path.
+    const offsets=[
+      policy.release+owner.length+8,
+      policy.release+owner.length+18,
+      policy.release+owner.length+30,
+      policy.release+owner.length+45
+    ];
+    for(const offset of offsets){
+      const trial=THREE.MathUtils.clamp(js+owner.dir*offset,0,owner.route.total);
+      let clear=true;
+      for(const other of agents){
+        if(other===owner||other.route!==owner.route)continue;
+        if(other.service&&other.service.phase!=='cruise')continue;
+        if(Math.abs(other.s-trial)<Math.max(18,(other.length+owner.length)*.7)){
+          clear=false;break;
+        }
+      }
+      if(!clear)continue;
+      owner.s=trial;
+      owner.speed=Math.min(owner.baseSpeed,2.4);
+      placeAgent(owner);
+      gridlockStats.emergencyEvacuations++;
+      return true;
+    }
+    return false;
+  }
+
+  function scheduleJunctions(dt){
+    updateJunctionWaits(dt);
+
+    for(const junction of junctions){
+      if(junction.owner){
+        const owner=junction.owner;
+
+        if(owner.service&&owner.service.phase!=='cruise'){
+          releaseJunction(junction,owner);
+          continue;
+        }
+
+        const signed=junctionSigned(owner,junction);
+        const policy=junctionPolicy(owner);
+
+        if(!Number.isFinite(signed)||signed < -policy.release || signed > policy.lookahead*2.5){
+          junction.lastGrantedKey=approachKey(owner);
+          releaseJunction(junction,owner);
+          continue;
+        }
+
+        // Watch actual progress of the lock holder. A stopped vehicle upstream
+        // must relinquish its reservation instead of freezing every approach.
+        if(
+          junction.ownerLastSigned===null ||
+          Math.abs(signed-junction.ownerLastSigned)>.35 ||
+          owner.speed>.45
+        ){
+          junction.ownerLastSigned=signed;
+          junction.ownerLastProgressAt=simTime;
+        }
+
+        const stalledFor=simTime-junction.ownerLastProgressAt;
+        if(stalledFor>4.5 && signed>policy.stopGap*.7){
+          gridlockStats.staleLocksReleased++;
+          junction.lastGrantedKey=approachKey(owner);
+          releaseJunction(junction,owner);
+          continue;
+        }
+
+        // If something exceptional still strands the owner inside the box,
+        // evacuate it after a long watchdog interval rather than deadlock forever.
+        if(stalledFor>11 && signed<=policy.stopGap*.7 && signed>=-policy.release){
+          if(emergencyEvacuate(owner,junction)){
+            junction.lastGrantedKey=approachKey(owner);
+            releaseJunction(junction,owner);
+          }
+        }
+      }
+
+      if(junction.owner)continue;
+
+      const candidates=[];
+      for(const candidate of agents){
+        if(candidate.service&&candidate.service.phase!=='cruise')continue;
+        const js=junction.routeS[candidate.route.id];
+        if(js===undefined)continue;
+
+        const signed=(js-candidate.s)*candidate.dir;
+        const policy=junctionPolicy(candidate);
+        if(signed<0||signed>policy.claim)continue;
+        if(!approachLeader(candidate,junction))continue;
+
+        if(!downstreamClear(candidate,junction)){
+          gridlockStats.blockedBoxEntries++;
+          continue;
+        }
+
+        const wait=candidate.junctionWait[junction.id]||0;
+        const key=approachKey(candidate);
+
+        // Fairness: after one approach is served, prefer a waiting conflicting
+        // approach on the next grant instead of letting the busiest road monopolize.
+        const sameApproachPenalty=key===junction.lastGrantedKey?7.5:0;
+        const heavyBonus=candidate.type==='container'?-1.0:candidate.type==='cargo'?-.5:0;
+        const score=signed + sameApproachPenalty + heavyBonus - Math.min(wait,14)*1.35;
+        candidates.push({candidate,score,signed,key});
+      }
+
+      candidates.sort((a,b)=>a.score-b.score||a.signed-b.signed||a.candidate.index-b.candidate.index);
+      const win=candidates[0];
+      if(!win)continue;
+
+      junction.owner=win.candidate;
+      junction.lockSince=simTime;
+      junction.ownerLastSigned=win.signed;
+      junction.ownerLastProgressAt=simTime;
+      junction.lastGrantTime=simTime;
+      gridlockStats.grants++;
+    }
+  }
+
   let enabled=true;
   function setEnabled(v){enabled=!!v;root.visible=enabled;}
   function setLogisticsEnabled(v){logisticsEnabled=!!v;}
@@ -660,42 +888,8 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     dt=Math.min(dt,.05);
     simTime+=dt;
 
-    // Release a junction only after the owner's rear has fully cleared the conflict zone.
-    for(const junction of junctions){
-      if(junction.owner){
-        const owner=junction.owner;
-        if(owner.service&&owner.service.phase!=='cruise'){
-          junction.owner=null;
-          continue;
-        }
-        const js=junction.routeS[owner.route.id];
-        if(js===undefined){
-          junction.owner=null;
-        }else{
-          const signed=(js-owner.s)*owner.dir;
-          const policy=junctionPolicy(owner);
-          if(signed < -policy.release || signed > policy.lookahead*2.5){
-            junction.owner=null;
-          }
-        }
-      }
-
-      // If free, grant it to the nearest vehicle that is already at the claim zone.
-      if(!junction.owner){
-        let winner=null,best=Infinity;
-        for(const candidate of agents){
-          if(candidate.service&&candidate.service.phase!=='cruise')continue;
-          const js=junction.routeS[candidate.route.id];
-          if(js===undefined)continue;
-          const signed=(js-candidate.s)*candidate.dir;
-          const policy=junctionPolicy(candidate);
-          if(signed < -policy.stopGap || signed > policy.claim)continue;
-          const score=Math.abs(signed);
-          if(score<best){best=score;winner=candidate;}
-        }
-        junction.owner=winner;
-      }
-    }
+    // V101: fair junction reservations + "do not block the box".
+    scheduleJunctions(dt);
 
     for(const agent of agents){
       if(agent.service&&agent.service.phase!=='cruise'){
@@ -735,14 +929,26 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
         if(js===undefined)continue;
         const signed=(js-agent.s)*agent.dir;
         const policy=junctionPolicy(agent);
-        if(signed>0 && signed<policy.lookahead && junction.owner!==agent){
-          const remaining=Math.max(0,signed-policy.stopGap);
-          junctionStopDistance=Math.min(junctionStopDistance,remaining);
-          const slow=THREE.MathUtils.clamp(
-            remaining/Math.max(1,policy.lookahead-policy.stopGap),
-            0,1
-          );
-          desired=Math.min(desired,agent.baseSpeed*slow);
+        if(signed>0 && signed<policy.lookahead){
+          const owns=junction.owner===agent;
+          const boxClear=owns&&downstreamClear(agent,junction);
+
+          if(!owns||!boxClear){
+            const remaining=Math.max(0,signed-policy.stopGap);
+            junctionStopDistance=Math.min(junctionStopDistance,remaining);
+            const slow=THREE.MathUtils.clamp(
+              remaining/Math.max(1,policy.lookahead-policy.stopGap),
+              0,1
+            );
+            desired=Math.min(desired,agent.baseSpeed*slow);
+
+            // If the owner lost downstream space before crossing the stop line,
+            // immediately free the reservation so another approach can move.
+            if(owns&&!boxClear&&signed>policy.stopGap*.85){
+              junction.lastGrantedKey=approachKey(agent);
+              releaseJunction(junction,agent);
+            }
+          }
         }
       }
 
@@ -790,28 +996,30 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:100,group:root,agents,counts,junctions,
-    serviceTargets,serviceStats,update,setEnabled,setLogisticsEnabled
+    ready:true,version:101,group:root,agents,counts,junctions,
+    serviceTargets,serviceStats,gridlockStats,
+    update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V100 factory-logistics traffic installed',{
+  console.info('[DaLoc] V101 anti-gridlock factory-logistics traffic installed',{
     ...counts,
     serviceAgents:serviceAgentCount,
     serviceTargets:serviceTargets.length,
     serviceFactories:serviceStats.targetFactories,
+    safeServiceTargets:serviceTargets.map(t=>({factory:t.factoryIndex,route:t.route.id,junctionGap:t.junctionGap})),
     junctions:junctions.map(j=>({id:j.id,routes:j.routes})),
     corridorWarp:'raw CAD 77505'
   });
 
   return {
-    ready:true,version:100,group:root,counts,junctions,
+    ready:true,version:101,group:root,counts,junctions,
     carCount:counts.cars,cargoTruckCount:counts.cargoTrucks,
     containerTruckCount:counts.containerTrucks,motorcycleCount:counts.motorcycles,
     supercarCount:counts.supercars,totalCount:counts.total,
     serviceTruckCount:serviceAgentCount,
     serviceTargetCount:serviceTargets.length,
     serviceFactoryCount:serviceStats.targetFactories,
-    serviceStats,
+    serviceStats,gridlockStats,
     update,setEnabled,setLogisticsEnabled
   };
 }
