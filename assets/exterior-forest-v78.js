@@ -3,15 +3,10 @@ import * as THREE from 'three';
 export async function installExteriorForestV78({
   scene,mapPx,metersPerPixel,frameSignature,renderer
 }){
-  const [response,circulationResponse]=await Promise.all([
-    fetch(new URL('./cad-source-v72.json',import.meta.url)),
-    fetch(new URL('./circulation-v53.json',import.meta.url))
-  ]);
-  if(!response.ok)throw new Error('V78 exterior source HTTP '+response.status);
-  if(!circulationResponse.ok)throw new Error('V87 circulation source HTTP '+circulationResponse.status);
+  const response=await fetch(new URL('./cad-source-v72.json',import.meta.url));
+  if(!response.ok)throw new Error('V89 exterior source HTTP '+response.status);
   const data=await response.json();
-  const circulation=await circulationResponse.json();
-  if(data.frameSignature!==frameSignature||circulation.frameSignature!==frameSignature)throw new Error('V87 coordinate frame mismatch');
+  if(data.frameSignature!==frameSignature)throw new Error('V89 coordinate frame mismatch');
 
   const root=new THREE.Group();
   root.name='EXTERIOR_FOREST_V78';
@@ -50,24 +45,16 @@ export async function installExteriorForestV78({
     return best;
   }
 
-  // V87 single source lock:
-  // use raw CAD for all secondary corridors, but replace road 77505 with the exact
-  // V53 central-spine path/width so road surface, greenbelt, planted rows and forest
-  // clearance cannot drift from one another.
+  // V89 CAD-authoritative clearance. Every road corridor, including 77505,
+  // uses the raw DXF centerline and raw CAD width.
   const roadCorridors=[];
-  const centralSpine=(circulation.paths||[]).find(p=>p.id==='central-spine');
   for(const road of data.roads||[]){
-    const isMain=road.handle==='77505'&&centralSpine;
-    const sourcePoints=isMain?centralSpine.pointsPx:(road.pointsPx||[]);
-    const pts=sourcePoints.map(([x,y])=>{
+    const pts=(road.pointsPx||[]).map(([x,y])=>{
       const p=mapPx(x,y);return {x:p.x,z:p.z};
     });
-    const half=isMain
-      ? (centralSpine.widthPx||22)*metersPerPixel*.5+6
-      : (road.widthCad||12)*(data.pxPerCadUnit||1.20434303125)*metersPerPixel*.5+6;
+    const half=(road.widthCad||12)*(data.pxPerCadUnit||1.20434303125)*metersPerPixel*.5+6;
     for(let i=1;i<pts.length;i++)roadCorridors.push({a:pts[i-1],b:pts[i],radius:half});
   }
-  // No raw-world external road clearances and no synthetic south continuation in V87.
 
   function inRoadCorridor(x,z,pad=0){
     return roadCorridors.some(c=>distanceToSegment(x,z,c.a,c.b)<=c.radius+pad);
@@ -220,7 +207,7 @@ export async function installExteriorForestV78({
     boundaryPoints:boundary.length
   };
 
-  console.info('[DaLoc] V87 source-locked exterior forest installed',{
+  console.info('[DaLoc] V89 CAD-authoritative exterior forest installed',{
     trees:root.userData.treeCount,
     houses:root.userData.houseCount,
     boundaryPoints:boundary.length
