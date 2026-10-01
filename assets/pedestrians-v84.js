@@ -120,18 +120,59 @@ export async function installPedestriansV84({
     return {pos:a.clone().lerp(b,t),tangent:b.clone().sub(a).normalize(),segment:lo};
   }
 
-  // Actual V53 sidewalk polygon boundaries. This replaces the old "road width + offset"
+  // Actual V53 sidewalk polygons. This replaces the old "road width + offset"
   // approximation that could place workers on asphalt.
   const sidewalkPolys=data.layers?.sidewalk||[];
+
+  function pointInRingWorld(x,z,ring){
+    let inside=false;
+    for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      const a=ring[i],b=ring[j];
+      if((a.z>z)!==(b.z>z) && x<(b.x-a.x)*(z-a.z)/(b.z-a.z)+a.x)inside=!inside;
+    }
+    return inside;
+  }
+
+  const sidewalkPolysWorld=sidewalkPolys.map(poly=>({
+    outer:poly.outer.map(([x,y])=>{const p=mapPx(x,y);return new THREE.Vector3(p.x,.10,p.z);}),
+    holes:(poly.holes||[]).map(h=>h.map(([x,y])=>{const p=mapPx(x,y);return new THREE.Vector3(p.x,.10,p.z);}))
+  }));
+
+  function insideSidewalk(x,z){
+    return sidewalkPolysWorld.some(poly=>
+      pointInRingWorld(x,z,poly.outer) &&
+      !poly.holes.some(h=>pointInRingWorld(x,z,h))
+    );
+  }
+
+  // Move each boundary vertex about 0.9 m toward whichever local normal actually
+  // lies inside the sidewalk polygon. That keeps a full human body off the asphalt.
+  function insetRing(ring){
+    const out=[];
+    const amount=.90;
+    for(let i=0;i<ring.length;i++){
+      const prev=ring[(i-1+ring.length)%ring.length];
+      const cur=ring[i];
+      const next=ring[(i+1)%ring.length];
+      const tangent=next.clone().sub(prev);tangent.y=0;
+      if(tangent.lengthSq()<1e-8){out.push(cur.clone());continue;}
+      tangent.normalize();
+      const n1=new THREE.Vector3(-tangent.z,0,tangent.x);
+      const n2=n1.clone().multiplyScalar(-1);
+      const c1=cur.clone().addScaledVector(n1,amount);
+      const c2=cur.clone().addScaledVector(n2,amount);
+      if(insideSidewalk(c1.x,c1.z))out.push(c1);
+      else if(insideSidewalk(c2.x,c2.z))out.push(c2);
+      else out.push(cur.clone());
+    }
+    return out;
+  }
+
   const sidewalkPaths=[];
-  for(const poly of sidewalkPolys){
-    for(const ring of [poly.outer,...(poly.holes||[])]){
+  for(const poly of sidewalkPolysWorld){
+    for(const ring of [poly.outer,...poly.holes]){
       if(!ring||ring.length<3)continue;
-      const pts=ring.map(([x,y])=>{
-        const p=mapPx(x,y);
-        return new THREE.Vector3(p.x,.10,p.z);
-      });
-      sidewalkPaths.push(makePath(pts,true));
+      sidewalkPaths.push(makePath(insetRing(ring),true));
     }
   }
   if(!sidewalkPaths.length)throw new Error('V84 sidewalk polygon unavailable');
