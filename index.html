@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V74 DETAIL-RESTORE + SOURCE-LOCK</small>
+  <small>GitHub → Netlify · BUILD V75 CAD-ACCESS GREENBELT CUTOUTS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V74 giữ CAD làm nguồn khóa đường/ranh, đồng thời khôi phục các lớp 3D đã xây trước: vỉa hè, curb, dải xanh, planting và factory micro-detail. Mái xưởng được trả về cấu trúc trắng bao ngoài + dải xanh bên trong đúng masterplan.</p>
+  <p>V75 giữ toàn bộ detail 3D của V74 nhưng dải cây/vỉa xanh dọc đường lớn được mở đúng tại các lối vào xác nhận từ CAD HTKT_GT_HEDUONG; cây và thảm xanh không còn chắn cửa vào nhà xưởng.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,16 +36,16 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V74 detail restore</b><span>CAD roads + restored 3D layers</span></div>
+    <div class="stat"><b>V75 CAD access</b><span>CAD roads + restored 3D layers</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V74: CAD source-lock + restored 2D-derived 3D detail</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V75: restored 3D detail + CAD-verified greenbelt access cuts</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { installCirculationV53 } from './assets/circulation-v53.js?v=74';
+import { installCirculationV53 } from './assets/circulation-v53.js?v=75';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=72';
@@ -311,6 +311,7 @@ function addTree(px, py, scale = 1, flowering = false) {
   g.add(trunk, crown1, crown2, crown3);
   g.position.set(p.x, 0.05, p.z);
   g.userData.isTreeGroup = true;
+  g.userData.masterplanPx = {x:px,y:py};
   world.add(g);
   return g;
 }
@@ -1167,6 +1168,7 @@ roofs.forEach((r,idx)=>{
 // V74: restore previously-built 3D detail without replacing authoritative CAD asphalt.
 let v53DetailGroup=null;
 let v54DetailGroup=null;
+let v53AccessCount=0;
 installCirculationV53({
   world,
   mapPx,
@@ -1178,6 +1180,7 @@ installCirculationV53({
 })
  .then(circulationResult=>{
    v53DetailGroup=circulationResult?.group||null;
+   v53AccessCount=circulationResult?.cadAccessCount||0;
    const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
    if(legacyAsphalt)legacyAsphalt.visible=false;
    return installCadSourceV72({
@@ -1200,7 +1203,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V74 ready · '+(cadResult?.roads||0)+' CAD road axes · '+(cadResult?.edges||0)+' CAD edge chains · '+(st.factories||0)+' factory micro-detail sets · V53 curb/sidewalk/greenbelt restored';
+   coordBadge.textContent='V75 ready · '+(cadResult?.roads||0)+' CAD road axes · '+(cadResult?.edges||0)+' CAD edge chains · '+v53AccessCount+' CAD access openings · '+(st.factories||0)+' factory micro-detail sets';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1217,7 +1220,7 @@ installCirculationV53({
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
-     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn;});
+     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn&&!o.userData?.hiddenByCadAccess;});
      envButton.classList.toggle('active',envOn);
      envButton.textContent='3D Environment: '+(envOn?'On':'Off');
    };
@@ -1225,7 +1228,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V74 detail-restore warning: '+error.message;
+   coordBadge.textContent='V75 CAD-access warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1251,7 +1254,7 @@ function updateTreeVisibility(){
   const show=d<2400;
   if(show===treeVisibilityState) return;
   treeVisibilityState=show;
-  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show;});
+  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show&&!obj.userData?.hiddenByCadAccess;});
 }
 controls.addEventListener('change',updateTreeVisibility);
 updateTreeVisibility();
