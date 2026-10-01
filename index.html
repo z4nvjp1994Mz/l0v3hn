@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V92 MAIN GATE · CAD-LOCKED</small>
+  <small>GitHub → Netlify · BUILD V93 DUAL CAD-LOCKED GATES</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V92 giữ toàn bộ V91 và bổ sung cổng chính Cụm công nghiệp Đa Lộc tại đầu phía Nam road CAD 77505, dựng theo form ảnh tham chiếu HAPLAST.</p>
+  <p>V93 giữ toàn bộ V91, chuyển cổng tham chiếu trước sang đầu xa/cuối tuyến CAD 77505 và bổ sung cổng HAPLAST dạng cong mới ở đầu đối diện của cùng tuyến đường.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -55,7 +55,7 @@ import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
-import { installEntranceGateV92 } from './assets/main-gate-v92.js?v=92';
+import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1206,8 +1206,8 @@ let v54DetailGroup=null;
 let v78ExteriorGroup=null;
 let v78TreeCount=0;
 let v78HouseCount=0;
-let v92GateGroup=null;
-let v92GateResult=null;
+let v93GateGroup=null;
+let v93GateResult=null;
 let trafficController=null;
 let pedestrianController=null;
 let pedestrianCount=0;
@@ -1309,7 +1309,7 @@ installCirculationV53({
          .then(pedestrianResult=>{
            pedestrianController=pedestrianResult;
            pedestrianCount=pedestrianResult?.count||0;
-           return installEntranceGateV92({
+           return installDualEntranceGatesV93({
              world,
              mapPx,
              metersPerPixel:S,
@@ -1318,12 +1318,12 @@ installCirculationV53({
              controls
            })
            .catch(error=>{
-             console.error('[DaLoc] V92 main gate fallback',error);
-             return {ready:false,version:92,group:null,error};
+             console.error('[DaLoc] V93 dual gate fallback',error);
+             return {ready:false,version:93,group:null,error,gateCount:0};
            })
            .then(gateResult=>{
-             v92GateResult=gateResult;
-             v92GateGroup=gateResult?.group||null;
+             v93GateResult=gateResult;
+             v93GateGroup=gateResult?.group||null;
              return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult};
            });
          });
@@ -1338,7 +1338,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V92 ready · main gate '+(gateResult?.ready?'installed':'fallback')+' · CAD road-tree network locked · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V93 ready · '+(gateResult?.gateCount||0)+' CAD-locked gates · old gate moved to far end · new curved gate at front end · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1352,7 +1352,7 @@ installCirculationV53({
      if(v53DetailGroup)v53DetailGroup.visible=envOn;
      if(v54DetailGroup)v54DetailGroup.visible=envOn;
      if(v78ExteriorGroup)v78ExteriorGroup.visible=envOn;
-     if(v92GateGroup)v92GateGroup.visible=envOn;
+     if(v93GateGroup)v93GateGroup.visible=envOn;
      if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
      if(pedestrianController?.group)pedestrianController.group.visible=envOn;
@@ -1361,7 +1361,7 @@ installCirculationV53({
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
-     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn&&!o.userData?.hiddenByCadAccess;});
+     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn&&!o.userData?.hiddenByCadAccess&&!o.userData?.hiddenByGateV93&&!o.userData?.hiddenByMainGateV92;});
      envButton.classList.toggle('active',envOn);
      envButton.textContent='3D Environment: '+(envOn?'On':'Off');
    };
@@ -1408,7 +1408,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V92 gate/CAD-network warning: '+error.message;
+   coordBadge.textContent='V93 dual-gate/CAD-network warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
