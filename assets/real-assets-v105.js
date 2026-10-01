@@ -76,6 +76,28 @@ export async function loadKenneyCharacterAssets(){
   };
 }
 
+export function createPrototypeGroup(prototype,{
+  name='V105_REAL_ASSET_GROUP',
+  castShadow=true,
+  receiveShadow=true
+}={}){
+  if(!prototype?.parts?.length)return null;
+  const g=new THREE.Group();
+  g.name=name;
+  for(let i=0;i<prototype.parts.length;i++){
+    const part=prototype.parts[i];
+    if(part.skinned)continue;
+    const mesh=new THREE.Mesh(part.geometry,part.material);
+    mesh.name=name+'_PART_'+i;
+    mesh.matrixAutoUpdate=false;
+    mesh.matrix.copy(part.matrix);
+    mesh.castShadow=castShadow;
+    mesh.receiveShadow=receiveShadow;
+    g.add(mesh);
+  }
+  return g;
+}
+
 export function createStaticInstancedAsset(group,prototype,placements,{
   name='V105_ASSET',
   castShadow=false,
