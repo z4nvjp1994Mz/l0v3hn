@@ -55,6 +55,20 @@ export async function installExteriorForestV78({
     const half=(road.widthCad||12)*(data.pxPerCadUnit||1.20434303125)*metersPerPixel*.5+6;
     for(let i=1;i<pts.length;i++)roadCorridors.push({a:pts[i-1],b:pts[i],radius:half});
   }
+  // Keep the existing presentation-context roads open too.
+  for(const r of [
+    {x:760,z:20,w:18,l:1700,rot:-.10},
+    {x:-720,z:620,w:16,l:1250,rot:.92},
+    {x:0,z:900,w:16,l:1650,rot:Math.PI/2}
+  ]){
+    const dx=Math.sin(r.rot)*r.l*.5,dz=Math.cos(r.rot)*r.l*.5;
+    roadCorridors.push({
+      a:{x:r.x-dx,z:r.z-dz},
+      b:{x:r.x+dx,z:r.z+dz},
+      radius:r.w*.5+7
+    });
+  }
+
   function inRoadCorridor(x,z,pad=0){
     return roadCorridors.some(c=>distanceToSegment(x,z,c.a,c.b)<=c.radius+pad);
   }
