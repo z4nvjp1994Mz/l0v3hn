@@ -1,17 +1,24 @@
 import * as THREE from 'three';
+import { buildCadCorridorWarpV89 } from './corridor-warp-v89.js?v=89';
 
 export async function installSiteDetailV54({
   world, buildings, mapPx, frameSignature, renderer, camera, controls
 }) {
   if (!Array.isArray(buildings) || !buildings.length) throw new Error('V54: no verified factories');
-  const response = await fetch(new URL('./circulation-v53.json', import.meta.url));
-  if (!response.ok) throw new Error('V54 circulation data HTTP '+response.status);
+  const [response,cadResponse] = await Promise.all([
+    fetch(new URL('./circulation-v53.json', import.meta.url)),
+    fetch(new URL('./cad-source-v72.json', import.meta.url))
+  ]);
+  if (!response.ok) throw new Error('V90 circulation data HTTP '+response.status);
+  if (!cadResponse.ok) throw new Error('V90 CAD source HTTP '+cadResponse.status);
   const circulation = await response.json();
-  if (circulation.frameSignature !== frameSignature) throw new Error('V54 coordinate frame mismatch');
+  const cadData = await cadResponse.json();
+  if (circulation.frameSignature !== frameSignature || cadData.frameSignature !== frameSignature) throw new Error('V90 coordinate frame mismatch');
+  const corridorWarpV89=buildCadCorridorWarpV89({circulation,cad:cadData});
 
   const root = new THREE.Group();
-  root.name = 'SITE_DETAIL_V54';
-  root.userData = { version:54, siteFrameSignature:frameSignature };
+  root.name = 'SITE_DETAIL_V90';
+  root.userData = { version:90, siteFrameSignature:frameSignature, cadMiniLandscapeLock:true };
   world.add(root);
 
   const factoryGroup = new THREE.Group(); factoryGroup.name='V54_FACTORY_MICRODETAIL';
@@ -142,8 +149,20 @@ export async function installSiteDetailV54({
   // ---------- exact V53 road paths: markings and furniture stay on the verified geometry ----------
   const paths=circulation.paths||[];
 
+  function warpPointPx(x,y){
+    const q=corridorWarpV89.warpPx(x,y);
+    return [q.x,q.y];
+  }
+  function warpRotationPx(x,y,dx,dy){
+    const len=Math.hypot(dx,dy)||1;
+    const q1=corridorWarpV89.warpPx(x,y);
+    const q2=corridorWarpV89.warpPx(x+dx/len*2,y+dy/len*2);
+    return Math.atan2(q2.x-q1.x,q2.y-q1.y);
+  }
+
   function addSegmentBox(a,b,width,height,mat,y,name){
-    const p1=mapPx(a[0],a[1]),p2=mapPx(b[0],b[1]);
+    const wa=warpPointPx(a[0],a[1]),wb=warpPointPx(b[0],b[1]);
+    const p1=mapPx(wa[0],wa[1]),p2=mapPx(wb[0],wb[1]);
     const dx=p2.x-p1.x,dz=p2.z-p1.z,len=Math.hypot(dx,dz);
     if(len<.05) return null;
     const m=new THREE.Mesh(new THREE.BoxGeometry(width,height,len),mat);
@@ -161,7 +180,8 @@ export async function installSiteDetailV54({
     const primary=path.widthPx>=14;
     let carried=0;
     for(let i=1;i<pts.length;i++){
-      const a=pts[i-1],b=pts[i],pa=mapPx(a[0],a[1]),pb=mapPx(b[0],b[1]);
+      const a=pts[i-1],b=pts[i],wa=warpPointPx(a[0],a[1]),wb=warpPointPx(b[0],b[1]);
+      const pa=mapPx(wa[0],wa[1]),pb=mapPx(wb[0],wb[1]);
       const dx=pb.x-pa.x,dz=pb.z-pa.z,len=Math.hypot(dx,dz);
       if(len<.15) continue;
       const ux=dx/len,uz=dz/len;
@@ -219,14 +239,20 @@ export async function installSiteDetailV54({
         if(target===nextLight){
           const off=path.widthPx/2+7.0;
           const x=a[0]+dx*t+nx*off*side,y=a[1]+dy*t+ny*off*side;
-          if(inGreen(x,y)) lightPositions.push([x,y,Math.atan2(dx,dy)]);
+          if(inGreen(x,y)){
+            const q=warpPointPx(x,y);
+            lightPositions.push([q[0],q[1],warpRotationPx(x,y,dx,dy)]);
+          }
           nextLight+=36;
         }
         if(target===nextShrub){
           const off=path.widthPx/2+4.4;
           for(const side2 of [-1,1]){
             const x=a[0]+dx*t+nx*off*side2,y=a[1]+dy*t+ny*off*side2;
-            if(inGreen(x,y)) shrubPositions.push([x,y,(Math.floor(target/12)+side2)%7===0]);
+            if(inGreen(x,y)){
+              const q=warpPointPx(x,y);
+              shrubPositions.push([q[0],q[1],(Math.floor(target/12)+side2)%7===0]);
+            }
           }
           nextShrub+=12;
         }
@@ -277,7 +303,7 @@ export async function installSiteDetailV54({
   if(endpointBollards.length){
     const inst=new THREE.InstancedMesh(geo.bollard,mats.yellow,endpointBollards.length);
     const dummy=new THREE.Object3D();
-    endpointBollards.forEach(([x,y],i)=>{const p=mapPx(x,y);dummy.position.set(p.x,.48,p.z);dummy.updateMatrix();inst.setMatrixAt(i,dummy.matrix);});
+    endpointBollards.forEach(([x,y],i)=>{const q=warpPointPx(x,y),p=mapPx(q[0],q[1]);dummy.position.set(p.x,.48,p.z);dummy.updateMatrix();inst.setMatrixAt(i,dummy.matrix);});
     inst.instanceMatrix.needsUpdate=true;inst.computeBoundingSphere();inst.castShadow=true;roadGroup.add(inst);
   }
 
@@ -292,9 +318,9 @@ export async function installSiteDetailV54({
   updateDetailVisibility();
 
   window.__DALOC_V54={
-    ready:true,version:54,frameSignature,stats:detailStats,
-    group:root
+    ready:true,version:90,frameSignature,stats:detailStats,
+    group:root,cadMiniLandscapeLock:true
   };
-  console.info('[DaLoc] V54 deep detail ready',detailStats);
+  console.info('[DaLoc] V90 CAD-locked road micro detail ready',detailStats);
   return {group:root,stats:detailStats};
 }
