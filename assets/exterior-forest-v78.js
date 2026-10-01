@@ -157,37 +157,63 @@ export async function installExteriorForestV78({
     if(rnd()<.72)deciduous.push(item);else conifers.push(item);
   }
 
-  const trunkGeo=new THREE.CylinderGeometry(.20,.34,4.7,6);
-  const crownGeo=new THREE.IcosahedronGeometry(1.65,1);
-  const crown2Geo=new THREE.IcosahedronGeometry(1.25,1);
-  const coneGeo=new THREE.ConeGeometry(1.75,6.4,8);
-  const trunkMat=new THREE.MeshStandardMaterial({color:0x68472f,roughness:1});
-  const leafMatA=new THREE.MeshStandardMaterial({color:0x356f42,roughness:1});
-  const leafMatB=new THREE.MeshStandardMaterial({color:0x4f8750,roughness:1});
-  const pineMat=new THREE.MeshStandardMaterial({color:0x2d633b,roughness:1});
+  // V103 asset-first trees: richer silhouettes while still using only a few
+  // InstancedMesh draw calls for the entire forest.
+  const trunkGeo=new THREE.CylinderGeometry(.18,.38,4.9,8);
+  const crownGeo=new THREE.DodecahedronGeometry(1.62,1);
+  const crown2Geo=new THREE.DodecahedronGeometry(1.28,1);
+  const crown3Geo=new THREE.DodecahedronGeometry(.98,1);
+  const coneGeo=new THREE.ConeGeometry(1.82,4.4,10);
+  const cone2Geo=new THREE.ConeGeometry(1.46,3.7,10);
+  const cone3Geo=new THREE.ConeGeometry(1.12,3.0,10);
+  const trunkMat=new THREE.MeshStandardMaterial({color:0x6a4931,roughness:.96});
+  const leafMatA=new THREE.MeshStandardMaterial({color:0x2f7140,roughness:.93});
+  const leafMatB=new THREE.MeshStandardMaterial({color:0x4f8b50,roughness:.94});
+  const leafMatC=new THREE.MeshStandardMaterial({color:0x6a9f5c,roughness:.95});
+  const pineMat=new THREE.MeshStandardMaterial({color:0x245f38,roughness:.95});
+  const pineMat2=new THREE.MeshStandardMaterial({color:0x327548,roughness:.95});
+  const pineMat3=new THREE.MeshStandardMaterial({color:0x3f8250,roughness:.96});
 
   function fillInstances(items,type){
     const trunk=new THREE.InstancedMesh(trunkGeo,trunkMat,items.length);
     const crownA=new THREE.InstancedMesh(type==='deciduous'?crownGeo:coneGeo,type==='deciduous'?leafMatA:pineMat,items.length);
-    const crownB=type==='deciduous'?new THREE.InstancedMesh(crown2Geo,leafMatB,items.length):null;
+    const crownB=new THREE.InstancedMesh(type==='deciduous'?crown2Geo:cone2Geo,type==='deciduous'?leafMatB:pineMat2,items.length);
+    const crownC=new THREE.InstancedMesh(type==='deciduous'?crown3Geo:cone3Geo,type==='deciduous'?leafMatC:pineMat3,items.length);
     const dummy=new THREE.Object3D();
     items.forEach((p,i)=>{
+      const sway=(i%7-3)*.035;
       dummy.rotation.set(0,p.rot,0);
-      dummy.scale.setScalar(p.scale);
-      dummy.position.set(p.x,2.35*p.scale-.42,p.z);
+      dummy.scale.set(p.scale*(1+sway),p.scale*(1-sway*.5),p.scale*(1-sway*.25));
+      dummy.position.set(p.x,2.45*p.scale-.42,p.z);
       dummy.updateMatrix();trunk.setMatrixAt(i,dummy.matrix);
+
       if(type==='deciduous'){
-        dummy.position.set(p.x-.18*p.scale,5.45*p.scale-.42,p.z+.08*p.scale);
+        dummy.scale.setScalar(p.scale);
+        dummy.position.set(p.x-.28*p.scale,5.35*p.scale-.42,p.z+.12*p.scale);
         dummy.updateMatrix();crownA.setMatrixAt(i,dummy.matrix);
-        dummy.position.set(p.x+.55*p.scale,6.15*p.scale-.42,p.z-.22*p.scale);
+
+        dummy.scale.set(p.scale*.94,p.scale*1.04,p.scale*.94);
+        dummy.position.set(p.x+.62*p.scale,6.12*p.scale-.42,p.z-.24*p.scale);
         dummy.updateMatrix();crownB.setMatrixAt(i,dummy.matrix);
+
+        dummy.scale.set(p.scale*.84,p.scale*.92,p.scale*.84);
+        dummy.position.set(p.x-.62*p.scale,6.20*p.scale-.42,p.z-.30*p.scale);
+        dummy.updateMatrix();crownC.setMatrixAt(i,dummy.matrix);
       }else{
-        dummy.position.set(p.x,6.15*p.scale-.42,p.z);
+        dummy.scale.setScalar(p.scale);
+        dummy.position.set(p.x,4.75*p.scale-.42,p.z);
         dummy.updateMatrix();crownA.setMatrixAt(i,dummy.matrix);
+
+        dummy.scale.setScalar(p.scale*.94);
+        dummy.position.set(p.x,6.38*p.scale-.42,p.z);
+        dummy.updateMatrix();crownB.setMatrixAt(i,dummy.matrix);
+
+        dummy.scale.setScalar(p.scale*.86);
+        dummy.position.set(p.x,7.64*p.scale-.42,p.z);
+        dummy.updateMatrix();crownC.setMatrixAt(i,dummy.matrix);
       }
     });
-    const meshes=crownB?[trunk,crownA,crownB]:[trunk,crownA];
-    for(const mesh of meshes){
+    for(const mesh of [trunk,crownA,crownB,crownC]){
       mesh.receiveShadow=true;
       mesh.castShadow=false;
       mesh.computeBoundingSphere();
@@ -207,7 +233,7 @@ export async function installExteriorForestV78({
     boundaryPoints:boundary.length
   };
 
-  console.info('[DaLoc] V89 CAD-authoritative exterior forest installed',{
+  console.info('[DaLoc] V103 asset-first instanced exterior forest installed',{
     trees:root.userData.treeCount,
     houses:root.userData.houseCount,
     boundaryPoints:boundary.length
