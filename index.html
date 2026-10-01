@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V90 MINI LANDSCAPE CAD LOCK</small>
+  <small>GitHub → Netlify · BUILD V91 FULL ROAD-TREE CAD NETWORK LOCK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V90 giữ CAD gốc làm chuẩn và bổ sung khóa các chi tiết cây mini/shrub, đèn và road micro-detail theo cùng corridor CAD 77505.</p>
+  <p>V91 giữ CAD gốc làm chuẩn và khóa toàn bộ hàng cây/cỏ/curb/sidewalk quanh 3 trục đường chính theo đúng network CAD: 77505, 7754C và tổ hợp 77536+77537.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -45,15 +45,15 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { installCirculationV53 } from './assets/circulation-v53.js?v=89';
-import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=90';
+import { installCirculationV53 } from './assets/circulation-v53.js?v=91';
+import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=91';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=89';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=89';
-import { installTrafficAIV89 } from './assets/traffic-ai-v89.js?v=89';
+import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=91';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
-import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=89';
+import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 
 const scene=new THREE.Scene();
@@ -1273,7 +1273,7 @@ installCirculationV53({
        v78ExteriorGroup=forestResult?.group||null;
        v78TreeCount=forestResult?.treeCount||0;
        v78HouseCount=forestResult?.houseCount||0;
-       return installTrafficAIV89({
+       return installTrafficAIV91({
          world,
          mapPx,
          frameSignature:SITE_FRAME_SIGNATURE
@@ -1319,7 +1319,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V90 ready · raw CAD 77505 authoritative · mini shrubs/lamps CAD-locked · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V91 ready · 3 major CAD corridors locked · roadside tree rows + shrubs aligned · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1348,7 +1348,7 @@ installCirculationV53({
    document.querySelector('.controls')?.appendChild(envButton);
 
    const trafficButton=document.createElement('button');
-   trafficButton.id='trafficV89';
+   trafficButton.id='trafficV91';
    trafficButton.className='active';
    trafficButton.textContent='Traffic 50: On';
    let trafficOn=true;
@@ -1388,7 +1388,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V90 mini-landscape CAD-lock warning: '+error.message;
+   coordBadge.textContent='V91 road-tree CAD-network warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
