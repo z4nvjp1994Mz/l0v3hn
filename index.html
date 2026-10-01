@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V100 FACTORY LOGISTICS</small>
+  <small>GitHub → Netlify · BUILD V101 ANTI-GRIDLOCK TRAFFIC</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V100 giữ toàn bộ V99 và nâng cấp logistics: xe tải và xe container tự rời đường chính, đi vào sân xưởng, lùi vào dock lấy hàng, chờ bốc xếp rồi đi trở ra và nhập lại luồng giao thông.</p>
+  <p>V101 giữ toàn bộ V100 và nâng cấp điều phối giao thông: ngã tư dùng reservation công bằng, kiểm tra khoảng trống sau giao lộ trước khi cho xe vào, tránh xe logistics rẽ sát tâm ngã tư và có watchdog tự gỡ khóa nếu xe đứng quá lâu.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -50,7 +50,7 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=91';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=89';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=89';
-import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=100';
+import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=101';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=97';
@@ -1401,7 +1401,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V100 ready · '+trafficServiceTruckCount+' freight trucks assigned to '+trafficServiceFactoryCount+' factory loading docks · '+(accessResult?.drivewayCount||0)+' factory driveways · '+trafficTotalCount+' total vehicles';
+   coordBadge.textContent='V101 ready · anti-gridlock junction scheduler · '+trafficServiceTruckCount+' freight trucks · '+trafficServiceFactoryCount+' loading factories · '+trafficTotalCount+' total vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1511,7 +1511,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V100 factory-logistics warning: '+error.message;
+   coordBadge.textContent='V101 traffic-control warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
