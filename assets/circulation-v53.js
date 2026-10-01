@@ -81,6 +81,21 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     });
     for(const mesh of [trunk,crown,tip]){mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();group.add(mesh);}
   }
+  // Clip legacy approximate park fills where they used to overhang the measured roads.
+  // Trees, benches, materials and park areas away from the corridor remain unchanged.
+  const semantic=world.getObjectByName('semantic2D3D');
+  if(semantic)for(const clip of data.legacySurfaceClips||[]){
+    const [x0,y0,x1,y1]=clip.boundsPx,lo=mapPx(x0,y1),hi=mapPx(x1,y0);
+    const mesh=semantic.children.find(o=>{
+      if(o.geometry?.type!=='ShapeGeometry')return false;
+      o.geometry.computeBoundingBox();const b=o.geometry.boundingBox;
+      return Math.abs(b.min.x-lo.x)<.05&&Math.abs(b.max.x-hi.x)<.05&&Math.abs(b.min.y+lo.z)<.05&&Math.abs(b.max.y+hi.z)<.05;
+    });
+    if(!mesh)continue;
+    const shapes=clip.polygons.map(p=>{const shape=new THREE.Shape(ring(p.outer,true));shape.holes=p.holes.map(h=>new THREE.Path(ring(h,false)));return shape;});
+    if(!shapes.length){mesh.visible=false;continue;}
+    const old=mesh.geometry;mesh.geometry=new THREE.ShapeGeometry(shapes);old.dispose();
+  }
   world.add(group);
   const button=document.createElement('button');button.textContent='Road layer: On';button.className='active';button.id='roadLayerV53';
   button.onclick=()=>{group.visible=!group.visible;button.classList.toggle('active',group.visible);button.textContent='Road layer: '+(group.visible?'On':'Off');};

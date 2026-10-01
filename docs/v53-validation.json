@@ -16,5 +16,9 @@
     "greenbelt": 48053.21
   },
   "primaryAlignments": 4,
-  "scope": "Primary internal roads only; public-road arrows excluded. Green bands are a visual reconstruction, not approved landscape design."
+  "scope": "Primary internal roads only; public-road arrows excluded. Green bands are a visual reconstruction, not approved landscape design.",
+  "clippedLegacySurfaces": [
+    "PARK_MAIN",
+    "PARK_SECONDARY"
+  ]
 }
