@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 
 // V84 pedestrian behavior:
@@ -21,9 +22,9 @@ export async function installPedestriansV84({
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='PEDESTRIANS_V842';
+  root.name='PEDESTRIANS_V104';
   root.userData={
-    version:'91',
+    version:'104',
     count:50,
     source:'CAD-network-warped V53 sidewalks + V84 factory portals + building-derived fallback portals'
   };
@@ -39,6 +40,23 @@ export async function installPedestriansV84({
   );
   const shoeMat=new THREE.MeshStandardMaterial({color:0x242424,roughness:.90});
   const hairMat=new THREE.MeshStandardMaterial({color:0x26201c,roughness:.86});
+  const helmetMat=new THREE.MeshStandardMaterial({color:0xf0c43a,roughness:.55,metalness:.04});
+  const hiVisMat=new THREE.MeshStandardMaterial({color:0xc9e65b,roughness:.72});
+
+  // V104 shared person geometry. Animated workers stay as independent skeleton-like
+  // Groups, but every body part reuses the same BufferGeometry.
+  const peopleGeo={
+    torso:new RoundedBoxGeometry(.48,.66,.30,2,.06),
+    neck:new THREE.CylinderGeometry(.065,.075,.12,7),
+    head:new THREE.SphereGeometry(.19,10,8),
+    hair:new THREE.SphereGeometry(.198,10,7,0,Math.PI*2,0,Math.PI*.52),
+    arm:new THREE.CylinderGeometry(.055,.065,.62,7),
+    leg:new THREE.CylinderGeometry(.07,.08,.72,7),
+    shoe:new RoundedBoxGeometry(.18,.10,.32,2,.025),
+    helmet:new THREE.SphereGeometry(.215,10,7,0,Math.PI*2,0,Math.PI*.58),
+    helmetBrim:new THREE.CylinderGeometry(.245,.245,.035,12),
+    vestStripe:new RoundedBoxGeometry(.50,.09,.315,2,.02)
+  };
 
   function buildWalker(index){
     const person=new THREE.Group();
@@ -48,31 +66,41 @@ export async function installPedestriansV84({
     const skin=skinMats[index%skinMats.length];
     const pants=pantsMats[index%pantsMats.length];
 
-    const torso=new THREE.Mesh(new THREE.BoxGeometry(.48,.66,.30),shirt);
+    const torso=new THREE.Mesh(peopleGeo.torso,shirt);
     torso.position.y=1.16;person.add(torso);
 
-    const neck=new THREE.Mesh(new THREE.CylinderGeometry(.065,.075,.12,7),skin);
+    const neck=new THREE.Mesh(peopleGeo.neck,skin);
     neck.position.y=1.56;person.add(neck);
 
-    const head=new THREE.Mesh(new THREE.SphereGeometry(.19,9,7),skin);
+    const head=new THREE.Mesh(peopleGeo.head,skin);
     head.position.y=1.76;person.add(head);
 
-    const hair=new THREE.Mesh(new THREE.SphereGeometry(.198,9,6,0,Math.PI*2,0,Math.PI*.52),hairMat);
+    const hair=new THREE.Mesh(peopleGeo.hair,hairMat);
     hair.position.y=1.83;person.add(hair);
 
     const leftArm=new THREE.Group();leftArm.position.set(-.29,1.43,0);
-    const la=new THREE.Mesh(new THREE.CylinderGeometry(.055,.065,.62,7),shirt);la.position.y=-.28;leftArm.add(la);person.add(leftArm);
+    const la=new THREE.Mesh(peopleGeo.arm,shirt);la.position.y=-.28;leftArm.add(la);person.add(leftArm);
 
     const rightArm=new THREE.Group();rightArm.position.set(.29,1.43,0);
-    const ra=new THREE.Mesh(new THREE.CylinderGeometry(.055,.065,.62,7),shirt);ra.position.y=-.28;rightArm.add(ra);person.add(rightArm);
+    const ra=new THREE.Mesh(peopleGeo.arm,shirt);ra.position.y=-.28;rightArm.add(ra);person.add(rightArm);
 
     const leftLeg=new THREE.Group();leftLeg.position.set(-.13,.84,0);
-    const ll=new THREE.Mesh(new THREE.CylinderGeometry(.07,.08,.72,7),pants);ll.position.y=-.34;leftLeg.add(ll);
-    const ls=new THREE.Mesh(new THREE.BoxGeometry(.18,.10,.32),shoeMat);ls.position.set(0,-.72,.09);leftLeg.add(ls);person.add(leftLeg);
+    const ll=new THREE.Mesh(peopleGeo.leg,pants);ll.position.y=-.34;leftLeg.add(ll);
+    const ls=new THREE.Mesh(peopleGeo.shoe,shoeMat);ls.position.set(0,-.72,.09);leftLeg.add(ls);person.add(leftLeg);
 
     const rightLeg=new THREE.Group();rightLeg.position.set(.13,.84,0);
-    const rl=new THREE.Mesh(new THREE.CylinderGeometry(.07,.08,.72,7),pants);rl.position.y=-.34;rightLeg.add(rl);
-    const rs=new THREE.Mesh(new THREE.BoxGeometry(.18,.10,.32),shoeMat);rs.position.set(0,-.72,.09);rightLeg.add(rs);person.add(rightLeg);
+    const rl=new THREE.Mesh(peopleGeo.leg,pants);rl.position.y=-.34;rightLeg.add(rl);
+    const rs=new THREE.Mesh(peopleGeo.shoe,shoeMat);rs.position.set(0,-.72,.09);rightLeg.add(rs);person.add(rightLeg);
+
+    // Factory + yard staff use a small shared safety helmet / high-vis stripe.
+    if(index<38){
+      const helmet=new THREE.Mesh(peopleGeo.helmet,helmetMat);
+      helmet.position.set(0,1.88,0);person.add(helmet);
+      const brim=new THREE.Mesh(peopleGeo.helmetBrim,helmetMat);
+      brim.position.set(0,1.85,.055);person.add(brim);
+      const stripe=new THREE.Mesh(peopleGeo.vestStripe,hiVisMat);
+      stripe.position.set(0,1.18,.158);person.add(stripe);
+    }
 
     person.scale.setScalar(1.02+(index%7)*.018);
     person.userData.limbs={leftArm,rightArm,leftLeg,rightLeg};
@@ -416,7 +444,7 @@ export async function installPedestriansV84({
     update,setEnabled
   };
 
-  console.info('[DaLoc] V91 CAD-network-warped pedestrian navigation installed',{
+  console.info('[DaLoc] V104 shared-geometry diorama pedestrians installed',{
     ...counts,
     effectivePortals:effectivePortals.length,
     suppliedPortals:factoryPortals.length,
