@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V85 JUNCTION SAFETY + SOUTH AXIS LOCK</small>
+  <small>GitHub → Netlify · BUILD V86 REMOVE LEGACY SOUTH ROAD</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V84 giữ nguyên traffic/rừng/hồ sen và nâng nhà xưởng lên interior 3D chi tiết. 50 người áo xanh không còn suy từ tim đường: 24 người ra/vào xưởng, 14 người đi quanh sân xưởng và 12 người chỉ đi trên polygon vỉa hè V53.</p>
 </div>
@@ -647,13 +647,15 @@ function addRoad(x,z,w,l,rot=0){
   const rd=new THREE.Mesh(new THREE.BoxGeometry(w,.15,l),roadMat);rd.position.y=.08;g.add(rd);
 }
 addRoad(760,20,18,1700,-.10);
-addRoad(-720,620,16,1250,.92);
+// V86: removed legacy addRoad(-720,620,16,1250,.92).
+// That raw-world road was the large diagonal asphalt band visible below the south project exit
+// and could never align with the source-locked CAD/V53 corridor.
 
-// V85: one canonical south-exit axis for CAD asphalt, verge and tree rows.
+// V86: one canonical south-exit axis for CAD asphalt, verge and tree rows.
 // The final CAD endpoint is projected exactly onto the V53 central-spine/tree corridor.
-const southExitRoadV85=new THREE.Group();
-southExitRoadV85.name='V85_SOUTH_EXIT_AXIS_LOCK';
-world.add(southExitRoadV85);
+const southExitRoadV86=new THREE.Group();
+southExitRoadV86.name='V86_SOUTH_EXIT_AXIS_LOCK';
+world.add(southExitRoadV86);
 {
   const axisSouth=mapPx(358.6,1500.2);
   const axisNorth=mapPx(435.06,1395.044);
@@ -677,7 +679,7 @@ world.add(southExitRoadV85);
   shoulder.position.set(cx,.255,cz);
   shoulder.rotation.y=rot;
   shoulder.receiveShadow=true;
-  southExitRoadV85.add(shoulder);
+  southExitRoadV86.add(shoulder);
 
   const asphalt=new THREE.Mesh(
     new THREE.BoxGeometry(width,.16,extension+.30),
@@ -687,12 +689,12 @@ world.add(southExitRoadV85);
   asphalt.rotation.y=rot;
   asphalt.receiveShadow=true;
   asphalt.userData={
-    source:'V85 exact V53 tree-axis + CAD 77505 continuation',
+    source:'V86 exact V53 tree-axis + CAD 77505 continuation; no raw-world south road',
     endpointPx:[326.1009432434449,1544.8961916334333],
     extensionMeters:extension,
     treeAxisPx:[[358.6,1500.2],[435.06,1395.044]]
   };
-  southExitRoadV85.add(asphalt);
+  southExitRoadV86.add(asphalt);
 
   // Continue the two landscaped/tree edges from the same exact axis.
   const vergeMat=new THREE.MeshStandardMaterial({color:0x76a95d,roughness:1});
@@ -706,7 +708,7 @@ world.add(southExitRoadV85);
     strip.position.set(cx+nx*treeOffset*side,.27,cz+nz*treeOffset*side);
     strip.rotation.y=rot;
     strip.receiveShadow=true;
-    southExitRoadV85.add(strip);
+    southExitRoadV86.add(strip);
 
     const treeSpacing=12.5;
     const count=Math.floor(extension/treeSpacing);
@@ -721,7 +723,7 @@ world.add(southExitRoadV85);
       trunk.position.y=1.9;tg.add(trunk);
       const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(1.45,1),treeLeafMat2);
       crown.position.y=4.9;crown.castShadow=true;tg.add(crown);
-      southExitRoadV85.add(tg);
+      southExitRoadV86.add(tg);
     }
   }
 }
@@ -1395,7 +1397,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V85 ready · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles · south road/tree axis locked';
+   coordBadge.textContent='V86 ready · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles · legacy south road removed · CAD/tree axis locked';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1464,7 +1466,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V85 safety/alignment warning: '+error.message;
+   coordBadge.textContent='V86 safety/alignment warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
