@@ -7,7 +7,7 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
 
   const root=new THREE.Group();
   root.name='LANDSCAPE_V95';
-  root.userData={version:95,type:'pond + dense ornamental parks'};
+  root.userData={version:96,type:'pond + dense ornamental parks',promenadeFix:true};
   world.add(root);
 
   const pondGroup=new THREE.Group();
@@ -51,6 +51,46 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
     const ca=Math.cos(POND_ROT),sa=Math.sin(POND_ROT);
     const x=Math.cos(a)*POND_RX*r,z=Math.sin(a)*POND_RZ*r;
     return [POND_CENTER[0]+x*ca-z*sa,POND_CENTER[1]+x*sa+z*ca];
+  }
+
+  // V96: true constant-distance offset from the pond ellipse.
+  // The old V95 promenade used RingGeometry + non-uniform scale, which made the
+  // walkway look like an oversized racetrack and gave it different apparent widths.
+  function ellipseOffsetPx(a,offsetM){
+    const ca=Math.cos(POND_ROT),sa=Math.sin(POND_ROT);
+    const bx=Math.cos(a)*POND_RX;
+    const bz=Math.sin(a)*POND_RZ;
+    let nx=Math.cos(a)/POND_RX;
+    let nz=Math.sin(a)/POND_RZ;
+    const nl=Math.hypot(nx,nz)||1;nx/=nl;nz/=nl;
+    const offPx=offsetM/S;
+    const lx=bx+nx*offPx,lz=bz+nz*offPx;
+    return [
+      POND_CENTER[0]+lx*ca-lz*sa,
+      POND_CENTER[1]+lx*sa+lz*ca
+    ];
+  }
+
+  function makeEllipseBandGeometry(innerOffsetM,outerOffsetM,segments=128,y=0){
+    const positions=[];
+    const indices=[];
+    for(let i=0;i<=segments;i++){
+      const a=i/segments*Math.PI*2;
+      const inn=ellipseOffsetPx(a,innerOffsetM);
+      const out=ellipseOffsetPx(a,outerOffsetM);
+      const pi=mapPx(inn[0],inn[1]);
+      const po=mapPx(out[0],out[1]);
+      positions.push(pi.x,y,pi.z, po.x,y,po.z);
+      if(i<segments){
+        const k=i*2;
+        indices.push(k,k+2,k+1, k+1,k+2,k+3);
+      }
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
   }
 
   // Materials.
@@ -176,48 +216,52 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
   // ---------------- Pond landscape ----------------
   const pondCenterW=wp(POND_CENTER[0],POND_CENTER[1],.49);
 
-  // Natural stone promenade ring outside the lotus water.
-  const pondWalk=new THREE.Mesh(new THREE.RingGeometry(1.18,1.43,96),stoneMat);
-  pondWalk.rotation.x=-Math.PI/2;
-  pondWalk.rotation.z=POND_ROT;
-  pondWalk.scale.set(POND_RX*S,POND_RZ*S,1);
-  pondWalk.position.copy(pondCenterW);
+  // V96 corrected pedestrian promenade:
+  // 2.8 m constant width, with a 2.6 m planted buffer between pond edge and walkway.
+  // This replaces the old non-uniformly scaled RingGeometry/TorusGeometry pair.
+  const pondWalk=new THREE.Mesh(
+    makeEllipseBandGeometry(2.6,5.4,144,.50),
+    stoneMat
+  );
+  pondWalk.name='V96_POND_PROMENADE_CORRECT';
   pondWalk.receiveShadow=true;
   pondGroup.add(pondWalk);
 
-  // Thin darker kerb on outer side.
-  const pondKerb=new THREE.Mesh(new THREE.TorusGeometry(1.43,.018,8,96),stoneDarkMat);
-  pondKerb.rotation.x=Math.PI/2;
-  pondKerb.rotation.z=POND_ROT;
-  pondKerb.scale.set(POND_RX*S,POND_RZ*S,1);
-  pondKerb.position.set(pondCenterW.x,.56,pondCenterW.z);
+  // Narrow outer kerb, also generated as a true constant-distance ellipse band.
+  const pondKerb=new THREE.Mesh(
+    makeEllipseBandGeometry(5.40,5.68,144,.555),
+    stoneDarkMat
+  );
+  pondKerb.name='V96_POND_PROMENADE_KERB';
+  pondKerb.receiveShadow=true;
   pondGroup.add(pondKerb);
 
-  // Benches and lamps distributed around the pond, leaving clear view corridors.
+  // V96: benches and lights now hug the real promenade instead of using
+  // multiplicative ellipse radii that pushed furniture far away.
   for(let i=0;i<10;i++){
     const a=i*Math.PI*2/10+.16;
-    const [x,y]=ellipsePx(a,1.72);
+    const [x,y]=ellipseOffsetPx(a,7.0);
     if(pointInPoly(x,y,POND_GARDEN)){
       addBench(pondGroup,x,y,-a+POND_ROT+.08,.86);
     }
   }
   for(let i=0;i<16;i++){
     const a=i*Math.PI*2/16+.05;
-    const [x,y]=ellipsePx(a,1.90);
+    const [x,y]=ellipseOffsetPx(a,6.25);
     if(pointInPoly(x,y,POND_GARDEN))addLamp(pondGroup,x,y,3.8);
   }
 
   const pondShrubs=[],pondFlowers=[],pondGrasses=[];
   for(let i=0;i<180;i++){
-    const a=rr(0,Math.PI*2),r=rr(1.48,2.08);
-    const [x,y]=ellipsePx(a,r);
+    const a=rr(0,Math.PI*2),off=rr(6.2,10.5);
+    const [x,y]=ellipseOffsetPx(a,off);
     if(!pointInPoly(x,y,POND_GARDEN))continue;
     if(i%3===0)pondFlowers.push({x,y,s:rr(.7,1.15)});
     else pondShrubs.push({x,y,s:rr(.72,1.16)});
   }
   for(let i=0;i<70;i++){
-    const a=rr(0,Math.PI*2),r=rr(1.28,1.52);
-    const [x,y]=ellipsePx(a,r);
+    const a=rr(0,Math.PI*2),off=rr(.9,2.25);
+    const [x,y]=ellipseOffsetPx(a,off);
     if(pointInPoly(x,y,POND_GARDEN))pondGrasses.push({x,y,s:rr(.65,1.25)});
   }
   instancedPlants(pondGroup,pondShrubs,false);
@@ -234,14 +278,14 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
   });
   grassMesh.instanceMatrix.needsUpdate=true;grassMesh.castShadow=true;pondGroup.add(grassMesh);
 
-  // Rock clusters and a few shade trees around the garden perimeter.
+  // Rock clusters and shade trees form an outer garden belt beyond the promenade.
   for(let i=0;i<18;i++){
     const a=i*Math.PI*2/18+.12;
-    const [x,y]=ellipsePx(a,2.05);
+    const [x,y]=ellipseOffsetPx(a,9.2);
     if(pointInPoly(x,y,POND_GARDEN))addRock(pondGroup,x,y,rr(.65,1.25));
   }
   for(const a of [.55,2.20,3.55,5.35]){
-    const [x,y]=ellipsePx(a,2.20);
+    const [x,y]=ellipseOffsetPx(a,11.0);
     if(pointInPoly(x,y,POND_GARDEN))addTree(pondGroup,x,y,.86);
   }
 
@@ -355,8 +399,8 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
   root.userData.stats=stats;
 
   function setVisible(v){root.visible=!!v;}
-  const controller={ready:true,version:95,group:root,pondGroup,parkGroup,stats,setVisible};
+  const controller={ready:true,version:96,group:root,pondGroup,parkGroup,stats,setVisible};
   window.__DALOC_LANDSCAPE_V95=controller;
-  console.info('[DaLoc] V95 high-detail pond + dense parks installed',stats);
+  console.info('[DaLoc] V96 corrected pond promenade + dense parks installed',stats);
   return controller;
 }
