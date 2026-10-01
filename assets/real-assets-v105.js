@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
 // V105 real-asset helper.
 // The GLBs are vendored in this repository under assets/models/kenney/ (CC0).
@@ -74,6 +75,58 @@ export async function loadKenneyCharacterAssets(){
     male:buildPrototype(male,1.73),
     female:buildPrototype(female,1.68)
   };
+}
+
+export function createAnimatedCharacterInstance(prototype,{
+  name='V105_KENNEY_CHARACTER',
+  clip='walk',
+  castShadow=true,
+  receiveShadow=true
+}={}){
+  if(!prototype?.scene)return null;
+  const model=skeletonClone(prototype.scene);
+  model.name=name+'_MODEL';
+
+  // Normalize the cloned skinned model to human scale without touching bones.
+  model.updateMatrixWorld(true);
+  let box=new THREE.Box3().setFromObject(model);
+  let size=box.getSize(new THREE.Vector3());
+  const scale=prototype.targetHeight/Math.max(.001,size.y);
+  model.scale.setScalar(scale);
+  model.updateMatrixWorld(true);
+
+  box=new THREE.Box3().setFromObject(model);
+  const center=box.getCenter(new THREE.Vector3());
+  model.position.x-=center.x;
+  model.position.z-=center.z;
+  model.position.y-=box.min.y;
+  model.updateMatrixWorld(true);
+
+  model.traverse(o=>{
+    if(!o.isMesh)return;
+    o.castShadow=castShadow;
+    o.receiveShadow=receiveShadow;
+    o.frustumCulled=true;
+  });
+
+  const wrapper=new THREE.Group();
+  wrapper.name=name;
+  wrapper.add(model);
+
+  const mixer=new THREE.AnimationMixer(model);
+  const clips=prototype.animations||[];
+  const selected=
+    THREE.AnimationClip.findByName(clips,clip) ||
+    THREE.AnimationClip.findByName(clips,'walk') ||
+    THREE.AnimationClip.findByName(clips,'idle') ||
+    clips[0] || null;
+  let action=null;
+  if(selected){
+    action=mixer.clipAction(selected);
+    action.play();
+  }
+
+  return {wrapper,model,mixer,action,clip:selected?.name||null};
 }
 
 export function createPrototypeGroup(prototype,{
