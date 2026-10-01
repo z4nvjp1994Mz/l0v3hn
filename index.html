@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V44 PIXEL-LOCKED ROADS</small>
+  <small>GitHub → Netlify · BUILD V44.1 FORCE DEPLOY</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V44 bỏ toàn bộ tuyến đường vẽ tay bị lệch. Mặt đường nội khu được lấy trực tiếp từ pixel của chính masterplan-hires.jpg rồi đặt lại bằng đúng SITE_FRAME, vì vậy đường không còn dùng centerline tự đoán.</p>
+  <p>Bản V44.1 ép Netlify nhận commit mới nhất. Tuyến đường vẽ tay đã bị vô hiệu hóa; road layer mới được sinh từ chính pixel của masterplan-hires.jpg và dùng cùng SITE_FRAME với blueprint.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V44 pixel roads</b><span>road mask sampled from blueprint</span></div>
+    <div class="stat"><b>V44.1 pixel roads</b><span>forced latest deploy</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V44: hand-drawn roads removed · blueprint-derived road mask</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V44.1: forced deploy · pixel-road build</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
