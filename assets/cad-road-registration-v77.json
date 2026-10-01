@@ -1,0 +1,25 @@
+{
+  "version": 77,
+  "name": "V77 south-spine visual registration",
+  "purpose": "Align the southern visual segment of CAD road 77505 to the source-locked V53/masterplan central spine without translating the whole CAD network.",
+  "rawCadPreserved": true,
+  "roadHandle": "77505",
+  "targetPath": "central-spine",
+  "anchorPx": [673.9909258589748, 1067.9921641772735],
+  "originalSouthEndpointPx": [311.57, 1533.95],
+  "correctedSouthEndpointPx": [325.8244141578689, 1544.6951245152172],
+  "visualPointsPx": [
+    [1430.69, 736.41],
+    [875.94, 808.35],
+    [673.9909258589748, 1067.9921641772735],
+    [325.8244141578689, 1544.6951245152172]
+  ],
+  "fit": {
+    "scope": "V53 central-spine points with source image Y >= 1000",
+    "beforeMeanPx": 6.355730508854953,
+    "beforeMaxPx": 16.40205050972198,
+    "afterMeanPx": 0.22746778861771635,
+    "afterMaxPx": 0.5189797089134508
+  },
+  "notes": "The CAD intersection anchor stays fixed. Only the southern visual leg is rotated to match the 2D/masterplan road/greenbelt axis. Raw CAD points remain unchanged in cad-source-v72.json."
+}
