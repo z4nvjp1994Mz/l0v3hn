@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V88 CAD ROAD + EDGE SOURCE LOCK</small>
+  <small>GitHub → Netlify · BUILD V89 CAD-AUTHORITATIVE CORRIDOR WARP</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V84 giữ nguyên traffic/rừng/hồ sen và nâng nhà xưởng lên interior 3D chi tiết. 50 người áo xanh không còn suy từ tim đường: 24 người ra/vào xưởng, 14 người đi quanh sân xưởng và 12 người chỉ đi trên polygon vỉa hè V53.</p>
+  <p>V89 coi CAD gốc là chuẩn: đường 77505 giữ nguyên DXF; cỏ, curb, sidewalk, hàng cây, traffic và pedestrian quanh trục chính được warp từ V53 sang đúng tim đường CAD, không còn kéo CAD theo bản 3D.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -45,15 +45,15 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { installCirculationV53 } from './assets/circulation-v53.js?v=76';
+import { installCirculationV53 } from './assets/circulation-v53.js?v=89';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installCadSourceV72 } from './assets/cad-source-v72.js?v=88';
-import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=79';
-import { installTrafficAIV85 } from './assets/traffic-ai-v85.js?v=85';
+import { installCadSourceV72 } from './assets/cad-source-v72.js?v=89';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=89';
+import { installTrafficAIV89 } from './assets/traffic-ai-v89.js?v=89';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
-import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=842';
+import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=89';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 
 const scene=new THREE.Scene();
@@ -1273,7 +1273,7 @@ installCirculationV53({
        v78ExteriorGroup=forestResult?.group||null;
        v78TreeCount=forestResult?.treeCount||0;
        v78HouseCount=forestResult?.houseCount||0;
-       return installTrafficAIV85({
+       return installTrafficAIV89({
          world,
          mapPx,
          frameSignature:SITE_FRAME_SIGNATURE
@@ -1314,7 +1314,12 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V88 ready · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles · CAD road + cyan edges locked to exact V53 central-spine';
+   const v53Asphalt=world.getObjectByName('V53_CARRIAGEWAY');
+   if(v53Asphalt){
+     v53Asphalt.visible=false;
+     v53Asphalt.userData.hiddenByV89CadAuthority=true;
+   }
+   coordBadge.textContent='V89 ready · raw CAD 77505 authoritative · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles · grass/trees/traffic warped to CAD';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1343,7 +1348,7 @@ installCirculationV53({
    document.querySelector('.controls')?.appendChild(envButton);
 
    const trafficButton=document.createElement('button');
-   trafficButton.id='trafficV83';
+   trafficButton.id='trafficV89';
    trafficButton.className='active';
    trafficButton.textContent='Traffic 50: On';
    let trafficOn=true;
@@ -1383,7 +1388,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V88 source-lock warning: '+error.message;
+   coordBadge.textContent='V89 CAD-authoritative warp warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
