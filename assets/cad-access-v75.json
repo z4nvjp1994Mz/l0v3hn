@@ -1,0 +1,23 @@
+{
+  "version": 75,
+  "source": "01.BDTD GT N1,D1,D2 _ ĐL.dxf",
+  "layer": "HTKT_GT_HEDUONG",
+  "method": "paired collinear CAD edge-gap detection; rectangles cover only verified line discontinuities",
+  "accesses": [
+    {"id":"CAD_ACCESS_00","centerPx":[756.48,572.09],"along":[0.716575,0.69751],"openingWidthPx":20.03,"crossDepthPx":22,"polygonPx":[[756.97,557.22],[771.32,571.19],[755.98,586.95],[741.63,572.99]],"sourceHandles":["7781E","7785C","7785D"],"evidencePairs":2},
+    {"id":"CAD_ACCESS_01","centerPx":[1382.79,725.8],"along":[0.995399,0.09582],"openingWidthPx":12.42,"crossDepthPx":22,"polygonPx":[[1377.67,714.25],[1390.03,715.44],[1387.92,737.34],[1375.56,736.15]],"sourceHandles":["77825","77858"],"evidencePairs":1},
+    {"id":"CAD_ACCESS_02","centerPx":[1258.09,742.93],"along":[0.994797,-0.101873],"openingWidthPx":21.71,"crossDepthPx":22,"polygonPx":[[1246.17,733.09],[1267.77,730.88],[1270.01,752.77],[1248.42,754.98]],"sourceHandles":["77816","77823","77857","77858","77859","7785A"],"evidencePairs":11},
+    {"id":"CAD_ACCESS_03","centerPx":[1393.25,758.92],"along":[0.992797,-0.119811],"openingWidthPx":12.06,"crossDepthPx":22,"polygonPx":[[1385.95,748.72],[1397.92,747.28],[1400.56,769.12],[1388.58,770.56]],"sourceHandles":["77815","77860","7786D"],"evidencePairs":5},
+    {"id":"CAD_ACCESS_04","centerPx":[1315.97,766.72],"along":[0.991695,-0.128612],"openingWidthPx":29.71,"crossDepthPx":24,"polygonPx":[[1299.69,756.73],[1329.16,752.91],[1332.25,776.71],[1302.78,780.53]],"sourceHandles":["77822","7785E","7785F","77860","77861"],"evidencePairs":8},
+    {"id":"CAD_ACCESS_05","centerPx":[1281.51,772.12],"along":[0.974938,-0.222475],"openingWidthPx":32,"crossDepthPx":24,"polygonPx":[[1263.24,763.98],[1294.44,756.86],[1299.78,780.26],[1268.58,787.38]],"sourceHandles":["7781F","7785E","7785F"],"evidencePairs":2},
+    {"id":"CAD_ACCESS_06","centerPx":[1000.36,776.31],"along":[0.999208,0.039783],"openingWidthPx":27.25,"crossDepthPx":24,"polygonPx":[[987.22,763.77],[1014.45,764.86],[1013.5,788.84],[986.27,787.76]],"sourceHandles":["77824","7785B"],"evidencePairs":1},
+    {"id":"CAD_ACCESS_07","centerPx":[858.47,854.26],"along":[0.613962,-0.789336],"openingWidthPx":25.13,"crossDepthPx":24,"polygonPx":[[841.28,856.81],[856.71,836.98],[875.65,851.71],[860.22,871.55]],"sourceHandles":["77862","77863","7796D","7796E"],"evidencePairs":4},
+    {"id":"CAD_ACCESS_08","centerPx":[384.8,857.78],"along":[0.878133,0.478416],"openingWidthPx":32,"crossDepthPx":24,"polygonPx":[[376.49,839.59],[404.59,854.9],[393.11,875.98],[365.01,860.67]],"sourceHandles":["7781A","77869","7786A"],"evidencePairs":2},
+    {"id":"CAD_ACCESS_09","centerPx":[770.32,918.14],"along":[0.613954,-0.789342],"openingWidthPx":29.31,"crossDepthPx":24,"polygonPx":[[751.85,922.34],[769.85,899.2],[788.79,913.94],[770.8,937.07]],"sourceHandles":["77813","77833","77864","77865","7786B","7786C"],"evidencePairs":14},
+    {"id":"CAD_ACCESS_10","centerPx":[753.83,989.78],"along":[0.57972,-0.814816],"openingWidthPx":30.41,"crossDepthPx":24,"polygonPx":[[735.24,995.22],[752.87,970.44],[772.43,984.35],[754.8,1009.13]],"sourceHandles":["77820","77862","77863","77867","77868"],"evidencePairs":6},
+    {"id":"CAD_ACCESS_11","centerPx":[549.31,1203.86],"along":[0.668137,-0.744038],"openingWidthPx":19.09,"crossDepthPx":22,"polygonPx":[[534.74,1203.61],[547.5,1189.41],[563.87,1204.11],[551.11,1218.31]],"sourceHandles":["7781A","77869","7786A","7796B","7796C"],"evidencePairs":6},
+    {"id":"CAD_ACCESS_12","centerPx":[586.68,1205.18],"along":[0.613946,-0.789348],"openingWidthPx":29.7,"crossDepthPx":24,"polygonPx":[[568.09,1209.54],[586.33,1186.09],[605.27,1200.83],[587.04,1224.27]],"sourceHandles":["77818","77853","77854","77855","77856"],"evidencePairs":8},
+    {"id":"CAD_ACCESS_13","centerPx":[477.98,1295.06],"along":[0.613945,-0.789349],"openingWidthPx":29.7,"crossDepthPx":24,"polygonPx":[[459.39,1299.42],[477.63,1275.97],[496.57,1290.71],[478.34,1314.15]],"sourceHandles":["7781B","77969","7796A","7796B","7796C"],"evidencePairs":8},
+    {"id":"CAD_ACCESS_14","centerPx":[423.37,1415.15],"along":[0.613953,-0.789343],"openingWidthPx":29.7,"crossDepthPx":24,"polygonPx":[[404.78,1419.5],[423.02,1396.06],[441.96,1410.79],[423.73,1434.24]],"sourceHandles":["77819","77850","77851","77853","77854"],"evidencePairs":8}
+  ]
+}
