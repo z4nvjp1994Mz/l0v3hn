@@ -128,44 +128,87 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
   ];
   const pergolaMat=new THREE.MeshStandardMaterial({color:0x9d6537,roughness:.83});
 
+  // V104 asset-first batching. Benches, lamps and park trees are queued and
+  // emitted as shared-geometry InstancedMesh batches instead of many small Groups.
+  const benchQueue=[],lampQueue=[],treeQueue=[];
   function addBench(group,px,py,rotation=0,scale=1){
-    const g=new THREE.Group();
-    g.position.copy(wp(px,py,.32));
-    g.rotation.y=rotation;
-    const seat=new THREE.Mesh(new THREE.BoxGeometry(3.0*scale,.18,.72*scale),timberMat);
-    seat.position.y=.72*scale;
-    const back=new THREE.Mesh(new THREE.BoxGeometry(3.0*scale,.16,.58*scale),timberMat);
-    back.position.set(0,1.20*scale,.31*scale);
-    back.rotation.x=-.18;
-    for(const sx of [-1,1]){
-      const leg=new THREE.Mesh(new THREE.BoxGeometry(.15*scale,.72*scale,.15*scale),metalMat);
-      leg.position.set(sx*1.0*scale,.36*scale,0);
-      g.add(leg);
-    }
-    seat.castShadow=back.castShadow=true;
-    g.add(seat,back);group.add(g);
+    benchQueue.push({group,px,py,rotation,scale});
   }
-
   function addLamp(group,px,py,h=4.4){
-    const g=new THREE.Group();g.position.copy(wp(px,py,.20));
-    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,h,8),metalMat);
-    pole.position.y=h/2;
-    const cap=new THREE.Mesh(new THREE.CylinderGeometry(.26,.31,.18,12),metalMat);
-    cap.position.y=h+.04;
-    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.21,10,7),lightMat);
-    bulb.position.y=h+.15;
-    g.add(pole,cap,bulb);group.add(g);
+    lampQueue.push({group,px,py,h});
+  }
+  function addTree(group,px,py,scale=1){
+    treeQueue.push({group,px,py,scale,variant:Math.floor(rnd()*canopyMats.length)});
   }
 
-  function addTree(group,px,py,scale=1){
-    const g=new THREE.Group();g.position.copy(wp(px,py,.15));
-    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.18*scale,.28*scale,3.8*scale,8),trunkMat);
-    trunk.position.y=1.9*scale;trunk.castShadow=true;
-    const c1=new THREE.Mesh(new THREE.IcosahedronGeometry(1.25*scale,1),canopyMats[Math.floor(rnd()*canopyMats.length)]);
-    c1.position.set(0,4.5*scale,0);c1.castShadow=true;
-    const c2=new THREE.Mesh(new THREE.IcosahedronGeometry(.95*scale,1),canopyMats[Math.floor(rnd()*canopyMats.length)]);
-    c2.position.set(.45*scale,5.15*scale,-.10*scale);c2.castShadow=true;
-    g.add(trunk,c1,c2);group.add(g);
+  function flushAssetQueue(){
+    const byGroup=(items)=>new Map(
+      [...new Set(items.map(i=>i.group))].map(g=>[g,items.filter(i=>i.group===g)])
+    );
+    const d=new THREE.Object3D();
+
+    const benchSeatGeo=new THREE.BoxGeometry(3.0,.18,.72);
+    const benchBackGeo=new THREE.BoxGeometry(3.0,.16,.58);
+    const benchLegGeo=new THREE.BoxGeometry(.15,.72,.15);
+    for(const [group,items] of byGroup(benchQueue)){
+      const seat=new THREE.InstancedMesh(benchSeatGeo,timberMat,items.length);
+      const back=new THREE.InstancedMesh(benchBackGeo,timberMat,items.length);
+      const legs=new THREE.InstancedMesh(benchLegGeo,metalMat,items.length*2);
+      items.forEach((b,i)=>{
+        const p=wp(b.px,b.py,.32),s=b.scale;
+        d.position.set(p.x,p.y+.72*s,p.z);d.rotation.set(0,b.rotation,0);d.scale.setScalar(s);d.updateMatrix();seat.setMatrixAt(i,d.matrix);
+        d.position.set(p.x,p.y+1.20*s,p.z);d.rotation.set(-.18,b.rotation,0);d.scale.setScalar(s);d.translateZ(.31);d.updateMatrix();back.setMatrixAt(i,d.matrix);
+        for(const [li,sx] of [-1,1].entries()){
+          d.position.set(p.x,p.y+.36*s,p.z);d.rotation.set(0,b.rotation,0);d.scale.setScalar(s);d.translateX(sx*1.0);d.updateMatrix();legs.setMatrixAt(i*2+li,d.matrix);
+        }
+      });
+      for(const m of [seat,back,legs]){m.instanceMatrix.needsUpdate=true;m.castShadow=true;m.receiveShadow=true;m.computeBoundingSphere();group.add(m);}
+    }
+
+    const lampPoleGeo=new THREE.CylinderGeometry(.055,.075,1,8);
+    const lampCapGeo=new THREE.CylinderGeometry(.26,.31,.18,12);
+    const lampBulbGeo=new THREE.SphereGeometry(.21,10,7);
+    for(const [group,items] of byGroup(lampQueue)){
+      const poles=new THREE.InstancedMesh(lampPoleGeo,metalMat,items.length);
+      const caps=new THREE.InstancedMesh(lampCapGeo,metalMat,items.length);
+      const bulbs=new THREE.InstancedMesh(lampBulbGeo,lightMat,items.length);
+      items.forEach((l,i)=>{
+        const p=wp(l.px,l.py,.20),h=l.h;
+        d.position.set(p.x,p.y+h/2,p.z);d.rotation.set(0,0,0);d.scale.set(1,h,1);d.updateMatrix();poles.setMatrixAt(i,d.matrix);
+        d.position.set(p.x,p.y+h+.04,p.z);d.scale.set(1,1,1);d.updateMatrix();caps.setMatrixAt(i,d.matrix);
+        d.position.set(p.x,p.y+h+.15,p.z);d.updateMatrix();bulbs.setMatrixAt(i,d.matrix);
+      });
+      for(const m of [poles,caps,bulbs]){m.instanceMatrix.needsUpdate=true;m.castShadow=true;m.computeBoundingSphere();group.add(m);}
+    }
+
+    const treeTrunkGeo=new THREE.CylinderGeometry(.18,.29,3.9,8);
+    const treeCrownGeo=new THREE.DodecahedronGeometry(1.22,1);
+    const treeCrown2Geo=new THREE.DodecahedronGeometry(.94,1);
+    const treeCrown3Geo=new THREE.DodecahedronGeometry(.72,1);
+    for(const [group,items] of byGroup(treeQueue)){
+      const trunks=new THREE.InstancedMesh(treeTrunkGeo,trunkMat,items.length);
+      const crownBuckets=canopyMats.map(()=>[]);
+      items.forEach((t,i)=>crownBuckets[t.variant].push({t,i}));
+      items.forEach((t,i)=>{
+        const p=wp(t.px,t.py,.15),sc=t.scale;
+        d.position.set(p.x,p.y+1.95*sc,p.z);d.rotation.set(0,0,0);d.scale.setScalar(sc);d.updateMatrix();trunks.setMatrixAt(i,d.matrix);
+      });
+      trunks.instanceMatrix.needsUpdate=true;trunks.castShadow=true;trunks.computeBoundingSphere();group.add(trunks);
+
+      for(let mi=0;mi<canopyMats.length;mi++){
+        const bucket=crownBuckets[mi];if(!bucket.length)continue;
+        const a=new THREE.InstancedMesh(treeCrownGeo,canopyMats[mi],bucket.length);
+        const b=new THREE.InstancedMesh(treeCrown2Geo,canopyMats[(mi+1)%canopyMats.length],bucket.length);
+        const c=new THREE.InstancedMesh(treeCrown3Geo,canopyMats[(mi+2)%canopyMats.length],bucket.length);
+        bucket.forEach(({t},j)=>{
+          const p=wp(t.px,t.py,.15),sc=t.scale;
+          d.position.set(p.x-.18*sc,p.y+4.45*sc,p.z+.08*sc);d.scale.setScalar(sc);d.updateMatrix();a.setMatrixAt(j,d.matrix);
+          d.position.set(p.x+.48*sc,p.y+5.12*sc,p.z-.14*sc);d.scale.setScalar(sc*.94);d.updateMatrix();b.setMatrixAt(j,d.matrix);
+          d.position.set(p.x-.50*sc,p.y+5.28*sc,p.z-.20*sc);d.scale.setScalar(sc*.80);d.updateMatrix();c.setMatrixAt(j,d.matrix);
+        });
+        for(const m of [a,b,c]){m.instanceMatrix.needsUpdate=true;m.castShadow=true;m.computeBoundingSphere();group.add(m);}
+      }
+    }
   }
 
   function addPergola(group,px,py,rotation=0,scale=1){
@@ -517,6 +560,8 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
   }
   addPergola(parkGroup,1260,940,THREE.MathUtils.degToRad(28),.92);
 
+  flushAssetQueue();
+
   const stats={
     pondShrubs:pondShrubs.length,
     pondFlowers:pondFlowers.length,
@@ -534,8 +579,8 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
   root.userData.stats=stats;
 
   function setVisible(v){root.visible=!!v;}
-  const controller={ready:true,version:97,group:root,pondGroup,parkGroup,stats,setVisible};
+  const controller={ready:true,version:104,group:root,pondGroup,parkGroup,stats,setVisible};
   window.__DALOC_LANDSCAPE_V95=controller;
-  console.info('[DaLoc] V97 red-bloom ornamental parks + corrected pond installed',stats);
+  console.info('[DaLoc] V104 instanced diorama park assets installed',stats);
   return controller;
 }
