@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V56 CONCRETE FACTORY ACCESS</small>
+  <small>GitHub → Netlify · BUILD V57 FACTORY FRONTAGE ROADS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V56 giữ nguyên toàn bộ V53–V55 và bổ sung các tuyến bê tông/xi măng kết nối nhà xưởng với mép đường nhựa. Điểm nối được tính từ footprint nhà xưởng tới đúng polyline đường V53 trong cùng hệ tọa độ masterplan; dải cây xanh tại vị trí lối xe được chừa ra.</p>
+  <p>V57 sửa đúng cấu trúc giao thông trong bản 2D: trước mặt dài của mỗi nhà xưởng có một tuyến đường bê tông chạy dọc theo nhà, sau đó tuyến này mới thoát ra đường nhựa V53 từ đầu hồi phù hợp. Không còn các thanh bê tông đâm thẳng vuông góc từ từng xưởng ra đường chính.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V56 factory access</b><span>concrete aprons + road connectors</span></div>
+    <div class="stat"><b>V57 frontage roads</b><span>service lane along each factory + asphalt exit</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V56: concrete factory access locked to V53 road geometry</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V57: frontage service roads follow the 2D factory access layout</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installFactoryAccessV56 } from './assets/factory-access-v56.js';
+import { installFactoryServiceV57 } from './assets/factory-service-v57.js';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1139,8 +1139,8 @@ roofs.forEach((r,idx)=>{
 // V53: install after shared resources. Failure cannot stop the existing render loop.
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
  .then(()=>{
-   coordBadge.textContent='V53 roads ready · installing V56 concrete factory access…';
-   return installFactoryAccessV56({
+   coordBadge.textContent='V53 roads ready · installing V57 factory frontage roads…';
+   return installFactoryServiceV57({
      world,
      roofs,
      mapPx,
@@ -1151,19 +1151,19 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
      controls
    });
  })
- .then(accessResult=>{
-   coordBadge.textContent='V56 concrete access ready · '+(accessResult?.count||0)+' factory connectors · installing V54 detail…';
+ .then(serviceResult=>{
+   coordBadge.textContent='V57 frontage roads ready · '+(serviceResult?.count||0)+' factory service lanes · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
-   }).then(detailResult=>({accessResult,detailResult}));
+   }).then(detailResult=>({serviceResult,detailResult}));
  })
- .then(({accessResult,detailResult})=>{
+ .then(({serviceResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V56 ready · '+(accessResult?.count||0)+' concrete accesses · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V57 ready · '+(serviceResult?.count||0)+' frontage roads · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V56 detail warning: '+error.message;
+   coordBadge.textContent='V57 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
