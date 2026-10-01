@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V75 CAD-ACCESS GREENBELT CUTOUTS</small>
+  <small>GitHub → Netlify · BUILD V76 TRUE GRASS CUTOUTS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V75 giữ toàn bộ detail 3D của V74 nhưng dải cây/vỉa xanh dọc đường lớn được mở đúng tại các lối vào xác nhận từ CAD HTKT_GT_HEDUONG; cây và thảm xanh không còn chắn cửa vào nhà xưởng.</p>
+  <p>V76 giữ toàn bộ detail 3D và các lối vào xác nhận từ CAD, nhưng bỏ hoàn toàn tấm driveway phủ màu. Dải cỏ được khoét trực tiếp tại cửa vào, để lộ đúng mặt nền/đường hiện có bên dưới.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,16 +36,16 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V75 CAD access</b><span>CAD roads + restored 3D layers</span></div>
+    <div class="stat"><b>V76 grass cuts</b><span>CAD roads + restored 3D layers</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V75: restored 3D detail + CAD-verified greenbelt access cuts</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V76: CAD-verified grass cutouts · no driveway overlay</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { installCirculationV53 } from './assets/circulation-v53.js?v=75';
+import { installCirculationV53 } from './assets/circulation-v53.js?v=76';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=72';
@@ -1203,7 +1203,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V75 ready · '+(cadResult?.roads||0)+' CAD road axes · '+(cadResult?.edges||0)+' CAD edge chains · '+v53AccessCount+' CAD access openings · '+(st.factories||0)+' factory micro-detail sets';
+   coordBadge.textContent='V76 ready · '+(cadResult?.roads||0)+' CAD road axes · '+(cadResult?.edges||0)+' CAD edge chains · '+v53AccessCount+' grass cutouts · no driveway overlay · '+(st.factories||0)+' factory micro-detail sets';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1228,7 +1228,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V75 CAD-access warning: '+error.message;
+   coordBadge.textContent='V76 grass-cut warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
