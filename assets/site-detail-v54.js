@@ -50,9 +50,9 @@ export async function installSiteDetailV54({
 
   const geo = {
     camera:new THREE.BoxGeometry(.32,.24,.50),
-    roofFanBase:geo.roofFanBase,
-    roofFanCap:geo.roofFanCap,
-    ladderRung:geo.ladderRung,
+    roofFanBase:new THREE.CylinderGeometry(.54,.62,.34,14),
+    roofFanCap:new THREE.CylinderGeometry(.66,.50,.20,14),
+    ladderRung:new THREE.BoxGeometry(.72,.045,.06),
     lampPole:new THREE.CylinderGeometry(.055,.085,7.2,10),
     lampArm:new THREE.BoxGeometry(.78,.07,.08),
     lampHead:new RoundedBoxGeometry(.78,.18,.38,2,.045),
