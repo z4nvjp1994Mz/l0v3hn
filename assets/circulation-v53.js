@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
-import { loadKenneyTreeAssets, createStaticInstancedAsset, createPrototypeGroup } from './real-assets-v105.js?v=105';
+import { loadKenneyTreeAssets, createStaticInstancedAsset, createPrototypeGroup } from './real-assets-v105.js?v=1051';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls,showUI=true}) {
