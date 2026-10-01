@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 
-// V101 mixed traffic + factory logistics + anti-gridlock junction scheduler.
-// Cargo/container loading missions are preserved, but junction entry now uses
-// fair reservations, downstream box-clear checks, service-turn exclusion zones,
-// and a watchdog so one stalled vehicle cannot lock the whole intersection.
+// V107 mixed traffic + factory logistics + real traffic-signal control.
+// The two CAD-derived intersections now run timed red/yellow/green phases.
+// Vehicles stop at red, wait in queue, start on green, while V101 anti-gridlock
+// reservations/downstream-box checks remain active as the safety layer.
 export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAccess=null}){
   const [response,cadResponse]=await Promise.all([
     fetch(new URL('./circulation-v53.json',import.meta.url)),
@@ -19,9 +19,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V101';
+  root.name='AI_TRAFFIC_V107';
   root.userData={
-    version:101,
+    version:107,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
@@ -566,6 +566,175 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   let logisticsEnabled=true;
 
   let simTime=0;
+
+  // -----------------------------------------------------------------------
+  // V107 TRAFFIC LIGHTS — exactly the two CAD-derived intersections.
+  // central-spine receives the longer green; each cross-road gets its own phase.
+  // The two junctions are offset so both crossings do not switch simultaneously.
+  // -----------------------------------------------------------------------
+  const signalGroup=new THREE.Group();
+  signalGroup.name='TRAFFIC_SIGNALS_V107';
+  root.add(signalGroup);
+
+  const signalJunctions=junctions.slice(0,2);
+  const SIGNAL_TIMING=Object.freeze({
+    mainGreen:16.0,
+    yellow:3.0,
+    allRed:1.5,
+    crossGreen:12.0
+  });
+  const SIGNAL_CYCLE=
+    SIGNAL_TIMING.mainGreen+
+    SIGNAL_TIMING.yellow+
+    SIGNAL_TIMING.allRed+
+    SIGNAL_TIMING.crossGreen+
+    SIGNAL_TIMING.yellow+
+    SIGNAL_TIMING.allRed;
+
+  const poleMat=new THREE.MeshStandardMaterial({color:0x303737,roughness:.72,metalness:.32});
+  const boxMat=new THREE.MeshStandardMaterial({color:0x1e2424,roughness:.76,metalness:.18});
+  const lineMat=new THREE.MeshStandardMaterial({color:0xf3f2e8,roughness:.86});
+  const redOn=new THREE.MeshStandardMaterial({color:0xff3025,emissive:0xff1208,emissiveIntensity:3.5,roughness:.35});
+  const redOff=new THREE.MeshStandardMaterial({color:0x3e0d0a,emissive:0x130000,emissiveIntensity:.10,roughness:.55});
+  const yellowOn=new THREE.MeshStandardMaterial({color:0xffc928,emissive:0xff9c00,emissiveIntensity:3.0,roughness:.35});
+  const yellowOff=new THREE.MeshStandardMaterial({color:0x4a3b0c,emissive:0x160e00,emissiveIntensity:.10,roughness:.55});
+  const greenOn=new THREE.MeshStandardMaterial({color:0x36d56d,emissive:0x00b53d,emissiveIntensity:3.2,roughness:.35});
+  const greenOff=new THREE.MeshStandardMaterial({color:0x0d4020,emissive:0x00180a,emissiveIntensity:.10,roughness:.55});
+
+  const signalGeo={
+    pole:new THREE.CylinderGeometry(.09,.12,5.2,10),
+    arm:new THREE.BoxGeometry(.16,.16,1.05),
+    housing:new RoundedBoxGeometry(.74,1.76,.42,2,.07),
+    lamp:new THREE.SphereGeometry(.18,12,9),
+    stopLine:new THREE.BoxGeometry(8.2,.045,.34)
+  };
+
+  function signalStateAt(junction,time=simTime){
+    const cfg=junction.signal;
+    if(!cfg)return {phase:'off',greenRoute:null};
+    let t=(time+cfg.offset)%SIGNAL_CYCLE;
+    if(t<SIGNAL_TIMING.mainGreen)return {phase:'main-green',greenRoute:cfg.mainRoute,color:'green'};
+    t-=SIGNAL_TIMING.mainGreen;
+    if(t<SIGNAL_TIMING.yellow)return {phase:'main-yellow',greenRoute:null,yellowRoute:cfg.mainRoute,color:'yellow'};
+    t-=SIGNAL_TIMING.yellow;
+    if(t<SIGNAL_TIMING.allRed)return {phase:'all-red-1',greenRoute:null,color:'red'};
+    t-=SIGNAL_TIMING.allRed;
+    if(t<SIGNAL_TIMING.crossGreen)return {phase:'cross-green',greenRoute:cfg.crossRoute,color:'green'};
+    t-=SIGNAL_TIMING.crossGreen;
+    if(t<SIGNAL_TIMING.yellow)return {phase:'cross-yellow',greenRoute:null,yellowRoute:cfg.crossRoute,color:'yellow'};
+    return {phase:'all-red-2',greenRoute:null,color:'red'};
+  }
+
+  function signalColorForRoute(junction,routeId){
+    const state=junction.signalState||signalStateAt(junction);
+    if(state.greenRoute===routeId)return 'green';
+    if(state.yellowRoute===routeId)return 'yellow';
+    return 'red';
+  }
+
+  function signalAllowsNewEntry(junction,routeId){
+    return signalColorForRoute(junction,routeId)==='green';
+  }
+
+  function setSignalHeadColor(head,color){
+    if(head.lastColor===color)return;
+    head.lastColor=color;
+    head.red.material=color==='red'?redOn:redOff;
+    head.yellow.material=color==='yellow'?yellowOn:yellowOff;
+    head.green.material=color==='green'?greenOn:greenOff;
+  }
+
+  function buildSignalHead(junction,route,dir,approachIndex){
+    const js=junction.routeS[route.id];
+    const sample=sampleRoute(route,js);
+    const travel=sample.tangent.clone().multiplyScalar(dir).normalize();
+    const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
+
+    // Stop bar sits ~6.2 m from conflict centre; pole stays outside the carriageway.
+    const stopCenter=junction.point.clone().addScaledVector(travel,-6.2);
+    const polePos=stopCenter.clone().addScaledVector(right,5.7);
+    const heading=Math.atan2(travel.x,travel.z);
+
+    const g=new THREE.Group();
+    g.name='V107_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.position.set(polePos.x,.02,polePos.z);
+    g.rotation.y=heading;
+
+    const pole=new THREE.Mesh(signalGeo.pole,poleMat);
+    pole.position.y=2.6;
+    pole.castShadow=true;pole.receiveShadow=true;
+    g.add(pole);
+
+    const arm=new THREE.Mesh(signalGeo.arm,poleMat);
+    arm.position.set(0,4.88,-.42);
+    arm.castShadow=true;
+    g.add(arm);
+
+    const housing=new THREE.Mesh(signalGeo.housing,boxMat);
+    housing.position.set(0,4.55,-.88);
+    housing.castShadow=true;
+    g.add(housing);
+
+    const red=new THREE.Mesh(signalGeo.lamp,redOff);
+    red.position.set(0,5.07,-1.115);
+    const yellow=new THREE.Mesh(signalGeo.lamp,yellowOff);
+    yellow.position.set(0,4.55,-1.115);
+    const green=new THREE.Mesh(signalGeo.lamp,greenOff);
+    green.position.set(0,4.03,-1.115);
+    g.add(red,yellow,green);
+    signalGroup.add(g);
+
+    const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
+    stopLine.name='V107_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.position.set(stopCenter.x,.13,stopCenter.z);
+    stopLine.rotation.y=heading;
+    stopLine.receiveShadow=true;
+    signalGroup.add(stopLine);
+
+    return {junction,routeId:route.id,dir,group:g,red,yellow,green,lastColor:null};
+  }
+
+  const signalHeads=[];
+  signalJunctions.forEach((junction,ji)=>{
+    const mainRoute=junction.routes.includes('central-spine')?'central-spine':junction.routes[0];
+    const crossRoute=junction.routes.find(id=>id!==mainRoute)||junction.routes[1];
+    junction.signal={
+      enabled:true,
+      mainRoute,
+      crossRoute,
+      offset:ji*(SIGNAL_CYCLE*.5),
+      phase:'init'
+    };
+    let approachIndex=0;
+    for(const routeId of junction.routes){
+      const route=routes.find(r=>r.id===routeId);
+      if(!route)continue;
+      signalHeads.push(buildSignalHead(junction,route,1,approachIndex++));
+      signalHeads.push(buildSignalHead(junction,route,-1,approachIndex++));
+    }
+  });
+
+  const trafficLightStats={
+    junctionCount:signalJunctions.length,
+    signalHeads:signalHeads.length,
+    cycleSeconds:SIGNAL_CYCLE,
+    mainGreenSeconds:SIGNAL_TIMING.mainGreen,
+    crossGreenSeconds:SIGNAL_TIMING.crossGreen,
+    yellowSeconds:SIGNAL_TIMING.yellow,
+    allRedSeconds:SIGNAL_TIMING.allRed
+  };
+
+  function updateTrafficSignals(){
+    for(const junction of signalJunctions){
+      junction.signalState=signalStateAt(junction,simTime);
+      junction.signal.phase=junction.signalState.phase;
+    }
+    for(const head of signalHeads){
+      setSignalHeadColor(head,signalColorForRoute(head.junction,head.routeId));
+    }
+  }
+  updateTrafficSignals();
+
   function currentLane(agent){
     if(agent.type!=='motorcycle')return agent.lane;
     return agent.lane+Math.sin(simTime*agent.weaveSpeed+agent.weavePhase)*agent.weaveAmp;
@@ -903,6 +1072,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
         const signed=(js-candidate.s)*candidate.dir;
         const policy=junctionPolicy(candidate);
         if(signed<0||signed>policy.claim)continue;
+        if(!signalAllowsNewEntry(junction,candidate.route.id))continue;
         if(!approachLeader(candidate,junction))continue;
 
         if(!downstreamClear(candidate,junction)){
@@ -942,8 +1112,10 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     if(!enabled||!Number.isFinite(dt)||dt<=0)return;
     dt=Math.min(dt,.05);
     simTime+=dt;
+    updateTrafficSignals();
 
-    // V101: fair junction reservations + "do not block the box".
+    // V107: traffic lights decide which route may request the junction.
+    // V101 anti-gridlock reservations remain the final safety gate.
     scheduleJunctions(dt);
 
     for(const agent of agents){
@@ -986,9 +1158,13 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
         const policy=junctionPolicy(agent);
         if(signed>0 && signed<policy.lookahead){
           const owns=junction.owner===agent;
+          const signalColor=signalColorForRoute(junction,agent.route.id);
+          // A vehicle that already owns the conflict box may finish clearing it
+          // during yellow/all-red. Everyone else must stop unless their route is green.
+          const signalPermits=owns||signalColor==='green';
           const boxClear=owns&&downstreamClear(agent,junction);
 
-          if(!owns||!boxClear){
+          if(!signalPermits||!owns||!boxClear){
             const remaining=Math.max(0,signed-policy.stopGap);
             junctionStopDistance=Math.min(junctionStopDistance,remaining);
             const slow=THREE.MathUtils.clamp(
@@ -997,8 +1173,8 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
             );
             desired=Math.min(desired,agent.baseSpeed*slow);
 
-            // If the owner lost downstream space before crossing the stop line,
-            // immediately free the reservation so another approach can move.
+            // Never release an owner merely because the lamp changed; owners are
+            // allowed to clear. Only release here when its downstream exit closes.
             if(owns&&!boxClear&&signed>policy.stopGap*.85){
               junction.lastGrantedKey=approachKey(agent);
               releaseJunction(junction,agent);
@@ -1051,13 +1227,14 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:104,group:root,agents,counts,junctions,
-    serviceTargets,serviceStats,gridlockStats,
+    ready:true,version:107,group:root,agents,counts,junctions,
+    serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V103 asset-upgraded anti-gridlock traffic installed',{
+  console.info('[DaLoc] V107 traffic-light controlled anti-gridlock traffic installed',{
     ...counts,
+    trafficLights:trafficLightStats,
     serviceAgents:serviceAgentCount,
     serviceTargets:serviceTargets.length,
     serviceFactories:serviceStats.targetFactories,
@@ -1067,7 +1244,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   });
 
   return {
-    ready:true,version:104,group:root,counts,junctions,
+    ready:true,version:107,group:root,counts,junctions,signalGroup,trafficLightStats,
     carCount:counts.cars,cargoTruckCount:counts.cargoTrucks,
     containerTruckCount:counts.containerTrucks,motorcycleCount:counts.motorcycles,
     supercarCount:counts.supercars,totalCount:counts.total,
