@@ -11,7 +11,7 @@ export async function installExteriorForestV78({
   const root=new THREE.Group();
   root.name='EXTERIOR_FOREST_V78';
   root.userData={
-    version:78,
+    version:79,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     purpose:'dense exterior forest with sparse village houses'
@@ -151,10 +151,10 @@ export async function installExteriorForestV78({
 
   // Dense woodland. Instancing keeps the exterior highly populated without thousands
   // of individual draw calls.
-  const targetTrees=6200;
+  const targetTrees=14000;
   const deciduous=[],conifers=[];
   let guard=0;
-  while(deciduous.length+conifers.length<targetTrees && guard++<140000){
+  while(deciduous.length+conifers.length<targetTrees && guard++<360000){
     const x=rr(box.minX,box.maxX),z=rr(box.minZ,box.maxZ);
     if(pointInPolygon(x,z,boundary))continue;
     const d=distanceToBoundary(x,z);
@@ -213,14 +213,14 @@ export async function installExteriorForestV78({
   root.userData.treeCount=deciduous.length+conifers.length;
   root.userData.houseCount=houseSites.length;
 
-  window.__DALOC_V78={
-    ready:true,version:78,group:root,
+  window.__DALOC_V79={
+    ready:true,version:79,group:root,
     treeCount:root.userData.treeCount,
     houseCount:root.userData.houseCount,
     boundaryPoints:boundary.length
   };
 
-  console.info('[DaLoc] V78 dense exterior forest installed',{
+  console.info('[DaLoc] V79 ultra-dense exterior forest installed',{
     trees:root.userData.treeCount,
     houses:root.userData.houseCount,
     boundaryPoints:boundary.length
