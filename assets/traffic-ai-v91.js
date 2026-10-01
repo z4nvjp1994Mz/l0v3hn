@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 
 // V101 mixed traffic + factory logistics + anti-gridlock junction scheduler.
@@ -168,6 +169,8 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const glassMat=new THREE.MeshStandardMaterial({color:0x6f8995,roughness:.12,metalness:.18});
   const lightMat=new THREE.MeshStandardMaterial({color:0xf4edc9,roughness:.32,emissive:0x5b542a,emissiveIntensity:.35});
   const rearMat=new THREE.MeshStandardMaterial({color:0xa52e2c,roughness:.4,emissive:0x5a1110,emissiveIntensity:.22});
+  const trimMat=new THREE.MeshStandardMaterial({color:0x232827,roughness:.55,metalness:.28});
+  const chromeMat=new THREE.MeshStandardMaterial({color:0xaeb8b7,roughness:.34,metalness:.62});
 
   const carMats=[
     0xe9ecef,0x315f8c,0xb84a43,0xd1b44b
@@ -213,13 +216,16 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
   function buildCar(index){
     const g=new THREE.Group(),mat=carMats[index%carMats.length];
-    g.name='V91_CAR_'+index;
-    const body=new THREE.Mesh(new THREE.BoxGeometry(1.82,.58,4.25),mat);
-    body.position.y=.55;g.add(body);
-    const hood=new THREE.Mesh(new THREE.BoxGeometry(1.74,.34,1.10),mat);
-    hood.position.set(0,.78,1.35);g.add(hood);
-    const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.55,.72,1.90),glassMat);
-    cabin.position.set(0,1.05,-.20);g.add(cabin);
+    g.name='V103_CAR_'+index;
+    const body=new THREE.Mesh(new RoundedBoxGeometry(1.82,.60,4.25,3,.15),mat);
+    body.position.y=.57;g.add(body);
+    const hood=new THREE.Mesh(new RoundedBoxGeometry(1.70,.30,1.15,2,.10),mat);
+    hood.position.set(0,.80,1.34);g.add(hood);
+    const cabin=new THREE.Mesh(new RoundedBoxGeometry(1.52,.72,1.88,3,.14),glassMat);
+    cabin.position.set(0,1.06,-.20);g.add(cabin);
+    const frontBumper=new THREE.Mesh(new RoundedBoxGeometry(1.58,.13,.16,2,.04),chromeMat);
+    frontBumper.position.set(0,.42,2.16);g.add(frontBumper);
+    const rearBumper=frontBumper.clone();rearBumper.position.z=-2.16;g.add(rearBumper);
     for(const sx of [-.98,.98])for(const sz of [-1.30,1.28])addWheel(g,sx,sz,.34,.22);
     addLights(g,1.82,2.16,-2.16,.66);
     return g;
@@ -227,11 +233,13 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
   function buildCargoTruck(index){
     const g=new THREE.Group(),cabMat=truckCabMats[index%truckCabMats.length],boxMat=cargoBoxMats[index%cargoBoxMats.length];
-    g.name='V91_CARGO_TRUCK_'+index;
-    const chassis=new THREE.Mesh(new THREE.BoxGeometry(2.18,.26,7.75),chassisMat);chassis.position.y=.58;g.add(chassis);
-    const cargo=new THREE.Mesh(new THREE.BoxGeometry(2.26,2.55,4.85),boxMat);cargo.position.set(0,1.88,-1.05);g.add(cargo);
-    const cab=new THREE.Mesh(new THREE.BoxGeometry(2.18,2.15,2.35),cabMat);cab.position.set(0,1.58,2.35);g.add(cab);
-    const windshield=new THREE.Mesh(new THREE.BoxGeometry(1.72,.76,.08),glassMat);windshield.position.set(0,1.94,3.56);g.add(windshield);
+    g.name='V103_CARGO_TRUCK_'+index;
+    const chassis=new THREE.Mesh(new RoundedBoxGeometry(2.18,.26,7.75,2,.06),chassisMat);chassis.position.y=.58;g.add(chassis);
+    const cargo=new THREE.Mesh(new RoundedBoxGeometry(2.26,2.55,4.85,2,.08),boxMat);cargo.position.set(0,1.88,-1.05);g.add(cargo);
+    const cab=new THREE.Mesh(new RoundedBoxGeometry(2.18,2.15,2.35,3,.16),cabMat);cab.position.set(0,1.58,2.35);g.add(cab);
+    const windshield=new THREE.Mesh(new RoundedBoxGeometry(1.72,.76,.08,2,.03),glassMat);windshield.position.set(0,1.94,3.56);g.add(windshield);
+    const grille=new THREE.Mesh(new RoundedBoxGeometry(1.42,.42,.08,2,.02),trimMat);grille.position.set(0,1.13,3.59);g.add(grille);
+    const bumper=new THREE.Mesh(new RoundedBoxGeometry(1.94,.17,.16,2,.04),chromeMat);bumper.position.set(0,.72,3.64);g.add(bumper);
     for(const sx of [-1.20,1.20]){
       addWheel(g,sx,2.20,.43,.28);addWheel(g,sx,-.75,.43,.28);addWheel(g,sx,-2.48,.43,.28);
     }
@@ -241,11 +249,27 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
   function buildContainerTruck(index){
     const g=new THREE.Group(),cabMat=truckCabMats[(index+2)%truckCabMats.length],contMat=containerMats[index%containerMats.length];
-    g.name='V91_CONTAINER_TRUCK_'+index;
-    const chassis=new THREE.Mesh(new THREE.BoxGeometry(2.32,.28,13.5),chassisMat);chassis.position.y=.58;g.add(chassis);
+    g.name='V103_CONTAINER_TRUCK_'+index;
+    const chassis=new THREE.Mesh(new RoundedBoxGeometry(2.32,.28,13.5,2,.06),chassisMat);chassis.position.y=.58;g.add(chassis);
     const container=new THREE.Mesh(new THREE.BoxGeometry(2.46,2.65,7.55),contMat);container.position.set(0,2.02,-2.65);g.add(container);
-    const cab=new THREE.Mesh(new THREE.BoxGeometry(2.24,2.35,2.65),cabMat);cab.position.set(0,1.65,4.72);g.add(cab);
-    const windshield=new THREE.Mesh(new THREE.BoxGeometry(1.78,.82,.08),glassMat);windshield.position.set(0,2.04,6.08);g.add(windshield);
+    const cab=new THREE.Mesh(new RoundedBoxGeometry(2.24,2.35,2.65,3,.17),cabMat);cab.position.set(0,1.65,4.72);g.add(cab);
+    const windshield=new THREE.Mesh(new RoundedBoxGeometry(1.78,.82,.08,2,.03),glassMat);windshield.position.set(0,2.04,6.08);g.add(windshield);
+    const grille=new THREE.Mesh(new RoundedBoxGeometry(1.48,.48,.08,2,.02),trimMat);grille.position.set(0,1.17,6.11);g.add(grille);
+    const bumper=new THREE.Mesh(new RoundedBoxGeometry(2.02,.18,.17,2,.04),chromeMat);bumper.position.set(0,.74,6.16);g.add(bumper);
+
+    // Container corrugation: one InstancedMesh per truck, so detail stays cheap.
+    const ribGeo=new THREE.BoxGeometry(2.50,2.44,.055);
+    const ribs=new THREE.InstancedMesh(ribGeo,trimMat,10);
+    const dummy=new THREE.Object3D();
+    for(let i=0;i<10;i++){
+      dummy.position.set(0,2.02,-5.98+i*.74);
+      dummy.scale.set(1,.97,1);
+      dummy.updateMatrix();
+      ribs.setMatrixAt(i,dummy.matrix);
+    }
+    ribs.instanceMatrix.needsUpdate=true;
+    g.add(ribs);
+
     for(const sx of [-1.22,1.22]){
       addWheel(g,sx,4.68,.46,.30);addWheel(g,sx,1.40,.46,.30);addWheel(g,sx,-4.65,.46,.30);addWheel(g,sx,-5.82,.46,.30);
     }
@@ -321,16 +345,16 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
   function buildSupercar(index){
     const g=new THREE.Group(),mat=superMats[index%superMats.length];
-    g.name='V91_SUPERCAR_'+index;
-    const body=new THREE.Mesh(new THREE.BoxGeometry(1.98,.42,4.55),mat);
+    g.name='V103_SUPERCAR_'+index;
+    const body=new THREE.Mesh(new RoundedBoxGeometry(1.98,.42,4.55,3,.14),mat);
     body.position.y=.46;g.add(body);
-    const nose=new THREE.Mesh(new THREE.BoxGeometry(1.88,.24,1.28),mat);
+    const nose=new THREE.Mesh(new RoundedBoxGeometry(1.88,.24,1.28,2,.08),mat);
     nose.position.set(0,.57,1.55);g.add(nose);
-    const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.45,.55,1.75),glassMat);
+    const cabin=new THREE.Mesh(new RoundedBoxGeometry(1.45,.55,1.75,3,.13),glassMat);
     cabin.position.set(0,.86,-.25);g.add(cabin);
-    const rearDeck=new THREE.Mesh(new THREE.BoxGeometry(1.82,.18,.85),mat);
+    const rearDeck=new THREE.Mesh(new RoundedBoxGeometry(1.82,.18,.85,2,.06),mat);
     rearDeck.position.set(0,.64,-1.62);g.add(rearDeck);
-    const spoiler=new THREE.Mesh(new THREE.BoxGeometry(1.62,.07,.28),chassisMat);
+    const spoiler=new THREE.Mesh(new RoundedBoxGeometry(1.62,.07,.28,2,.025),chassisMat);
     spoiler.position.set(0,.98,-2.02);g.add(spoiler);
     for(const sx of [-1.02,1.02])for(const sz of [-1.38,1.38])addWheel(g,sx,sz,.36,.24);
     addLights(g,1.98,2.32,-2.32,.60);
@@ -1001,7 +1025,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V101 anti-gridlock factory-logistics traffic installed',{
+  console.info('[DaLoc] V103 asset-upgraded anti-gridlock traffic installed',{
     ...counts,
     serviceAgents:serviceAgentCount,
     serviceTargets:serviceTargets.length,
