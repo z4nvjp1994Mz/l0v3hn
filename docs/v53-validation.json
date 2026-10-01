@@ -1,0 +1,20 @@
+{
+  "version": 53,
+  "sourceIndexBlob": "3f04ed00eeaaefaa0ad75c7b8fe7b908b0ad2950",
+  "unchanged": [
+    "SITE_FRAME",
+    "roofs",
+    "TREE_POINTS"
+  ],
+  "roadFactoryOverlapPx2": 0.0,
+  "validPolygons": true,
+  "overlappingSurfaceLayers": false,
+  "areasPx2": {
+    "carriageway": 56009.55,
+    "curb": 2261.23,
+    "sidewalk": 13315.96,
+    "greenbelt": 48053.21
+  },
+  "primaryAlignments": 4,
+  "scope": "Primary internal roads only; public-road arrows excluded. Green bands are a visual reconstruction, not approved landscape design."
+}

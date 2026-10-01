@@ -10,7 +10,7 @@
 #canvas{position:fixed;inset:0}canvas{display:block}
 .ui{position:fixed;z-index:5;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(14px);box-shadow:0 18px 50px rgba(0,0,0,.22)}
 .brand{left:16px;top:16px;width:420px;padding:15px 17px;border-radius:16px}.brand small{display:block;color:#82edb2;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}.brand h1{font-size:20px;margin:6px 0 4px}.brand p{font-size:12px;line-height:1.45;color:var(--muted);margin:0}
-.controls{right:16px;top:16px;padding:8px;border-radius:14px;display:flex;gap:7px}.controls button{border:0;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.07);color:#eef8f1;font-weight:800;cursor:pointer}.controls button.active,.controls button:hover{background:#effff5;color:#092217}
+.controls{max-width:calc(100vw - 450px);flex-wrap:wrap;right:16px;top:16px;padding:8px;border-radius:14px;display:flex;gap:7px}.controls button{border:0;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.07);color:#eef8f1;font-weight:800;cursor:pointer}.controls button.active,.controls button:hover{background:#effff5;color:#092217}
 .info{right:16px;bottom:16px;width:330px;padding:16px;border-radius:16px}.eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#82edb2;font-weight:800}.info h2{font-size:18px;margin:6px 0 8px}.info p{font-size:12px;color:#bdc8c1;line-height:1.5;margin:0}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.stat{padding:9px;border-radius:10px;background:rgba(255,255,255,.05)}.stat b{display:block;font-size:14px}.stat span{font-size:10px;color:#93a29a}
 .hint{position:fixed;z-index:4;left:50%;bottom:18px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.1);font-size:11px;color:#dce7e0;pointer-events:none}
 @media(max-width:850px){.brand{left:10px;top:10px;width:calc(100vw - 20px)}.controls{left:10px;right:auto;top:128px;max-width:calc(100vw - 20px);overflow:auto}.info{right:10px;bottom:10px;width:285px}}
@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V52 FULL-RES ROAD MASK</small>
+  <small>GitHub → Netlify · BUILD V53 NARROW ROADS + GREEN BELTS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V52 bỏ cách dựng medial-axis gây mép nham nhở. Lòng đường dùng trực tiếp mask road đã flood-fill từ masterplan ở full resolution; curb và sidewalk chỉ là các dải mỏng sinh ra bên ngoài mép đường.</p>
+  <p>V53: Lòng đường hẹp được dựng bằng mesh vector riêng; bó vỉa, lối đi bộ và dải cây xanh tách biệt. Không còn tô cả vùng màu xám thành nhựa. Bề rộng đo trên ảnh, chưa phải số liệu khảo sát.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,15 +36,16 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V52 full-res roads</b><span>exact road mask + edge bands</span></div>
+    <div class="stat"><b>V53 narrow roads</b><span>vector roads + planted green belts</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V52: exact full-res road mask + clean edge bands</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V53: narrow carriageways; green belts kept separate</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { installCirculationV53 } from './assets/circulation-v53.js';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -203,419 +204,7 @@ bpImg.onload=()=>{
 
   bpBadge.textContent='Blueprint: hi-res 1616×2048 loaded ✓';
 
-  // V47 — source-matched roads from the exact same blueprint bitmap.
-  const buildPixelLockedRoadSurface=()=>{
-    const roofData=window.__DA_LOC_ROOFS;
-    if(!roofData){ setTimeout(buildPixelLockedRoadSurface,40); return; }
-
-    const DS=1;
-    const mw=Math.floor(c.width/DS), mh=Math.floor(c.height/DS);
-    const mc=document.createElement('canvas'); mc.width=mw; mc.height=mh;
-    const mctx=mc.getContext('2d',{willReadFrequently:true});
-    mctx.drawImage(c,0,0,mw,mh);
-    const src=mctx.getImageData(0,0,mw,mh), sd=src.data;
-
-    // Seeds identify real road surface; they DO NOT define geometry.
-    const roadSeedsPx=[
-      [505,965],[710,810],[915,655],[620,1065],[785,940],[965,805],
-      [650,1300],[805,1185],[965,1060],[1210,585],[1285,690],
-      [430,1180],[560,1000],[740,900],[880,760],[1080,620]
-    ];
-
-    // Sample several nearby pixels around each seed and build a palette of actual road colors.
-    const roadPalette=[];
-    for(const [px,py] of roadSeedsPx){
-      const sx=Math.round(px/DS), sy=Math.round(py/DS);
-      for(let oy=-2;oy<=2;oy++){
-        for(let ox=-2;ox<=2;ox++){
-          const x=Math.max(0,Math.min(mw-1,sx+ox));
-          const y=Math.max(0,Math.min(mh-1,sy+oy));
-          const k=(y*mw+x)*4;
-          const r=sd[k],g=sd[k+1],b=sd[k+2];
-          const hi=Math.max(r,g,b),lo=Math.min(r,g,b),sat=hi-lo,lum=(r+g+b)/3;
-          if(sat<28 && lum>150 && lum<248) roadPalette.push([r,g,b]);
-        }
-      }
-    }
-
-    let mask=new Uint8Array(mw*mh);
-    const colorDist=(r,g,b,p)=>{
-      const dr=r-p[0],dg=g-p[1],db=b-p[2];
-      return Math.sqrt(dr*dr+dg*dg+db*db);
-    };
-
-    // Candidate pixels must look like actual sampled road pixels, not merely generic grey.
-    for(let y=0;y<mh;y++){
-      for(let x=0;x<mw;x++){
-        const i=y*mw+x,k=i*4;
-        const r=sd[k],g=sd[k+1],b=sd[k+2];
-        const hi=Math.max(r,g,b),lo=Math.min(r,g,b),sat=hi-lo,lum=(r+g+b)/3;
-        if(sat>30 || lum<150 || lum>248) continue;
-        let best=999;
-        for(const p of roadPalette){
-          const d=colorDist(r,g,b,p);
-          if(d<best) best=d;
-          if(best<11) break;
-        }
-        if(best<17) mask[i]=1;
-      }
-    }
-
-    const eraseRoofs=(arr)=>{
-      for(const rr of roofData){
-        const [cx,cy,Lpx,Spx,ang]=rr;
-        const rad=ang*Math.PI/180,ca=Math.cos(rad),sa=Math.sin(rad);
-        const halfL=Lpx*.59,halfD=Spx*(Spx<18?1.55:Spx<26?1.28:1.04);
-        const margin=8;
-        const minX=Math.max(0,Math.floor((cx-halfL-margin)/DS)),maxX=Math.min(mw-1,Math.ceil((cx+halfL+margin)/DS));
-        const minY=Math.max(0,Math.floor((cy-halfL-margin)/DS)),maxY=Math.min(mh-1,Math.ceil((cy+halfL+margin)/DS));
-        for(let yy=minY;yy<=maxY;yy++)for(let xx=minX;xx<=maxX;xx++){
-          const px=xx*DS-cx,py=yy*DS-cy;
-          const lx=px*ca+py*sa,ly=-px*sa+py*ca;
-          if(Math.abs(lx)<halfL && Math.abs(ly)<halfD) arr[yy*mw+xx]=0;
-        }
-      }
-    };
-    eraseRoofs(mask);
-
-    // Very small close/open only; don't grow the mask across garden/plot boundaries.
-    const morph=(srcMask,radius,dilate)=>{
-      const dst=new Uint8Array(srcMask.length);
-      for(let y=0;y<mh;y++){
-        for(let x=0;x<mw;x++){
-          let hit=dilate?0:1;
-          outer:for(let yy=Math.max(0,y-radius);yy<=Math.min(mh-1,y+radius);yy++){
-            for(let xx=Math.max(0,x-radius);xx<=Math.min(mw-1,x+radius);xx++){
-              const v=srcMask[yy*mw+xx];
-              if(dilate&&v){hit=1;break outer;}
-              if(!dilate&&!v){hit=0;break outer;}
-            }
-          }
-          dst[y*mw+x]=hit;
-        }
-      }
-      return dst;
-    };
-    mask=morph(mask,1,true);
-    mask=morph(mask,1,false);
-    eraseRoofs(mask);
-
-    // Flood only from real road seeds so isolated grey parcels never survive.
-    const keep=new Uint8Array(mask.length);
-    const qx=new Int32Array(mask.length),qy=new Int32Array(mask.length);
-    let qh=0,qt=0;
-    const pushSeedNear=(px,py)=>{
-      const sx=Math.round(px/DS),sy=Math.round(py/DS);
-      let best=-1,bestD=1e9;
-      const rr=12;
-      for(let y=Math.max(0,sy-rr);y<=Math.min(mh-1,sy+rr);y++){
-        for(let x=Math.max(0,sx-rr);x<=Math.min(mw-1,sx+rr);x++){
-          const i=y*mw+x;if(!mask[i])continue;
-          const d=(x-sx)*(x-sx)+(y-sy)*(y-sy);
-          if(d<bestD){bestD=d;best=i;}
-        }
-      }
-      if(best>=0&&!keep[best]){
-        keep[best]=1;qx[qt]=best%mw;qy[qt]=Math.floor(best/mw);qt++;
-      }
-    };
-    roadSeedsPx.forEach(p=>pushSeedNear(p[0],p[1]));
-
-    const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
-    while(qh<qt){
-      const x=qx[qh],y=qy[qh];qh++;
-      for(const d of dirs){
-        const nx=x+d[0],ny=y+d[1];
-        if(nx<0||ny<0||nx>=mw||ny>=mh)continue;
-        const ni=ny*mw+nx;
-        if(mask[ni]&&!keep[ni]){
-          keep[ni]=1;qx[qt]=nx;qy[qt]=ny;qt++;
-        }
-      }
-    }
-
-    // V49: split the blueprint-derived circulation area into:
-    // 1) CARRIAGEWAY core, 2) CURB band, 3) SIDEWALK edge.
-    // The source mask determines shape; materials are procedural/game-like.
-
-    const erodeMask=(srcMask,radius)=>{
-      const dst=new Uint8Array(srcMask.length);
-      const r2=radius*radius;
-      for(let y=0;y<mh;y++){
-        for(let x=0;x<mw;x++){
-          if(!srcMask[y*mw+x]) continue;
-          let ok=1;
-          outer:for(let dy=-radius;dy<=radius;dy++){
-            for(let dx=-radius;dx<=radius;dx++){
-              if(dx*dx+dy*dy>r2) continue;
-              const xx=x+dx,yy=y+dy;
-              if(xx<0||yy<0||xx>=mw||yy>=mh||!srcMask[yy*mw+xx]){
-                ok=0;break outer;
-              }
-            }
-          }
-          dst[y*mw+x]=ok;
-        }
-      }
-      return dst;
-    };
-
-    const dilateMask=(srcMask,radius)=>{
-      const dst=new Uint8Array(srcMask.length);
-      const r2=radius*radius;
-      for(let y=0;y<mh;y++){
-        for(let x=0;x<mw;x++){
-          let hit=0;
-          outer:for(let dy=-radius;dy<=radius;dy++){
-            for(let dx=-radius;dx<=radius;dx++){
-              if(dx*dx+dy*dy>r2) continue;
-              const xx=x+dx,yy=y+dy;
-              if(xx>=0&&yy>=0&&xx<mw&&yy<mh&&srcMask[yy*mw+xx]){
-                hit=1;break outer;
-              }
-            }
-          }
-          dst[y*mw+x]=hit;
-        }
-      }
-      return dst;
-    };
-
-    // Majority filter used only to smooth raster stair-steps after dilation.
-    const smoothBinaryMask=(srcMask,radius=2,threshold=.48,passes=2)=>{
-      let cur=srcMask;
-      for(let pass=0;pass<passes;pass++){
-        const dst=new Uint8Array(cur.length);
-        for(let y=0;y<mh;y++){
-          for(let x=0;x<mw;x++){
-            let n=0,total=0;
-            for(let dy=-radius;dy<=radius;dy++){
-              for(let dx=-radius;dx<=radius;dx++){
-                if(dx*dx+dy*dy>radius*radius) continue;
-                const xx=x+dx,yy=y+dy;
-                if(xx<0||yy<0||xx>=mw||yy>=mh) continue;
-                total++; if(cur[yy*mw+xx]) n++;
-              }
-            }
-            dst[y*mw+x]=(total&&n/total>=threshold)?1:0;
-          }
-        }
-        cur=dst;
-      }
-      return cur;
-    };
-
-    const subtractMask=(a,b)=>{
-      const out=new Uint8Array(a.length);
-      for(let i=0;i<a.length;i++) out[i]=(a[i]&&!b[i])?1:0;
-      return out;
-    };
-
-    // V52: keep is already the connected road-surface segmentation from the blueprint.
-    // Do NOT skeletonize it; that was the source of the jagged / incorrect geometry.
-    const roadMask=keep;
-
-    // Build curb + sidewalk strictly OUTSIDE the exact road mask using a chamfer distance field.
-    const INF=1<<28;
-    const edgeDist=new Int32Array(roadMask.length);
-    for(let i=0;i<roadMask.length;i++) edgeDist[i]=roadMask[i]?0:INF;
-    for(let y=0;y<mh;y++)for(let x=0;x<mw;x++){
-      const i=y*mw+x; let d=edgeDist[i];
-      if(x>0)d=Math.min(d,edgeDist[i-1]+3);
-      if(y>0)d=Math.min(d,edgeDist[i-mw]+3);
-      if(x>0&&y>0)d=Math.min(d,edgeDist[i-mw-1]+4);
-      if(x<mw-1&&y>0)d=Math.min(d,edgeDist[i-mw+1]+4);
-      edgeDist[i]=d;
-    }
-    for(let y=mh-1;y>=0;y--)for(let x=mw-1;x>=0;x--){
-      const i=y*mw+x; let d=edgeDist[i];
-      if(x<mw-1)d=Math.min(d,edgeDist[i+1]+3);
-      if(y<mh-1)d=Math.min(d,edgeDist[i+mw]+3);
-      if(x<mw-1&&y<mh-1)d=Math.min(d,edgeDist[i+mw+1]+4);
-      if(x>0&&y<mh-1)d=Math.min(d,edgeDist[i+mw-1]+4);
-      edgeDist[i]=d;
-    }
-    const curbMask=new Uint8Array(roadMask.length);
-    const sidewalkMask=new Uint8Array(roadMask.length);
-    for(let i=0;i<roadMask.length;i++){
-      if(roadMask[i]) continue;
-      const d=edgeDist[i];
-      if(d<=9) curbMask[i]=1;          // ~3 px curb band
-      else if(d<=30) sidewalkMask[i]=1; // ~7 px sidewalk band
-    }
-    const makeMaskTexture=(arr,softRadius=1)=>{
-      const cc=document.createElement('canvas');
-      cc.width=mw;cc.height=mh;
-      const cx=cc.getContext('2d');
-      const img=cx.createImageData(mw,mh),d=img.data;
-      for(let y=0;y<mh;y++){
-        for(let x=0;x<mw;x++){
-          const i=y*mw+x;
-          if(!arr[i]) continue;
-          let n=0,total=0;
-          for(let yy=Math.max(0,y-softRadius);yy<=Math.min(mh-1,y+softRadius);yy++){
-            for(let xx=Math.max(0,x-softRadius);xx<=Math.min(mw-1,x+softRadius);xx++){
-              total++; if(arr[yy*mw+xx]) n++;
-            }
-          }
-          const a=Math.round(150+105*(n/total));
-          const k=i*4;
-          d[k]=255;d[k+1]=255;d[k+2]=255;d[k+3]=a;
-        }
-      }
-      cx.putImageData(img,0,0);
-      const tex=new THREE.CanvasTexture(cc);
-      tex.colorSpace=THREE.NoColorSpace;
-      tex.minFilter=THREE.LinearMipmapLinearFilter;
-      tex.magFilter=THREE.LinearFilter;
-      tex.generateMipmaps=true;
-      tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-      return tex;
-    };
-
-    const roadMaskTex=makeMaskTexture(roadMask,1);
-    const curbMaskTex=makeMaskTexture(curbMask,1);
-    const sidewalkMaskTex=makeMaskTexture(sidewalkMask,1);
-
-    // ---------- procedural asphalt ----------
-    const TILE=512;
-    const hash=(x,y)=>{
-      let h=(x*374761393+y*668265263)^0x5bd1e995;
-      h=(h^(h>>>13))*1274126177;
-      return ((h^(h>>>16))>>>0)/4294967295;
-    };
-
-    const asphaltCanvas=document.createElement('canvas');
-    asphaltCanvas.width=TILE;asphaltCanvas.height=TILE;
-    const actx=asphaltCanvas.getContext('2d');
-    const aimg=actx.createImageData(TILE,TILE),ad=aimg.data;
-    for(let y=0;y<TILE;y++){
-      for(let x=0;x<TILE;x++){
-        const k=(y*TILE+x)*4;
-        const n1=hash(x,y), n2=hash(x>>2,y>>2), n3=hash(x>>4,y>>4);
-        let base=112+(n1-.5)*16+(n2-.5)*10+(n3-.5)*7;
-        const grain=hash(x*3+17,y*5+31);
-        if(grain>.987) base+=28;
-        if(grain<.010) base-=16;
-        ad[k]=Math.max(72,Math.min(150,base));
-        ad[k+1]=Math.max(74,Math.min(152,base+1));
-        ad[k+2]=Math.max(75,Math.min(154,base+2));
-        ad[k+3]=255;
-      }
-    }
-    actx.putImageData(aimg,0,0);
-
-    // faint patching, never large black shapes
-    actx.save();
-    actx.globalAlpha=.08;
-    actx.fillStyle='#a8aaa7';
-    for(let i=0;i<7;i++){
-      const x=hash(i,17)*TILE,y=hash(i,43)*TILE;
-      const w=28+hash(i,71)*72,h=12+hash(i,89)*32;
-      actx.translate(x,y);
-      actx.rotate((hash(i,111)-.5)*.45);
-      actx.fillRect(-w/2,-h/2,w,h);
-      actx.setTransform(1,0,0,1,0,0);
-    }
-    actx.restore();
-
-    const asphaltTex=new THREE.CanvasTexture(asphaltCanvas);
-    asphaltTex.colorSpace=THREE.SRGBColorSpace;
-    asphaltTex.wrapS=THREE.RepeatWrapping;asphaltTex.wrapT=THREE.RepeatWrapping;
-    asphaltTex.repeat.set(Math.max(10,PLANE_W/32),Math.max(10,PLANE_H/32));
-    asphaltTex.minFilter=THREE.LinearMipmapLinearFilter;
-    asphaltTex.magFilter=THREE.LinearFilter;
-    asphaltTex.generateMipmaps=true;
-    asphaltTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-
-    // asphalt bump
-    const bumpCanvas=document.createElement('canvas');
-    bumpCanvas.width=256;bumpCanvas.height=256;
-    const bctx=bumpCanvas.getContext('2d');
-    const bimg=bctx.createImageData(256,256),bd=bimg.data;
-    for(let y=0;y<256;y++){
-      for(let x=0;x<256;x++){
-        const n=hash(x*7+77,y*9+91);
-        const coarse=hash((x>>2)+13,(y>>2)+29);
-        const v=Math.round(110+n*80+coarse*28);
-        const k=(y*256+x)*4;
-        bd[k]=v;bd[k+1]=v;bd[k+2]=v;bd[k+3]=255;
-      }
-    }
-    bctx.putImageData(bimg,0,0);
-    const bumpTex=new THREE.CanvasTexture(bumpCanvas);
-    bumpTex.colorSpace=THREE.NoColorSpace;
-    bumpTex.wrapS=THREE.RepeatWrapping;bumpTex.wrapT=THREE.RepeatWrapping;
-    bumpTex.repeat.copy(asphaltTex.repeat);
-    bumpTex.minFilter=THREE.LinearMipmapLinearFilter;
-    bumpTex.magFilter=THREE.LinearFilter;
-    bumpTex.generateMipmaps=true;
-
-    // ---------- sidewalk paving ----------
-    const walkCanvas=document.createElement('canvas');
-    walkCanvas.width=256;walkCanvas.height=256;
-    const wctx=walkCanvas.getContext('2d');
-    wctx.fillStyle='#d1d0cb';wctx.fillRect(0,0,256,256);
-    wctx.strokeStyle='rgba(145,145,140,.28)';
-    wctx.lineWidth=1;
-    const cell=32;
-    for(let x=0;x<=256;x+=cell){wctx.beginPath();wctx.moveTo(x,0);wctx.lineTo(x,256);wctx.stroke();}
-    for(let y=0;y<=256;y+=cell){wctx.beginPath();wctx.moveTo(0,y);wctx.lineTo(256,y);wctx.stroke();}
-    // subtle grain
-    wctx.fillStyle='rgba(90,90,86,.08)';
-    for(let i=0;i<700;i++){
-      const x=hash(i,500)*256,y=hash(i,700)*256;
-      wctx.fillRect(x,y,1,1);
-    }
-    const walkTex=new THREE.CanvasTexture(walkCanvas);
-    walkTex.colorSpace=THREE.SRGBColorSpace;
-    walkTex.wrapS=THREE.RepeatWrapping;walkTex.wrapT=THREE.RepeatWrapping;
-    walkTex.repeat.set(Math.max(8,PLANE_W/22),Math.max(8,PLANE_H/22));
-    walkTex.minFilter=THREE.LinearMipmapLinearFilter;
-    walkTex.magFilter=THREE.LinearFilter;
-    walkTex.generateMipmaps=true;
-    walkTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-
-    const roadMat=new THREE.MeshStandardMaterial({
-      map:asphaltTex,alphaMap:roadMaskTex,transparent:true,alphaTest:.08,
-      depthWrite:false,depthTest:true,roughness:.96,metalness:0,
-      bumpMap:bumpTex,bumpScale:.08,
-      polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
-    });
-
-    const sidewalkMat=new THREE.MeshStandardMaterial({
-      map:walkTex,alphaMap:sidewalkMaskTex,transparent:true,alphaTest:.08,
-      depthWrite:false,depthTest:true,roughness:.92,metalness:0,
-      polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3
-    });
-
-    const curbMat=new THREE.MeshStandardMaterial({
-      color:0xbfc0bb,alphaMap:curbMaskTex,transparent:true,alphaTest:.08,
-      depthWrite:false,depthTest:true,roughness:.88,metalness:0,
-      polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-4
-    });
-
-    const addMaskedPlane=(name,mat,y,order)=>{
-      const mesh=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),mat);
-      mesh.rotation.x=-Math.PI/2;
-      const bpC=mapPx(IMG_W/2,IMG_H/2);
-      mesh.position.set(bpC.x,y,bpC.z);
-      mesh.renderOrder=order;
-      mesh.receiveShadow=true;
-      mesh.name=name;
-      mesh.userData.siteFrameSignature=SITE_FRAME_SIGNATURE;
-      world.add(mesh);
-      return mesh;
-    };
-
-    addMaskedPlane('ROAD_CARRIAGEWAY',roadMat,.080,2);
-    addMaskedPlane('ROAD_SIDEWALK',sidewalkMat,.180,3);
-    addMaskedPlane('ROAD_CURB',curbMat,.240,4);
-
-    coordBadge.textContent='COORD LOCK + FULL-RES ROAD / CURB / SIDEWALK';
-  };
-  setTimeout(buildPixelLockedRoadSurface,0);
-
+  // V53: blueprint is reference only; roads are separate vector meshes.
   bpBadge.style.color='#85edb4';
   setTimeout(()=>bpBadge.style.opacity='.28',2600);
 };
@@ -1325,11 +914,11 @@ function addFactoryScaleDetail(g,idx){
   const yardDepth=Math.max(10,Math.min(20,D*.42));
   const yard=new THREE.Mesh(new THREE.BoxGeometry(L*.90,.08,yardDepth),asphaltYardMat);
   yard.position.set(0,.05,D/2+yardDepth/2+1.8);
-  yard.receiveShadow=true;g.add(yard);
+  yard.receiveShadow=true;yard.visible=false;g.add(yard);
 
   // rear pedestrian strip
   const walk=new THREE.Mesh(new THREE.BoxGeometry(L*.92,.10,2.2),concreteYardMat);
-  walk.position.set(0,.06,-D/2-1.3);g.add(walk);
+  walk.position.set(0,.06,-D/2-1.3);walk.visible=false;g.add(walk);
 
   // facade panel rhythm
   const panelCount=Math.max(6,Math.min(16,Math.round(L/8)));
@@ -1370,7 +959,7 @@ function addFactoryScaleDetail(g,idx){
       for(let k=-1;k<=1;k+=2){
         const stripe=new THREE.Mesh(new THREE.BoxGeometry(.18,.025,5.0),safetyYellowMat);
         stripe.position.set(x+k*2.1,.11,D/2+yardDepth*.45);
-        stripe.rotation.y=.12*k;g.add(stripe);
+        stripe.rotation.y=.12*k;stripe.visible=false;g.add(stripe);
       }
     }
   }
@@ -1400,7 +989,7 @@ function addFactoryScaleDetail(g,idx){
   for(let i=0;i<=slotCount;i++){
     const x=(-.42+i/slotCount*.84)*L;
     const line=new THREE.Mesh(new THREE.BoxGeometry(.10,.025,5.2),lineWhiteMat);
-    line.position.set(x,.11,D/2+yardDepth*.82);g.add(line);
+    line.position.set(x,.11,D/2+yardDepth*.82);line.visible=false;g.add(line);
   }
 
   // building number plate (large enough to read only in detail view)
@@ -1541,6 +1130,11 @@ roofs.forEach((r,idx)=>{
 
 // Detail view handler is attached later, after UI button references are initialized.
 // ---------------------------------------------------------------------------
+// V53: install after shared resources. Failure cannot stop the existing render loop.
+installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
+ .then(()=>{coordBadge.textContent='V53: narrow asphalt | curb | walkway | planted green belt';})
+ .catch(error=>{console.error(error);coordBadge.textContent='V53 road layer failed: '+error.message;coordBadge.style.color='#ff9b9b';});
+
 // Views
 function tween(pos,tgt){
   const a=camera.position.clone(),b=controls.target.clone();let t=0;

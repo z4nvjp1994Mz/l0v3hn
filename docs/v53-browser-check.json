@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "version": 53,
+  "layers": [
+    "carriageway",
+    "curb",
+    "sidewalk",
+    "greenbelt"
+  ],
+  "areas": {
+    "carriageway": 56009.55,
+    "curb": 2261.23,
+    "sidewalk": 13315.96,
+    "greenbelt": 48053.21
+  },
+  "trees": 409,
+  "frame": "1616x2048@0.782|PIN:1053.34,850.71",
+  "errors": [],
+  "checks": [
+    "startup",
+    "four surfaces",
+    "view buttons",
+    "blueprint toggle",
+    "road toggle",
+    "source overlay"
+  ],
+  "runtime": "headless Chromium / software WebGL"
+}
