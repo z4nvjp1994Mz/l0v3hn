@@ -19,15 +19,20 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V107';
+  root.name='AI_TRAFFIC_V108';
   root.userData={
-    version:107,
+    version:108,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
   world.add(root);
 
   const routeIds=new Set(['central-spine','north-cross','south-cross']);
+  const pxO=mapPx(0,0),pxX=mapPx(1,0),pxY=mapPx(0,1);
+  const worldPerPx=(
+    Math.hypot(pxX.x-pxO.x,pxX.z-pxO.z)+
+    Math.hypot(pxY.x-pxO.x,pxY.z-pxO.z)
+  )*.5;
   const routes=(data.paths||[]).filter(p=>routeIds.has(p.id)).map(path=>{
     const pts=path.pointsPx.map(([x,y])=>{
       const q=corridorWarpV91.warpPx(x,y);
@@ -40,7 +45,14 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       total+=pts[i].distanceTo(pts[i-1]);
       cumulative.push(total);
     }
-    return {id:path.id,points:pts,cumulative,total};
+    return {
+      id:path.id,
+      points:pts,
+      cumulative,
+      total,
+      widthPx:path.widthPx||16,
+      widthWorld:(path.widthPx||16)*worldPerPx
+    };
   });
   if(!routes.length)throw new Error('V91 traffic routes missing');
 
@@ -602,11 +614,12 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const greenOff=new THREE.MeshStandardMaterial({color:0x0d4020,emissive:0x00180a,emissiveIntensity:.10,roughness:.55});
 
   const signalGeo={
+    base:new RoundedBoxGeometry(.58,.30,.58,2,.07),
     pole:new THREE.CylinderGeometry(.09,.12,5.2,10),
-    arm:new THREE.BoxGeometry(.16,.16,1.05),
+    arm:new THREE.BoxGeometry(1,.16,.16),
     housing:new RoundedBoxGeometry(.74,1.76,.42,2,.07),
     lamp:new THREE.SphereGeometry(.18,12,9),
-    stopLine:new THREE.BoxGeometry(8.2,.045,.34)
+    stopLine:new THREE.BoxGeometry(1,.045,.34)
   };
 
   function signalStateAt(junction,time=simTime){
@@ -654,48 +667,71 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const travel=sample.tangent.clone().multiplyScalar(dir).normalize();
     const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
 
-    // Stop bar sits ~6.2 m from conflict centre; pole stays outside the carriageway.
+    // V108 curbside placement:
+    // Use the actual CAD/source road width. The pole base is moved completely
+    // outside the asphalt + curb/sidewalk buffer instead of using the old fixed
+    // 5.7 m offset that put poles inside the wide central carriageway.
     const stopCenter=junction.point.clone().addScaledVector(travel,-6.2);
-    const polePos=stopCenter.clone().addScaledVector(right,5.7);
+    const halfRoad=Math.max(4.8,(route.widthWorld||12)*.5);
+    const sidewalkAndVerge=3.0;
+    const poleSideOffset=halfRoad+sidewalkAndVerge;
+    const polePos=stopCenter.clone().addScaledVector(right,poleSideOffset);
     const heading=Math.atan2(travel.x,travel.z);
 
     const g=new THREE.Group();
-    g.name='V107_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.name='V108_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
     g.position.set(polePos.x,.02,polePos.z);
     g.rotation.y=heading;
 
+    const base=new THREE.Mesh(signalGeo.base,poleMat);
+    base.position.y=.15;
+    base.castShadow=true;base.receiveShadow=true;
+    g.add(base);
+
     const pole=new THREE.Mesh(signalGeo.pole,poleMat);
-    pole.position.y=2.6;
+    pole.position.y=2.75;
     pole.castShadow=true;pole.receiveShadow=true;
     g.add(pole);
 
+    // Mast arm reaches inward from the sidewalk/green verge over the nearest lane.
+    // Because local +X is travel-right, negative X points back toward the roadway.
+    const armReach=Math.min(4.4,sidewalkAndVerge+1.55);
     const arm=new THREE.Mesh(signalGeo.arm,poleMat);
-    arm.position.set(0,4.88,-.42);
+    arm.scale.x=armReach;
+    arm.position.set(-armReach*.5,5.02,0);
     arm.castShadow=true;
     g.add(arm);
 
+    const headX=-armReach+.24;
     const housing=new THREE.Mesh(signalGeo.housing,boxMat);
-    housing.position.set(0,4.55,-.88);
+    housing.position.set(headX,4.58,0);
     housing.castShadow=true;
     g.add(housing);
 
+    // Lamp faces the oncoming approach (local -Z face).
+    const lampZ=-.235;
     const red=new THREE.Mesh(signalGeo.lamp,redOff);
-    red.position.set(0,5.07,-1.115);
+    red.position.set(headX,5.10,lampZ);
     const yellow=new THREE.Mesh(signalGeo.lamp,yellowOff);
-    yellow.position.set(0,4.55,-1.115);
+    yellow.position.set(headX,4.58,lampZ);
     const green=new THREE.Mesh(signalGeo.lamp,greenOff);
-    green.position.set(0,4.03,-1.115);
+    green.position.set(headX,4.06,lampZ);
     g.add(red,yellow,green);
     signalGroup.add(g);
 
+    // Scale stop bar to the actual source-road width instead of a fixed 8.2 m.
     const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
-    stopLine.name='V107_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.name='V108_STOP_LINE_'+junction.id+'_'+approachIndex;
     stopLine.position.set(stopCenter.x,.13,stopCenter.z);
     stopLine.rotation.y=heading;
+    stopLine.scale.x=Math.max(6.5,(route.widthWorld||10)*.88);
     stopLine.receiveShadow=true;
     signalGroup.add(stopLine);
 
-    return {junction,routeId:route.id,dir,group:g,red,yellow,green,lastColor:null};
+    return {
+      junction,routeId:route.id,dir,group:g,red,yellow,green,lastColor:null,
+      halfRoad,poleSideOffset
+    };
   }
 
   const signalHeads=[];
@@ -725,7 +761,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     mainGreenSeconds:SIGNAL_TIMING.mainGreen,
     crossGreenSeconds:SIGNAL_TIMING.crossGreen,
     yellowSeconds:SIGNAL_TIMING.yellow,
-    allRedSeconds:SIGNAL_TIMING.allRed
+    allRedSeconds:SIGNAL_TIMING.allRed,
+    curbsidePlacement:true,
+    sourceRoadWidths:Object.fromEntries(routes.map(r=>[r.id,Number(r.widthWorld.toFixed(2))]))
   };
 
   function updateTrafficSignals(){
@@ -1231,12 +1269,12 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:107,group:root,agents,counts,junctions,
+    ready:true,version:108,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V107 traffic-light controlled anti-gridlock traffic installed',{
+  console.info('[DaLoc] V108 curbside traffic-light controlled anti-gridlock traffic installed',{
     ...counts,
     trafficLights:trafficLightStats,
     serviceAgents:serviceAgentCount,
