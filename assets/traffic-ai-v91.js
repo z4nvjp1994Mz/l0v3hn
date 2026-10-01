@@ -457,11 +457,21 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   freightAgents.forEach((agent,fi)=>{
     const compatible=serviceTargetsByRoute.get(agent.route.id)||[];
     if(!compatible.length)return;
-    const target=compatible[(fi*3+agent.index)%compatible.length];
+
+    // Pick a dock that lies ahead of the truck's current travel direction where
+    // possible, so factory logistics becomes visible shortly after page load.
+    const ahead=compatible
+      .map(t=>({target:t,signed:(t.mergeS-agent.s)*agent.dir}))
+      .filter(x=>x.signed>6)
+      .sort((a,b)=>a.signed-b.signed);
+    const target=ahead.length
+      ? ahead[(fi+agent.index)%Math.min(ahead.length,3)].target
+      : compatible.reduce((best,t)=>Math.abs(t.mergeS-agent.s)<Math.abs(best.mergeS-agent.s)?t:best,compatible[0]);
+
     agent.service={
       target,
       phase:'cruise',
-      nextAt:10+fi*5.5,
+      nextAt:4+fi*2.8,
       path:null,
       pathS:0,
       loadRemaining:0,
