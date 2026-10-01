@@ -241,11 +241,13 @@ export async function installFactoryAccessV99({
     for(const xf of [-.34,0,.34]){
       anchorDefs.push({
         side:'service',
+        localX:L*xf,
         p:worldAnchor(info,L*xf,D/2+yardDepth+1.8),
         penalty:0
       });
       anchorDefs.push({
         side:'rear',
+        localX:L*xf,
         p:worldAnchor(info,L*xf,-D/2-2.5),
         penalty:4.5
       });
@@ -272,6 +274,7 @@ export async function installFactoryAccessV99({
           gap,
           score:gap+a.penalty,
           side:a.side,
+          localX:a.localX,
           pathIndex:seg.pathIndex,
           segIndex:seg.segIndex
         });
@@ -303,12 +306,29 @@ export async function installFactoryAccessV99({
       halfLen:len/2+2.0,
       halfW:width/2+1.15
     });
+    const routeId=circulation.paths?.[chosen.pathIndex]?.id||null;
+    let dockWallWorld=null;
+    let outwardWorld=null;
+    if(chosen.side==='service'){
+      const wall=worldAnchor(info,chosen.localX,D/2+.55);
+      const outside=worldAnchor(info,chosen.localX,D/2+10.55);
+      const ox=outside.x-wall.x,oz=outside.z-wall.z,ol=Math.hypot(ox,oz)||1;
+      dockWallWorld={x:wall.x,z:wall.z};
+      outwardWorld={x:ox/ol,z:oz/ol};
+    }
     driveways.push({
       factoryIndex:i,
       side:chosen.side,
+      routeId,
       pathIndex:chosen.pathIndex,
+      segIndex:chosen.segIndex,
+      localX:chosen.localX,
       lengthM:Number(made.len.toFixed(2)),
-      widthM:Number(width.toFixed(2))
+      widthM:Number(width.toFixed(2)),
+      roadEdgeWorld:{x:chosen.end.x,z:chosen.end.z},
+      yardWorld:{x:chosen.start.x,z:chosen.start.z},
+      dockWallWorld,
+      outwardWorld
     });
   }
 
@@ -385,7 +405,7 @@ export async function installFactoryAccessV99({
 
   const result={
     ready:true,
-    version:99,
+    version:100,
     group:root,
     cadAccessPads:(accessData.accesses||[]).length,
     drivewayCount:driveways.length,
@@ -397,6 +417,6 @@ export async function installFactoryAccessV99({
     setVisible(v){root.visible=!!v;}
   };
   window.__DALOC_FACTORY_ACCESS_V99=result;
-  console.info('[DaLoc] V99 factory access roads installed',result);
+  console.info('[DaLoc] V100 logistics-ready factory access roads installed',result);
   return result;
 }
