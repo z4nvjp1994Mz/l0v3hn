@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>V53 — Đối chiếu lòng đường / dải xanh</title>
+<style>*{box-sizing:border-box}body{margin:0;font:15px Arial;background:#eef1eb;color:#1d3025}header{position:sticky;top:0;background:#153b2c;color:white;padding:14px 20px;z-index:2;display:flex;gap:16px;flex-wrap:wrap;align-items:center}header b{margin-right:auto}label{white-space:nowrap}main{max-width:1000px;margin:20px auto}p{padding:0 18px;line-height:1.5}svg{width:100%;height:auto;background:white;box-shadow:0 5px 22px #17261d20}#status{font-size:12px}button{padding:8px 12px;border:0;border-radius:6px;cursor:pointer}</style>
+<header><b>V53 · Đối chiếu trực tiếp ảnh gốc</b><label><input type="checkbox" id="roads" checked> Lòng đường</label><label><input type="checkbox" id="greens" checked> Dải xanh</label><label><input type="checkbox" id="walks" checked> Bó vỉa / lối đi</label><button id="original">Chỉ ảnh gốc</button><span id="status">Đang tải…</span></header>
+<main><p>Ảnh nền và các polygon dùng cùng hệ <b>1616 × 2048 pixel</b>. Phần tô xanh dương là lòng đường; xanh lá là dải cây xanh; vàng nhạt là lối đi và bó vỉa. Đây là phép đo theo ảnh quy hoạch, không thay cho kích thước CAD/khảo sát.</p><svg id="review" viewBox="0 0 1616 2048" xmlns="http://www.w3.org/2000/svg"><image href="assets/masterplan-hires.jpg" width="1616" height="2048"/><g id="greenbelt"></g><g id="sidewalk"></g><g id="curb"></g><g id="carriageway"></g></svg></main>
+<script type="module">
+const ns='http://www.w3.org/2000/svg';
+const response=await fetch('./assets/circulation-v53.json');if(!response.ok)throw new Error('Không tải được dữ liệu đối chiếu');
+const data=await response.json();
+const colors={carriageway:'#2858ca',greenbelt:'#248842',sidewalk:'#c69a47',curb:'#fff1b0'};
+const toPath=ring=>'M'+ring.map(p=>p.join(',')).join('L')+'Z';
+for(const [name,polys]of Object.entries(data.layers))for(const poly of polys){
+ const path=document.createElementNS(ns,'path');path.setAttribute('d',toPath(poly.outer)+poly.holes.map(toPath).join(''));path.setAttribute('fill-rule','evenodd');path.setAttribute('fill',colors[name]);path.setAttribute('fill-opacity',name==='curb'?'0.95':'0.48');document.getElementById(name).appendChild(path);
+}
+function sync(){document.getElementById('carriageway').style.display=document.getElementById('roads').checked?'':'none';document.getElementById('greenbelt').style.display=document.getElementById('greens').checked?'':'none';for(const id of ['sidewalk','curb'])document.getElementById(id).style.display=document.getElementById('walks').checked?'':'none';}
+for(const id of ['roads','greens','walks'])document.getElementById(id).onchange=sync;
+document.getElementById('original').onclick=()=>{const show=!document.getElementById('roads').checked;for(const id of ['roads','greens','walks'])document.getElementById(id).checked=show;sync();};
+const svg=document.getElementById('review');svg.addEventListener('pointermove',e=>{const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse());document.getElementById('status').textContent=`x: ${p.x.toFixed(1)} · y: ${p.y.toFixed(1)} px`;});
+document.getElementById('status').textContent='4 tuyến chính · chung hệ tọa độ';window.__ROAD_REVIEW_READY=true;
+</script></html>
