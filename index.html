@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V60.3 EXPLICIT SECONDARY ROAD GEOMETRY</small>
+  <small>GitHub → Netlify · BUILD V61 TRUE SECONDARY ROAD TOGGLE</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V60.3 bỏ cách vẽ Secondary roads bằng một plane toàn bản đồ + alpha mask. Đường con giờ là các mesh 3D thật có mặt bê tông nâng cao và curb hai bên; nút On/Off ẩn hiện trực tiếp các mesh này và có badge trạng thái để kiểm tra.</p>
+  <p>V61 dùng module mới hoàn toàn để tránh cache V60. Các pixel đường con tương ứng được khoét khỏi blueprint; bật On sẽ hiện mesh bê tông 3D thật, tắt Off sẽ ẩn mesh và để trống đúng phần đường đó, nên thay đổi phải nhìn thấy ngay.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V60.3 road meshes</b><span>explicit raised concrete + curbs</span></div>
+    <div class="stat"><b>V61 road meshes</b><span>explicit raised concrete + curbs</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V60.3: explicit secondary-road meshes — On/Off hides real 3D geometry</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V61: true layer toggle — ON fills blueprint cutout with 3D roads, OFF leaves it empty</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installSecondaryRoadsV60 } from './assets/secondary-roads-v60.js';
+import { installSecondaryRoadsV61 } from './assets/secondary-roads-v61.js?v=61';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1140,7 +1140,7 @@ roofs.forEach((r,idx)=>{
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
  .then(()=>{
    coordBadge.textContent='V53 roads ready · snapping V60 narrow secondary roads to 2D masterplan…';
-   return installSecondaryRoadsV60({
+   return installSecondaryRoadsV61({
      world,
      roofs,
      mapPx,
@@ -1151,18 +1151,18 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V60.3 explicit secondary roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
+   coordBadge.textContent='V61 secondary roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>({secondaryResult,detailResult}));
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V60.3 ready · explicit road geometry toggle · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V61 ready · true visible secondary-road toggle · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V60.3 detail warning: '+error.message;
+   coordBadge.textContent='V61 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1179,7 +1179,7 @@ vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.clas
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V60?.setEnabled?.(true);v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V61?.setEnabled?.(true);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
