@@ -890,7 +890,7 @@ export async function installSecondaryRoadsV67({
   setEnabled(true);
 
   window.__DALOC_V67={
-    ready:true,version:66,frameSignature,lines:masks.snapped.length,
+    ready:true,version:67,frameSignature,lines:masks.snapped.length,
     source:'masterplan-hires.jpg',mode:'four-side warehouse scan + source-verified branch completion',
     setEnabled,
     restoreBlueprintRoads(){
