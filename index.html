@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V87 SINGLE-SOURCE ROAD/TREE LOCK</small>
+  <small>GitHub → Netlify · BUILD V88 CAD ROAD + EDGE SOURCE LOCK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V84 giữ nguyên traffic/rừng/hồ sen và nâng nhà xưởng lên interior 3D chi tiết. 50 người áo xanh không còn suy từ tim đường: 24 người ra/vào xưởng, 14 người đi quanh sân xưởng và 12 người chỉ đi trên polygon vỉa hè V53.</p>
 </div>
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=76';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installCadSourceV72 } from './assets/cad-source-v72.js?v=87';
+import { installCadSourceV72 } from './assets/cad-source-v72.js?v=88';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=79';
 import { installTrafficAIV85 } from './assets/traffic-ai-v85.js?v=85';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
@@ -1314,7 +1314,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V87 ready · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles · CAD 77505 locked to exact V53 central-spine';
+   coordBadge.textContent='V88 ready · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles · CAD road + cyan edges locked to exact V53 central-spine';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1383,7 +1383,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V87 source-lock warning: '+error.message;
+   coordBadge.textContent='V88 source-lock warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
