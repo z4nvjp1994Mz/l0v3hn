@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
-import { loadKenneyCharacterAssets, createDynamicInstancedAsset } from './real-assets-v105.js?v=105';
+import { loadKenneyCharacterAssets, createAnimatedCharacterInstance } from './real-assets-v105.js?v=105';
 
 // V84 pedestrian behavior:
 // - 24 workers enter/exit factories through V84 personnel portals
@@ -25,10 +25,7 @@ export async function installPedestriansV84({
     console.error('[DaLoc] V105 real character assets failed; using fallback walkers',error);
     return null;
   });
-  const realCharacterAssets=!!(
-    characterAssets?.male && characterAssets?.female &&
-    !characterAssets.male.hasSkinnedMesh && !characterAssets.female.hasSkinnedMesh
-  );
+  const realCharacterAssets=!!(characterAssets?.male && characterAssets?.female);
 
   const root=new THREE.Group();
   root.name='PEDESTRIANS_V105_REAL_ASSET';
@@ -78,15 +75,28 @@ export async function installPedestriansV84({
     return person;
   }
 
-  // Real walkers are empty transform anchors. Their visible geometry is rendered
-  // by two Kenney GLB InstancedMesh batches (male/female), plus a smooth green
-  // safety-vest overlay. This keeps the 50 workers detailed without 50x draw calls.
+  // V105 REAL PEOPLE: actual skinned/animated Kenney Mini Character GLBs.
+  // Geometry/materials are shared by SkeletonUtils clones; each person gets only
+  // its own skeleton and AnimationMixer so the built-in "walk" clip is real.
   function buildWalker(index){
     if(!realCharacterAssets)return buildFallbackWalker(index);
-    const person=new THREE.Object3D();
+    const kind=index%2===0?'male':'female';
+    const instance=createAnimatedCharacterInstance(characterAssets[kind],{
+      name:'V105_KENNEY_'+kind.toUpperCase()+'_'+index,
+      clip:'walk',
+      castShadow:true,
+      receiveShadow:true
+    });
+    if(!instance)return buildFallbackWalker(index);
+
+    const person=new THREE.Group();
     person.name='V105_REAL_WALKER_'+index;
+    person.add(instance.wrapper);
     person.userData.realAssetV105=true;
-    person.userData.assetKind=index%2===0?'male':'female';
+    person.userData.assetKind=kind;
+    person.userData.mixer=instance.mixer;
+    person.userData.action=instance.action;
+    person.userData.clip=instance.clip;
     person.scale.setScalar(.98+(index%7)*.014);
     return person;
   }
@@ -99,9 +109,14 @@ export async function installPedestriansV84({
     agent.stepTime+=dt*agent.speed;
     const swing=Math.sin(agent.stepTime*4.7+agent.phase);
     if(agent.person.userData.realAssetV105){
-      // Whole-body micro motion only; the visible GLB itself remains a real asset.
-      agent.person.position.y=.14+Math.abs(swing)*.025;
-      agent.person.rotation.z=swing*.018;
+      const mixer=agent.person.userData.mixer;
+      if(mixer){
+        mixer.timeScale=THREE.MathUtils.clamp(agent.speed/1.05,.72,1.35);
+        mixer.update(dt);
+      }
+      // Tiny body motion prevents all 50 workers from looking synchronized.
+      agent.person.position.y=.14+Math.abs(swing)*.008;
+      agent.person.rotation.z=swing*.006;
       return;
     }
     const limbs=agent.person.userData.limbs;
@@ -368,22 +383,10 @@ export async function installPedestriansV84({
     });
   }
 
+  // The skinned people themselves cannot use InstancedMesh. To keep the worker
+  // identity cheap, green safety vests + helmets are still dynamic instanced props.
   let realBatches=null;
   if(realCharacterAssets){
-    const maleAgents=agents.filter(a=>a.person.userData.assetKind==='male');
-    const femaleAgents=agents.filter(a=>a.person.userData.assetKind==='female');
-
-    const maleBatch=createDynamicInstancedAsset(root,characterAssets.male,maleAgents.length,{
-      name:'V105_KENNEY_MALE',castShadow:true,receiveShadow:true
-    });
-    const femaleBatch=createDynamicInstancedAsset(root,characterAssets.female,femaleAgents.length,{
-      name:'V105_KENNEY_FEMALE',castShadow:true,receiveShadow:true
-    });
-
-    maleAgents.forEach((a,i)=>{a.realBatch=maleBatch;a.realIndex=i;});
-    femaleAgents.forEach((a,i)=>{a.realBatch=femaleBatch;a.realIndex=i;});
-
-    // Green shirts / factory identity as smooth instanced safety vests.
     const vestGeo=new THREE.CapsuleGeometry(.235,.34,5,9);
     const vestBatch=new THREE.InstancedMesh(vestGeo,safetyGreenMat,agents.length);
     vestBatch.name='V105_GREEN_SAFETY_VESTS';
@@ -396,34 +399,29 @@ export async function installPedestriansV84({
     helmetBatch.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     helmetBatch.castShadow=true;root.add(helmetBatch);
 
-    realBatches={maleBatch,femaleBatch,vestBatch,helmetBatch};
+    realBatches={vestBatch,helmetBatch};
   }
 
   const tempMatrix=new THREE.Matrix4();
   const localVest=new THREE.Matrix4().compose(
-    new THREE.Vector3(0,1.12,0),
+    new THREE.Vector3(0,1.10,0),
     new THREE.Quaternion(),
-    new THREE.Vector3(1.05,.90,.68)
+    new THREE.Vector3(1.02,.88,.67)
   );
-  const localHelmet=new THREE.Matrix4().makeTranslation(0,1.83,0);
+  const localHelmet=new THREE.Matrix4().makeTranslation(0,1.80,0);
 
   function updateRealCharacterInstances(){
     if(!realBatches)return;
     let helmetIndex=0;
     agents.forEach((agent,i)=>{
       agent.person.updateMatrix();
-      agent.realBatch?.setMatrixAt(agent.realIndex,agent.person.matrix);
-
       tempMatrix.multiplyMatrices(agent.person.matrix,localVest);
       realBatches.vestBatch.setMatrixAt(i,tempMatrix);
-
       if(i<38){
         tempMatrix.multiplyMatrices(agent.person.matrix,localHelmet);
         realBatches.helmetBatch.setMatrixAt(helmetIndex++,tempMatrix);
       }
     });
-    realBatches.maleBatch?.commit();
-    realBatches.femaleBatch?.commit();
     realBatches.vestBatch.instanceMatrix.needsUpdate=true;
     realBatches.helmetBatch.instanceMatrix.needsUpdate=true;
   }
@@ -499,7 +497,7 @@ export async function installPedestriansV84({
 
   console.info('[DaLoc] V105 real Kenney GLB pedestrians installed',{
     ...counts,
-    assetMode:realCharacterAssets?'kenney-glb-instanced':'capsule-fallback',
+    assetMode:realCharacterAssets?'kenney-glb-skinned-walk':'capsule-fallback',
     effectivePortals:effectivePortals.length,
     suppliedPortals:factoryPortals.length,
     buildings:buildings.length
