@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V80 INDUSTRIAL MIXED TRAFFIC</small>
+  <small>GitHub → Netlify · BUILD V81 VIETNAMESE LOTUS POND</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V80 giữ nguyên 14.000 cây và hình học source-lock, đồng thời nâng traffic lên 20 phương tiện: 4 ô tô con, 10 xe tải chở hàng và 6 xe container. Mỗi nhóm có kích thước, tốc độ và khoảng cách an toàn riêng.</p>
+  <p>V81 giữ nguyên toàn bộ V80 và phủ hồ trung tâm bằng sen Việt 3D: lá sen nổi, hoa sen hồng/trắng và nụ sen, tất cả nằm đúng trong footprint ellipse của hồ nguồn.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V80 industrial traffic</b><span>CAD roads + restored 3D layers</span></div>
+    <div class="stat"><b>V81 lotus pond</b><span>CAD roads + restored 3D layers</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V80: 14k forest + 4 cars + 10 cargo trucks + 6 container trucks</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V81: V80 traffic + Vietnamese lotus pond</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -51,6 +51,7 @@ import { installSupportStructuresV55 } from './assets/support-structures-v55.js'
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=77';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=79';
 import { installTrafficAIV80 } from './assets/traffic-ai-v80.js?v=80';
+import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -496,6 +497,13 @@ addEllipsePx(1053.34,850.71,33.5,23.5,semanticWaterMat,.35,-8);
   rim.castShadow=true;
   semanticGroup.add(rim);
 }
+
+// V81: dense Vietnamese lotus garden, source-locked to this exact pond ellipse.
+const lotusPondV81=installLotusPondV81({
+  world,
+  mapPx,
+  metersPerPixel:S
+});
 
 // Lawn around the water feature, again confined to its visible landscaped island.
 const POND_GARDEN=[[1000,817],[1051,805],[1108,831],[1114,873],[1075,903],[1019,894],[986,859]];
@@ -1229,7 +1237,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V80 ready · '+v78TreeCount+' exterior trees · '+trafficCarCount+' cars · '+trafficCargoCount+' cargo trucks · '+trafficContainerCount+' container trucks · '+trafficTotalCount+' vehicles total · '+(st.factories||0)+' factory micro-detail sets';
+   coordBadge.textContent='V81 ready · '+v78TreeCount+' exterior trees · '+trafficTotalCount+' vehicles · '+lotusPondV81.leafCount+' lotus leaves · '+lotusPondV81.flowerCount+' lotus flowers · '+lotusPondV81.budCount+' buds · '+(st.factories||0)+' factory detail sets';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1243,6 +1251,7 @@ installCirculationV53({
      if(v53DetailGroup)v53DetailGroup.visible=envOn;
      if(v54DetailGroup)v54DetailGroup.visible=envOn;
      if(v78ExteriorGroup)v78ExteriorGroup.visible=envOn;
+     if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
@@ -1268,7 +1277,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V80 industrial-traffic warning: '+error.message;
+   coordBadge.textContent='V81 lotus/traffic warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
