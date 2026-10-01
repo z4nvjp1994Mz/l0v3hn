@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V89 CAD-AUTHORITATIVE CORRIDOR WARP</small>
+  <small>GitHub → Netlify · BUILD V90 MINI LANDSCAPE CAD LOCK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V89 coi CAD gốc là chuẩn: đường 77505 giữ nguyên DXF; cỏ, curb, sidewalk, hàng cây, traffic và pedestrian quanh trục chính được warp từ V53 sang đúng tim đường CAD, không còn kéo CAD theo bản 3D.</p>
+  <p>V90 giữ CAD gốc làm chuẩn và bổ sung khóa các chi tiết cây mini/shrub, đèn và road micro-detail theo cùng corridor CAD 77505.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -46,7 +46,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=89';
-import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
+import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=90';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=89';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=89';
@@ -1319,7 +1319,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V89 ready · raw CAD 77505 authoritative · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles · grass/trees/traffic warped to CAD';
+   coordBadge.textContent='V90 ready · raw CAD 77505 authoritative · mini shrubs/lamps CAD-locked · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1388,7 +1388,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V89 CAD-authoritative warp warning: '+error.message;
+   coordBadge.textContent='V90 mini-landscape CAD-lock warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
