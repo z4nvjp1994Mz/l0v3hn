@@ -244,6 +244,8 @@ export async function installSiteDetailV54({
       dummy.position.set(p.x,3.72,p.z);dummy.rotation.set(0,rot,0);dummy.updateMatrix();pole.setMatrixAt(i,dummy.matrix);
       dummy.position.set(p.x,7.25,p.z);dummy.rotation.set(0,rot,0);dummy.updateMatrix();head.setMatrixAt(i,dummy.matrix);
     });
+    pole.instanceMatrix.needsUpdate=true;head.instanceMatrix.needsUpdate=true;
+    pole.computeBoundingSphere();head.computeBoundingSphere();
     pole.castShadow=head.castShadow=true;pole.receiveShadow=true;head.receiveShadow=true;
     roadGroup.add(pole,head);detailStats.lamps=lightPositions.length;
   }
@@ -254,10 +256,12 @@ export async function installSiteDetailV54({
     const shrubB=new THREE.InstancedMesh(geo.shrub,mats.flower,bCount);
     const dummy=new THREE.Object3D();let ai=0,bi=0;
     shrubPositions.forEach(([x,y,flower])=>{
-      const p=mapPx(x,y),sc=flower?.72:.88;
+      const p=mapPx(x,y),sc=flower ? .72 : .88;
       dummy.position.set(p.x,.62*sc,p.z);dummy.scale.set(sc,sc,sc);dummy.rotation.set(0,(x+y)*.013,0);dummy.updateMatrix();
       (flower?shrubB:shrubA).setMatrixAt(flower?bi++:ai++,dummy.matrix);
     });
+    shrubA.instanceMatrix.needsUpdate=true;shrubB.instanceMatrix.needsUpdate=true;
+    shrubA.computeBoundingSphere();shrubB.computeBoundingSphere();
     shrubA.castShadow=shrubB.castShadow=true;roadGroup.add(shrubA,shrubB);
     detailStats.shrubs=shrubPositions.length;
   }
@@ -274,7 +278,7 @@ export async function installSiteDetailV54({
     const inst=new THREE.InstancedMesh(geo.bollard,mats.yellow,endpointBollards.length);
     const dummy=new THREE.Object3D();
     endpointBollards.forEach(([x,y],i)=>{const p=mapPx(x,y);dummy.position.set(p.x,.48,p.z);dummy.updateMatrix();inst.setMatrixAt(i,dummy.matrix);});
-    inst.castShadow=true;roadGroup.add(inst);
+    inst.instanceMatrix.needsUpdate=true;inst.computeBoundingSphere();inst.castShadow=true;roadGroup.add(inst);
   }
 
   // LOD-like visibility: micro detail is meant for walking/detail distance.
