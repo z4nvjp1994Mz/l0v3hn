@@ -249,24 +249,34 @@ export async function installSecondaryRoadsV60({
   const blueprintCutoutCanvas=makeBlueprintCutoutMask(masks.outer);
   const blueprintCutoutTex=alphaTexture(blueprintCutoutCanvas,renderer);
 
+  // Keep the corresponding 2D road pixels cut out all the time.
+  // Otherwise OFF would simply reveal the identical road already printed in the
+  // blueprint, making the toggle appear broken even though the 3D mesh is hidden.
+  if(blueprintMat){
+    blueprintMat.alphaMap=blueprintCutoutTex;
+    blueprintMat.alphaTest=.01;
+    blueprintMat.needsUpdate=true;
+  }
+
   let enabled=true;
   const setEnabled=(on)=>{
     enabled=!!on;
-    root.visible=enabled;
 
-    // The 2D masterplan already contains these service roads. When the 3D layer
-    // is ON, cut those pixels out of the blueprint so the replacement is
-    // visually obvious and there is no double-drawing. OFF restores the exact
-    // original 2D blueprint, so the toggle now has a clear before/after effect.
-    if(blueprintMat){
-      blueprintMat.alphaMap=enabled?blueprintCutoutTex:originalBlueprintAlphaMap;
-      blueprintMat.needsUpdate=true;
-    }
+    // This is the single source of truth for visibility.
+    // OFF must physically remove the secondary-road group from the rendered scene.
+    root.visible=enabled;
 
     button.classList.toggle('active',enabled);
     button.textContent='Secondary roads: '+(enabled?'On':'Off');
     button.setAttribute('aria-pressed',enabled?'true':'false');
-    root.traverse(o=>{if(o.isMesh)o.visible=enabled;});
+    button.title=enabled
+      ? '3D secondary roads are visible'
+      : '3D secondary roads are hidden; the blueprint road pixels remain cut out for comparison';
+
+    // Force an immediate material refresh so the state change is obvious
+    // even before the next OrbitControls event.
+    curbMat.needsUpdate=true;
+    roadMat.needsUpdate=true;
   };
 
   const button=document.createElement('button');
@@ -278,7 +288,22 @@ export async function installSecondaryRoadsV60({
   window.__DALOC_V60={
     ready:true,version:60,frameSignature,lines:masks.snapped.length,
     source:'masterplan-hires.jpg',mode:'source-snapped narrow centerline roads',
-    setEnabled,get enabled(){return enabled;}
+    setEnabled,
+    restoreBlueprintRoads(){
+      if(blueprintMat){
+        blueprintMat.alphaMap=originalBlueprintAlphaMap;
+        blueprintMat.alphaTest=0;
+        blueprintMat.needsUpdate=true;
+      }
+    },
+    cutoutBlueprintRoads(){
+      if(blueprintMat){
+        blueprintMat.alphaMap=blueprintCutoutTex;
+        blueprintMat.alphaTest=.01;
+        blueprintMat.needsUpdate=true;
+      }
+    },
+    get enabled(){return enabled;}
   };
   console.info('[DaLoc] V60 source-snapped narrow secondary roads installed',window.__DALOC_V60);
   return {group:root,count:blocks.length,lines:masks.snapped.length};
