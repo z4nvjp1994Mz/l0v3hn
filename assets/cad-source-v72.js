@@ -7,14 +7,17 @@ import * as THREE from 'three';
 export async function installCadSourceV72({
   world,mapPx,metersPerPixel,frameSignature,renderer
 }){
-  const [srcRes,junctionRes]=await Promise.all([
+  const [srcRes,junctionRes,registrationRes]=await Promise.all([
     fetch(new URL('./cad-source-v72.json',import.meta.url)),
-    fetch(new URL('./cad-roads-v71.json',import.meta.url))
+    fetch(new URL('./cad-roads-v71.json',import.meta.url)),
+    fetch(new URL('./cad-road-registration-v77.json',import.meta.url))
   ]);
   if(!srcRes.ok)throw new Error('V72 CAD source HTTP '+srcRes.status);
   if(!junctionRes.ok)throw new Error('V72 junction source HTTP '+junctionRes.status);
+  if(!registrationRes.ok)throw new Error('V77 road registration HTTP '+registrationRes.status);
   const data=await srcRes.json();
   const junctionData=await junctionRes.json();
+  const roadRegistration=await registrationRes.json();
   if(data.frameSignature!==frameSignature)throw new Error('V72 coordinate frame mismatch');
 
   const root=new THREE.Group();
@@ -26,7 +29,9 @@ export async function installCadSourceV72({
     boundaryLayer:data.boundaryLayer,
     sourceLocked:true,
     roofDerivedRoads:false,
-    runtimeInference:false
+    runtimeInference:false,
+    visualRegistrationVersion:77,
+    registeredRoadHandle:roadRegistration.roadHandle
   };
   world.add(root);
 
@@ -58,8 +63,16 @@ export async function installCadSourceV72({
   const surfaceHandles=new Set(['77505','77536','77537','7754C','774F9']);
   const surfaceRoads=(data.roads||[]).filter(r=>surfaceHandles.has(r.handle));
 
+  function visualRoadPoints(road){
+    if(road.handle===roadRegistration.roadHandle && Array.isArray(roadRegistration.visualPointsPx)){
+      return roadRegistration.visualPointsPx;
+    }
+    return road.pointsPx;
+  }
+
   function addRoadSurface(road){
-    const pts=road.pointsPx.map(p=>pxToWorld(p));
+    const sourcePoints=visualRoadPoints(road);
+    const pts=sourcePoints.map(p=>pxToWorld(p));
     const width=road.widthCad*data.pxPerCadUnit*metersPerPixel;
     for(let i=1;i<pts.length;i++){
       const a=pts[i-1],b=pts[i];
@@ -70,7 +83,14 @@ export async function installCadSourceV72({
       mesh.position.set((a.x+b.x)/2,.31,(a.z+b.z)/2);
       mesh.rotation.y=Math.atan2(dx,dz);
       mesh.receiveShadow=true;
-      mesh.userData={source:'DXF',layer:'TIM____NG',handle:road.handle,widthCad:road.widthCad};
+      mesh.userData={
+        source:'DXF',
+        layer:'TIM____NG',
+        handle:road.handle,
+        widthCad:road.widthCad,
+        visualRegistration:road.handle===roadRegistration.roadHandle?'V77':null,
+        rawCadPreserved:true
+      };
       surfaceGroup.add(mesh);
     }
     for(let i=1;i<pts.length-1;i++){
@@ -161,17 +181,28 @@ export async function installCadSourceV72({
   controls?.appendChild(compareButton);
 
   window.__DALOC_V72={
-    ready:true,version:72,group:root,surfaceGroup,edgeGroup,boundaryGroup,
+    ready:true,version:77,group:root,surfaceGroup,edgeGroup,boundaryGroup,
     source:data.source,roads:surfaceRoads,roadEdges:data.roadEdges,siteBoundaryPx:data.siteBoundaryPx,
+    roadRegistration,
     setEnabled,showEdges
   };
 
-  console.info('[DaLoc] V72 source-lock installed',{
+  console.info('[DaLoc] V77 registered CAD road surface installed',{
     surfacedRoads:surfaceRoads.map(r=>r.handle),
+    registeredRoad:roadRegistration.roadHandle,
+    fit:roadRegistration.fit,
     cadEdges:data.roadEdges?.length||0,
     siteBoundaryPoints:data.siteBoundaryPx?.length||0,
     source:data.source
   });
 
-  return {ready:true,version:72,roads:surfaceRoads.length,edges:data.roadEdges?.length||0,sourceLocked:true};
+  return {
+    ready:true,
+    version:77,
+    roads:surfaceRoads.length,
+    edges:data.roadEdges?.length||0,
+    sourceLocked:true,
+    registeredRoad:roadRegistration.roadHandle,
+    registrationFit:roadRegistration.fit
+  };
 }
