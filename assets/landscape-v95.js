@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadKenneyTreeAssets, createStaticInstancedAsset } from './real-assets-v105.js?v=105';
 
 // V95 — high-detail landscape pass for the lotus pond and ornamental parks.
 // All placement uses the same 1616x2048 masterplan pixel coordinate system.
@@ -131,6 +132,7 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
   // V104 asset-first batching. Benches, lamps and park trees are queued and
   // emitted as shared-geometry InstancedMesh batches instead of many small Groups.
   const benchQueue=[],lampQueue=[],treeQueue=[];
+  const fallbackParkTreeMeshes=[];
   function addBench(group,px,py,rotation=0,scale=1){
     benchQueue.push({group,px,py,rotation,scale});
   }
@@ -194,6 +196,7 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
         d.position.set(p.x,p.y+1.95*sc,p.z);d.rotation.set(0,0,0);d.scale.setScalar(sc);d.updateMatrix();trunks.setMatrixAt(i,d.matrix);
       });
       trunks.instanceMatrix.needsUpdate=true;trunks.castShadow=true;trunks.computeBoundingSphere();group.add(trunks);
+      fallbackParkTreeMeshes.push(trunks);
 
       for(let mi=0;mi<canopyMats.length;mi++){
         const bucket=crownBuckets[mi];if(!bucket.length)continue;
@@ -206,7 +209,10 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
           d.position.set(p.x+.48*sc,p.y+5.12*sc,p.z-.14*sc);d.scale.setScalar(sc*.94);d.updateMatrix();b.setMatrixAt(j,d.matrix);
           d.position.set(p.x-.50*sc,p.y+5.28*sc,p.z-.20*sc);d.scale.setScalar(sc*.80);d.updateMatrix();c.setMatrixAt(j,d.matrix);
         });
-        for(const m of [a,b,c]){m.instanceMatrix.needsUpdate=true;m.castShadow=true;m.computeBoundingSphere();group.add(m);}
+        for(const m of [a,b,c]){
+          m.instanceMatrix.needsUpdate=true;m.castShadow=true;m.computeBoundingSphere();group.add(m);
+          fallbackParkTreeMeshes.push(m);
+        }
       }
     }
   }
@@ -562,6 +568,47 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
 
   flushAssetQueue();
 
+  // V105: asynchronously replace the park/pond procedural tree batches with
+  // genuine Kenney Nature Kit GLB mesh parts. Placement stays exactly the same.
+  // The GLB mesh parts are still InstancedMesh batches, so the visual upgrade
+  // does not turn every individual tree into its own draw call.
+  let parkTreeAssetMode='loading-kenney-glb';
+  const parkTreeUpgradePromise=loadKenneyTreeAssets()
+    .then(assets=>{
+      const byGroup=new Map(
+        [...new Set(treeQueue.map(t=>t.group))].map(g=>[g,treeQueue.filter(t=>t.group===g)])
+      );
+      for(const [group,items] of byGroup){
+        const oak=[],pine=[];
+        items.forEach((t,i)=>{
+          const p=wp(t.px,t.py,.15);
+          const placement={
+            position:new THREE.Vector3(p.x,p.y,p.z),
+            rotationY:(i*.61803398875%1)*Math.PI*2,
+            scale:t.scale*(i%9===0?.92:1.0)
+          };
+          (i%9===0?pine:oak).push(placement);
+        });
+        createStaticInstancedAsset(group,assets.oak,oak,{
+          name:'V105_PARK_OAKS',castShadow:true,receiveShadow:true
+        });
+        createStaticInstancedAsset(group,assets.pine,pine,{
+          name:'V105_PARK_PINES',castShadow:true,receiveShadow:true
+        });
+      }
+      fallbackParkTreeMeshes.forEach(m=>m.visible=false);
+      parkTreeAssetMode='kenney-glb-instanced';
+      root.userData.parkTreeAssetMode=parkTreeAssetMode;
+      console.info('[DaLoc] V105 real Kenney park trees installed',{trees:treeQueue.length});
+      return parkTreeAssetMode;
+    })
+    .catch(error=>{
+      parkTreeAssetMode='procedural-fallback';
+      root.userData.parkTreeAssetMode=parkTreeAssetMode;
+      console.error('[DaLoc] V105 real park-tree fallback',error);
+      return parkTreeAssetMode;
+    });
+
   const stats={
     pondShrubs:pondShrubs.length,
     pondFlowers:pondFlowers.length,
@@ -577,10 +624,15 @@ export function installLandscapeV95({world,mapPx,metersPerPixel}){
     secondaryTrees:secTrees
   };
   root.userData.stats=stats;
+  root.userData.parkTreeAssetMode=parkTreeAssetMode;
 
   function setVisible(v){root.visible=!!v;}
-  const controller={ready:true,version:104,group:root,pondGroup,parkGroup,stats,setVisible};
+  const controller={
+    ready:true,version:105,group:root,pondGroup,parkGroup,stats,setVisible,
+    parkTreeUpgradePromise,
+    get parkTreeAssetMode(){return parkTreeAssetMode;}
+  };
   window.__DALOC_LANDSCAPE_V95=controller;
-  console.info('[DaLoc] V104 instanced diorama park assets installed',stats);
+  console.info('[DaLoc] V105 park landscape started',{...stats,parkTreeAssetMode});
   return controller;
 }
