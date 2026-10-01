@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
+import { loadKenneyCharacterAssets, createDynamicInstancedAsset } from './real-assets-v105.js?v=105';
 
 // V84 pedestrian behavior:
 // - 24 workers enter/exit factories through V84 personnel portals
@@ -20,90 +21,73 @@ export async function installPedestriansV84({
   const cadData=await cadResponse.json();
   if(data.frameSignature!==frameSignature||cadData.frameSignature!==frameSignature)throw new Error('V89 pedestrian coordinate frame mismatch');
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
+  const characterAssets=await loadKenneyCharacterAssets().catch(error=>{
+    console.error('[DaLoc] V105 real character assets failed; using fallback walkers',error);
+    return null;
+  });
+  const realCharacterAssets=!!(
+    characterAssets?.male && characterAssets?.female &&
+    !characterAssets.male.hasSkinnedMesh && !characterAssets.female.hasSkinnedMesh
+  );
 
   const root=new THREE.Group();
-  root.name='PEDESTRIANS_V104';
+  root.name='PEDESTRIANS_V105_REAL_ASSET';
   root.userData={
-    version:'104',
+    version:'105',
     count:50,
     source:'CAD-network-warped V53 sidewalks + V84 factory portals + building-derived fallback portals'
   };
   world.add(root);
 
   const shirtMat=new THREE.MeshStandardMaterial({color:0x2f8b57,roughness:.78});
-  const shirtDarkMat=new THREE.MeshStandardMaterial({color:0x267449,roughness:.80});
-  const skinMats=[0xd7a07b,0xc98b67,0xe0ad86,0xb97b5b].map(color=>
-    new THREE.MeshStandardMaterial({color,roughness:.82})
-  );
-  const pantsMats=[0x263746,0x2d3135,0x3e4d55,0x443d38].map(color=>
-    new THREE.MeshStandardMaterial({color,roughness:.86})
-  );
+  const skinMat=new THREE.MeshStandardMaterial({color:0xd6a07b,roughness:.82});
+  const pantsMat=new THREE.MeshStandardMaterial({color:0x303b43,roughness:.86});
   const shoeMat=new THREE.MeshStandardMaterial({color:0x242424,roughness:.90});
-  const hairMat=new THREE.MeshStandardMaterial({color:0x26201c,roughness:.86});
   const helmetMat=new THREE.MeshStandardMaterial({color:0xf0c43a,roughness:.55,metalness:.04});
-  const hiVisMat=new THREE.MeshStandardMaterial({color:0xc9e65b,roughness:.72});
+  const safetyGreenMat=new THREE.MeshStandardMaterial({color:0x2f9656,roughness:.70});
 
-  // V104 shared person geometry. Animated workers stay as independent skeleton-like
-  // Groups, but every body part reuses the same BufferGeometry.
-  const peopleGeo={
-    torso:new RoundedBoxGeometry(.48,.66,.30,2,.06),
-    neck:new THREE.CylinderGeometry(.065,.075,.12,7),
-    head:new THREE.SphereGeometry(.19,10,8),
-    hair:new THREE.SphereGeometry(.198,10,7,0,Math.PI*2,0,Math.PI*.52),
-    arm:new THREE.CylinderGeometry(.055,.065,.62,7),
-    leg:new THREE.CylinderGeometry(.07,.08,.72,7),
-    shoe:new RoundedBoxGeometry(.18,.10,.32,2,.025),
-    helmet:new THREE.SphereGeometry(.215,10,7,0,Math.PI*2,0,Math.PI*.58),
-    helmetBrim:new THREE.CylinderGeometry(.245,.245,.035,12),
-    vestStripe:new RoundedBoxGeometry(.50,.09,.315,2,.02)
+  // Fallback geometry is now rounded/capsule-based, never box-people.
+  const fallbackGeo={
+    torso:new THREE.CapsuleGeometry(.23,.44,5,9),
+    head:new THREE.SphereGeometry(.19,12,9),
+    arm:new THREE.CapsuleGeometry(.055,.48,4,7),
+    leg:new THREE.CapsuleGeometry(.07,.58,4,7),
+    shoe:new RoundedBoxGeometry(.18,.10,.32,2,.025)
   };
 
-  function buildWalker(index){
+  function buildFallbackWalker(index){
     const person=new THREE.Group();
-    person.name='V84_WALKER_'+index;
+    const torso=new THREE.Mesh(fallbackGeo.torso,shirtMat);torso.position.y=1.18;person.add(torso);
+    const head=new THREE.Mesh(fallbackGeo.head,skinMat);head.position.y=1.72;person.add(head);
 
-    const shirt=index%4===0?shirtDarkMat:shirtMat;
-    const skin=skinMats[index%skinMats.length];
-    const pants=pantsMats[index%pantsMats.length];
+    const leftArm=new THREE.Group();leftArm.position.set(-.28,1.39,0);
+    const la=new THREE.Mesh(fallbackGeo.arm,shirtMat);la.position.y=-.22;leftArm.add(la);person.add(leftArm);
+    const rightArm=new THREE.Group();rightArm.position.set(.28,1.39,0);
+    const ra=new THREE.Mesh(fallbackGeo.arm,shirtMat);ra.position.y=-.22;rightArm.add(ra);person.add(rightArm);
 
-    const torso=new THREE.Mesh(peopleGeo.torso,shirt);
-    torso.position.y=1.16;person.add(torso);
+    const leftLeg=new THREE.Group();leftLeg.position.set(-.12,.82,0);
+    const ll=new THREE.Mesh(fallbackGeo.leg,pantsMat);ll.position.y=-.28;leftLeg.add(ll);
+    const ls=new THREE.Mesh(fallbackGeo.shoe,shoeMat);ls.position.set(0,-.63,.08);leftLeg.add(ls);person.add(leftLeg);
+    const rightLeg=new THREE.Group();rightLeg.position.set(.12,.82,0);
+    const rl=new THREE.Mesh(fallbackGeo.leg,pantsMat);rl.position.y=-.28;rightLeg.add(rl);
+    const rs=new THREE.Mesh(fallbackGeo.shoe,shoeMat);rs.position.set(0,-.63,.08);rightLeg.add(rs);person.add(rightLeg);
 
-    const neck=new THREE.Mesh(peopleGeo.neck,skin);
-    neck.position.y=1.56;person.add(neck);
-
-    const head=new THREE.Mesh(peopleGeo.head,skin);
-    head.position.y=1.76;person.add(head);
-
-    const hair=new THREE.Mesh(peopleGeo.hair,hairMat);
-    hair.position.y=1.83;person.add(hair);
-
-    const leftArm=new THREE.Group();leftArm.position.set(-.29,1.43,0);
-    const la=new THREE.Mesh(peopleGeo.arm,shirt);la.position.y=-.28;leftArm.add(la);person.add(leftArm);
-
-    const rightArm=new THREE.Group();rightArm.position.set(.29,1.43,0);
-    const ra=new THREE.Mesh(peopleGeo.arm,shirt);ra.position.y=-.28;rightArm.add(ra);person.add(rightArm);
-
-    const leftLeg=new THREE.Group();leftLeg.position.set(-.13,.84,0);
-    const ll=new THREE.Mesh(peopleGeo.leg,pants);ll.position.y=-.34;leftLeg.add(ll);
-    const ls=new THREE.Mesh(peopleGeo.shoe,shoeMat);ls.position.set(0,-.72,.09);leftLeg.add(ls);person.add(leftLeg);
-
-    const rightLeg=new THREE.Group();rightLeg.position.set(.13,.84,0);
-    const rl=new THREE.Mesh(peopleGeo.leg,pants);rl.position.y=-.34;rightLeg.add(rl);
-    const rs=new THREE.Mesh(peopleGeo.shoe,shoeMat);rs.position.set(0,-.72,.09);rightLeg.add(rs);person.add(rightLeg);
-
-    // Factory + yard staff use a small shared safety helmet / high-vis stripe.
-    if(index<38){
-      const helmet=new THREE.Mesh(peopleGeo.helmet,helmetMat);
-      helmet.position.set(0,1.88,0);person.add(helmet);
-      const brim=new THREE.Mesh(peopleGeo.helmetBrim,helmetMat);
-      brim.position.set(0,1.85,.055);person.add(brim);
-      const stripe=new THREE.Mesh(peopleGeo.vestStripe,hiVisMat);
-      stripe.position.set(0,1.18,.158);person.add(stripe);
-    }
-
-    person.scale.setScalar(1.02+(index%7)*.018);
     person.userData.limbs={leftArm,rightArm,leftLeg,rightLeg};
+    person.userData.realAssetV105=false;
+    person.scale.setScalar(1.00+(index%7)*.015);
+    return person;
+  }
+
+  // Real walkers are empty transform anchors. Their visible geometry is rendered
+  // by two Kenney GLB InstancedMesh batches (male/female), plus a smooth green
+  // safety-vest overlay. This keeps the 50 workers detailed without 50x draw calls.
+  function buildWalker(index){
+    if(!realCharacterAssets)return buildFallbackWalker(index);
+    const person=new THREE.Object3D();
+    person.name='V105_REAL_WALKER_'+index;
+    person.userData.realAssetV105=true;
+    person.userData.assetKind=index%2===0?'male':'female';
+    person.scale.setScalar(.98+(index%7)*.014);
     return person;
   }
 
@@ -111,14 +95,21 @@ export async function installPedestriansV84({
   function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
   function rr(a,b){return a+(b-a)*rnd();}
 
-  function animateLimbs(agent,dt){
+  function animateWalker(agent,dt){
     agent.stepTime+=dt*agent.speed;
-    const swing=Math.sin(agent.stepTime*4.7+agent.phase)*.58;
+    const swing=Math.sin(agent.stepTime*4.7+agent.phase);
+    if(agent.person.userData.realAssetV105){
+      // Whole-body micro motion only; the visible GLB itself remains a real asset.
+      agent.person.position.y=.14+Math.abs(swing)*.025;
+      agent.person.rotation.z=swing*.018;
+      return;
+    }
     const limbs=agent.person.userData.limbs;
-    limbs.leftArm.rotation.x=swing;
-    limbs.rightArm.rotation.x=-swing;
-    limbs.leftLeg.rotation.x=-swing*.80;
-    limbs.rightLeg.rotation.x=swing*.80;
+    if(!limbs)return;
+    limbs.leftArm.rotation.x=swing*.58;
+    limbs.rightArm.rotation.x=-swing*.58;
+    limbs.leftLeg.rotation.x=-swing*.46;
+    limbs.rightLeg.rotation.x=swing*.46;
   }
 
   function makePath(points,closed=false){
@@ -377,6 +368,66 @@ export async function installPedestriansV84({
     });
   }
 
+  let realBatches=null;
+  if(realCharacterAssets){
+    const maleAgents=agents.filter(a=>a.person.userData.assetKind==='male');
+    const femaleAgents=agents.filter(a=>a.person.userData.assetKind==='female');
+
+    const maleBatch=createDynamicInstancedAsset(root,characterAssets.male,maleAgents.length,{
+      name:'V105_KENNEY_MALE',castShadow:true,receiveShadow:true
+    });
+    const femaleBatch=createDynamicInstancedAsset(root,characterAssets.female,femaleAgents.length,{
+      name:'V105_KENNEY_FEMALE',castShadow:true,receiveShadow:true
+    });
+
+    maleAgents.forEach((a,i)=>{a.realBatch=maleBatch;a.realIndex=i;});
+    femaleAgents.forEach((a,i)=>{a.realBatch=femaleBatch;a.realIndex=i;});
+
+    // Green shirts / factory identity as smooth instanced safety vests.
+    const vestGeo=new THREE.CapsuleGeometry(.235,.34,5,9);
+    const vestBatch=new THREE.InstancedMesh(vestGeo,safetyGreenMat,agents.length);
+    vestBatch.name='V105_GREEN_SAFETY_VESTS';
+    vestBatch.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    vestBatch.castShadow=true;vestBatch.receiveShadow=true;root.add(vestBatch);
+
+    const helmetGeo=new THREE.SphereGeometry(.215,12,8,0,Math.PI*2,0,Math.PI*.60);
+    const helmetBatch=new THREE.InstancedMesh(helmetGeo,helmetMat,38);
+    helmetBatch.name='V105_FACTORY_HELMETS';
+    helmetBatch.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    helmetBatch.castShadow=true;root.add(helmetBatch);
+
+    realBatches={maleBatch,femaleBatch,vestBatch,helmetBatch};
+  }
+
+  const tempMatrix=new THREE.Matrix4();
+  const localVest=new THREE.Matrix4().compose(
+    new THREE.Vector3(0,1.12,0),
+    new THREE.Quaternion(),
+    new THREE.Vector3(1.05,.90,.68)
+  );
+  const localHelmet=new THREE.Matrix4().makeTranslation(0,1.83,0);
+
+  function updateRealCharacterInstances(){
+    if(!realBatches)return;
+    let helmetIndex=0;
+    agents.forEach((agent,i)=>{
+      agent.person.updateMatrix();
+      agent.realBatch?.setMatrixAt(agent.realIndex,agent.person.matrix);
+
+      tempMatrix.multiplyMatrices(agent.person.matrix,localVest);
+      realBatches.vestBatch.setMatrixAt(i,tempMatrix);
+
+      if(i<38){
+        tempMatrix.multiplyMatrices(agent.person.matrix,localHelmet);
+        realBatches.helmetBatch.setMatrixAt(helmetIndex++,tempMatrix);
+      }
+    });
+    realBatches.maleBatch?.commit();
+    realBatches.femaleBatch?.commit();
+    realBatches.vestBatch.instanceMatrix.needsUpdate=true;
+    realBatches.helmetBatch.instanceMatrix.needsUpdate=true;
+  }
+
   let simTime=0;
   function placeAgent(agent){
     const sample=samplePath(agent.path,agent.s);
@@ -386,6 +437,7 @@ export async function installPedestriansV84({
     agent.person.rotation.y=Math.atan2(travel.x,travel.z);
   }
   agents.forEach(placeAgent);
+  updateRealCharacterInstances();
 
   let enabled=true;
   function setEnabled(v){enabled=!!v;root.visible=enabled;}
@@ -419,13 +471,14 @@ export async function installPedestriansV84({
       }
 
       placeAgent(agent);
-      animateLimbs(agent,dt);
+      animateWalker(agent,dt);
 
       // Natural short pauses around doors and work areas.
       if(agent.mode==='factory' && rnd()<dt*.035){
         agent.pause=rr(.25,.85);
       }
     }
+    updateRealCharacterInstances();
   }
 
   const counts={
@@ -439,20 +492,21 @@ export async function installPedestriansV84({
   root.userData.effectivePortalCount=effectivePortals.length;
 
   window.__DALOC_PEDESTRIANS_V84={
-    ready:true,version:'91',group:root,agents,counts,
+    ready:true,version:'105',group:root,agents,counts,
     effectivePortalCount:effectivePortals.length,
     update,setEnabled
   };
 
-  console.info('[DaLoc] V104 shared-geometry diorama pedestrians installed',{
+  console.info('[DaLoc] V105 real Kenney GLB pedestrians installed',{
     ...counts,
+    assetMode:realCharacterAssets?'kenney-glb-instanced':'capsule-fallback',
     effectivePortals:effectivePortals.length,
     suppliedPortals:factoryPortals.length,
     buildings:buildings.length
   });
 
   return {
-    ready:true,version:'91',group:root,count:counts.total,counts,
+    ready:true,version:'105',group:root,count:counts.total,counts,
     effectivePortalCount:effectivePortals.length,
     update,setEnabled
   };
