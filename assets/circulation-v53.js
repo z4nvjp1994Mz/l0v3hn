@@ -33,10 +33,44 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     carriageway:new THREE.MeshStandardMaterial({map:texture('asphalt'),bumpMap:texture('height'),bumpScale:.005,roughness:.97}),
     curb:new THREE.MeshStandardMaterial({color:0xbfc2b8,roughness:.95}),
     sidewalk:new THREE.MeshStandardMaterial({map:texture('pavers'),roughness:.96}),
-    greenbelt:new THREE.MeshStandardMaterial({map:texture('grass'),roughness:1}),
-    driveway:new THREE.MeshStandardMaterial({color:0xc7c8c2,roughness:.97})
+    greenbelt:new THREE.MeshStandardMaterial({map:texture('grass'),roughness:1})
   };
   const specs={carriageway:[0,.10,2],curb:[0,.28,2],sidewalk:[.10,.13,1.6],greenbelt:[0,.14,2]};
+
+  // V76: cut grass at CAD-verified access openings. No overlay mesh is created.
+  // The greenbelt shader discards only fragments inside CAD opening rectangles,
+  // so the existing scene underneath is revealed directly.
+  const accessCuts=(accessData.accesses||[]).map(access=>{
+    const c=mapPx(access.centerPx[0],access.centerPx[1]);
+    const ux=access.along[0],uz=access.along[1];
+    const len=Math.hypot(ux,uz)||1;
+    const ax=ux/len,az=uz/len;
+    return {
+      cx:c.x,cz:c.z,
+      ax,az,nx:-az,nz:ax,
+      halfW:access.openingWidthPx*.5*.782,
+      halfD:access.crossDepthPx*.5*.782
+    };
+  });
+  if(accessCuts.length){
+    const cutTests=accessCuts.map((r,i)=>{
+      const d='d'+i;
+      return 'vec2 '+d+'=vCadCutXZ-vec2('+r.cx.toFixed(6)+','+r.cz.toFixed(6)+');'+
+        'if(abs(dot('+d+',vec2('+r.ax.toFixed(9)+','+r.az.toFixed(9)+')))<= '+r.halfW.toFixed(6)+
+        ' && abs(dot('+d+',vec2('+r.nx.toFixed(9)+','+r.nz.toFixed(9)+')))<= '+r.halfD.toFixed(6)+') discard;';
+    }).join('\n');
+    materials.greenbelt.onBeforeCompile=shader=>{
+      shader.vertexShader=shader.vertexShader
+        .replace('#include <common>','#include <common>\nvarying vec2 vCadCutXZ;')
+        .replace('#include <project_vertex>','#include <project_vertex>\nvec4 cadCutWorld=modelMatrix*vec4(transformed,1.0);\nvCadCutXZ=cadCutWorld.xz;');
+      shader.fragmentShader=shader.fragmentShader
+        .replace('#include <common>','#include <common>\nvarying vec2 vCadCutXZ;')
+        .replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\n'+cutTests);
+    };
+    materials.greenbelt.customProgramCacheKey=()=>('V76_CAD_GRASS_CUTS_'+accessCuts.length);
+    materials.greenbelt.needsUpdate=true;
+  }
+
   function ring(points,clockwise){
     const p=points.slice(0,-1).map(([x,y])=>{const v=mapPx(x,y);return new THREE.Vector2(v.x,-v.z);});
     if(THREE.ShapeUtils.isClockWise(p)!==clockwise)p.reverse();return p;
@@ -67,32 +101,6 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   const cadAccessPolygons=(accessData.accesses||[]).map(a=>a.polygonPx);
   const inCadAccess=(x,y)=>cadAccessPolygons.some(poly=>insideRing(x,y,poly));
 
-  // Lay a concrete driveway slab over the legacy greenbelt/sidewalk mesh at each
-  // verified CAD opening. This visually carves the continuous V53 strip without CSG.
-  const accessShapes=[];
-  for(const access of accessData.accesses||[]){
-    const pts=access.polygonPx||[];
-    if(pts.length<3)continue;
-    const p0=mapPx(pts[0][0],pts[0][1]);
-    const shape=new THREE.Shape();
-    shape.moveTo(p0.x,-p0.z);
-    for(let i=1;i<pts.length;i++){
-      const p=mapPx(pts[i][0],pts[i][1]);
-      shape.lineTo(p.x,-p.z);
-    }
-    shape.closePath();
-    accessShapes.push(shape);
-  }
-  if(accessShapes.length){
-    const geo=new THREE.ExtrudeGeometry(accessShapes,{depth:.12,bevelEnabled:false,steps:1,curveSegments:1});
-    geo.rotateX(-Math.PI/2);
-    const mesh=new THREE.Mesh(geo,materials.driveway);
-    mesh.name='V75_CAD_ACCESS_DRIVEWAYS';
-    mesh.position.y=.18;
-    mesh.receiveShadow=true;
-    mesh.userData={layer:'cad-access',source:accessData.source,sourceLayer:accessData.layer,accessCount:accessShapes.length};
-    group.add(mesh);
-  }
 
   // Existing masterplan trees must also respect the CAD openings.
   world.traverse(o=>{
@@ -152,7 +160,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:75,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,
+  window.__DALOC_V53={ready:true,version:76,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
