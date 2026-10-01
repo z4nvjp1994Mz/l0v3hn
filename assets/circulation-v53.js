@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { computeSecondaryRoadsV58 } from './secondary-roads-v58.js';
 
 // Source pixels determine positions, not visible material colours.
-export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls}) {
+export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls,showUI=true}) {
   const response=await fetch(new URL('./circulation-v53.json',import.meta.url));
   if(!response.ok) throw new Error('Circulation data: HTTP '+response.status);
   const data=await response.json();
@@ -105,10 +105,12 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     const old=mesh.geometry;mesh.geometry=new THREE.ShapeGeometry(shapes);old.dispose();
   }
   world.add(group);
-  const button=document.createElement('button');button.textContent='Road layer: On';button.className='active';button.id='roadLayerV53';
-  button.onclick=()=>{group.visible=!group.visible;button.classList.toggle('active',group.visible);button.textContent='Road layer: '+(group.visible?'On':'Off');};
-  document.querySelector('.controls').appendChild(button);
-  const review=document.createElement('button');review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
+  if(showUI){
+    const button=document.createElement('button');button.textContent='Road layer: On';button.className='active';button.id='roadLayerV53';
+    button.onclick=()=>{group.visible=!group.visible;button.classList.toggle('active',group.visible);button.textContent='Road layer: '+(group.visible?'On':'Off');};
+    document.querySelector('.controls').appendChild(button);
+    const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
+  }
   window.__DALOC_V53={ready:true,version:53,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length};
