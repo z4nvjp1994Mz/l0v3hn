@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 
-// V91 mixed traffic:
-// existing industrial traffic + 24 motorcycles + 6 supercars.
-// 4 cars + 10 cargo trucks + 6 container trucks are preserved from V80.
-export async function installTrafficAIV91({world,mapPx,frameSignature}){
+// V100 mixed traffic + factory logistics.
+// Existing road traffic is preserved, while cargo/container trucks can leave the
+// main road, enter a factory service yard, reverse to a loading dock, wait for
+// loading, then return to the road and continue their route.
+export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAccess=null}){
   const [response,cadResponse]=await Promise.all([
     fetch(new URL('./circulation-v53.json',import.meta.url)),
     fetch(new URL('./cad-source-v72.json',import.meta.url))
@@ -17,10 +18,11 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V91';
+  root.name='AI_TRAFFIC_V100';
   root.userData={
-    version:91,
-    cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6
+    version:100,
+    cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
+    factoryLogistics:true
   };
   world.add(root);
 
@@ -101,6 +103,58 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
     const a=route.points[lo],b=route.points[bi];
     const seg=Math.max(.0001,route.cumulative[bi]-route.cumulative[lo]);
     const t=THREE.MathUtils.clamp((s-route.cumulative[lo])/seg,0,1);
+    return {pos:a.clone().lerp(b,t),tangent:b.clone().sub(a).normalize()};
+  }
+
+  function projectRouteS(route,point){
+    let best={d:Infinity,s:0,point:route.points[0].clone(),tangent:new THREE.Vector3(0,0,1)};
+    for(let i=1;i<route.points.length;i++){
+      const a=route.points[i-1],b=route.points[i];
+      const vx=b.x-a.x,vz=b.z-a.z,wx=point.x-a.x,wz=point.z-a.z;
+      const vv=vx*vx+vz*vz;
+      const t=vv?THREE.MathUtils.clamp((wx*vx+wz*vz)/vv,0,1):0;
+      const x=a.x+vx*t,z=a.z+vz*t;
+      const d=Math.hypot(point.x-x,point.z-z);
+      if(d<best.d){
+        const segLen=Math.sqrt(vv);
+        best={
+          d,
+          s:route.cumulative[i-1]+segLen*t,
+          point:new THREE.Vector3(x,.42,z),
+          tangent:new THREE.Vector3(vx,0,vz).normalize()
+        };
+      }
+    }
+    return best;
+  }
+
+  function makePolyline(points){
+    const clean=[];
+    for(const p of points){
+      const q=p.clone();q.y=.42;
+      if(!clean.length||clean.at(-1).distanceTo(q)>.35)clean.push(q);
+    }
+    if(clean.length<2)clean.push(clean[0].clone().add(new THREE.Vector3(0,0,.5)));
+    const cumulative=[0];
+    let total=0;
+    for(let i=1;i<clean.length;i++){
+      total+=clean[i].distanceTo(clean[i-1]);
+      cumulative.push(total);
+    }
+    return {points:clean,cumulative,total};
+  }
+
+  function samplePolyline(path,s){
+    s=THREE.MathUtils.clamp(s,0,path.total);
+    let lo=0,hi=path.cumulative.length-1;
+    while(lo<hi-1){
+      const mid=(lo+hi)>>1;
+      if(path.cumulative[mid]<=s)lo=mid;else hi=mid;
+    }
+    const bi=Math.min(lo+1,path.points.length-1);
+    const a=path.points[lo],b=path.points[bi];
+    const seg=Math.max(.0001,path.cumulative[bi]-path.cumulative[lo]);
+    const t=THREE.MathUtils.clamp((s-path.cumulative[lo])/seg,0,1);
     return {pos:a.clone().lerp(b,t),tangent:b.clone().sub(a).normalize()};
   }
 
@@ -347,7 +401,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
   const counters={car:0,cargo:0,container:0,motorcycle:0,supercar:0};
   const agents=configs.map((cfg,index)=>{
     const route=routes.find(r=>r.id===cfg.route);
-    if(!route)throw new Error('V91 missing route '+cfg.route);
+    if(!route)throw new Error('V100 missing route '+cfg.route);
     const local=counters[cfg.type]++;
     let vehicle;
     if(cfg.type==='car')vehicle=buildCar(local);
@@ -361,27 +415,235 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
       index,type:cfg.type,vehicle,route,
       s:route.total*cfg.progress,dir:cfg.dir,baseSpeed:cfg.speed,speed:cfg.speed*.72,lane:cfg.lane,
       weaveAmp:cfg.weaveAmp||0,weaveSpeed:cfg.weaveSpeed||0,weavePhase:cfg.weavePhase||0,
-      length:sp.length,minGap:sp.minGap,sense:sp.sense,response:sp.response
+      length:sp.length,minGap:sp.minGap,sense:sp.sense,response:sp.response,
+      service:null
     };
   });
+
+  // V100: convert V99 driveway metadata into logistics destinations tied to
+  // the same three traffic routes used by cargo/container vehicles.
+  const serviceTargets=(factoryAccess?.driveways||[])
+    .filter(d=>d.side==='service'&&routeIds.has(d.routeId)&&d.roadEdgeWorld&&d.yardWorld&&d.dockWallWorld&&d.outwardWorld)
+    .map(d=>{
+      const route=routes.find(r=>r.id===d.routeId);
+      if(!route)return null;
+      const roadEdge=new THREE.Vector3(d.roadEdgeWorld.x,.42,d.roadEdgeWorld.z);
+      const projection=projectRouteS(route,roadEdge);
+      return {
+        ...d,
+        route,
+        roadEdge,
+        yard:new THREE.Vector3(d.yardWorld.x,.42,d.yardWorld.z),
+        dockWall:new THREE.Vector3(d.dockWallWorld.x,.42,d.dockWallWorld.z),
+        outward:new THREE.Vector3(d.outwardWorld.x,0,d.outwardWorld.z).normalize(),
+        mergeS:projection.s,
+        mergePoint:projection.point,
+        mergeDistance:projection.d
+      };
+    })
+    .filter(Boolean)
+    .filter(t=>t.mergeDistance<35);
+
+  const serviceTargetsByRoute=new Map();
+  for(const target of serviceTargets){
+    if(!serviceTargetsByRoute.has(target.route.id))serviceTargetsByRoute.set(target.route.id,[]);
+    serviceTargetsByRoute.get(target.route.id).push(target);
+  }
+  for(const list of serviceTargetsByRoute.values())list.sort((a,b)=>a.mergeS-b.mergeS);
+
+  const serviceSlots=new Map(serviceTargets.map(t=>[t.factoryIndex,null]));
+  const freightAgents=agents.filter(a=>a.type==='cargo'||a.type==='container');
+  let serviceAgentCount=0;
+  freightAgents.forEach((agent,fi)=>{
+    const compatible=serviceTargetsByRoute.get(agent.route.id)||[];
+    if(!compatible.length)return;
+    const target=compatible[(fi*3+agent.index)%compatible.length];
+    agent.service={
+      target,
+      phase:'cruise',
+      nextAt:10+fi*5.5,
+      path:null,
+      pathS:0,
+      loadRemaining:0,
+      resumeS:target.mergeS,
+      completedLoads:0
+    };
+    agent.vehicle.userData.factoryLogisticsV100={
+      enabled:true,
+      factoryIndex:target.factoryIndex,
+      phase:'cruise'
+    };
+    serviceAgentCount++;
+  });
+
+  const serviceStats={
+    assignedAgents:serviceAgentCount,
+    targetFactories:new Set(serviceTargets.map(t=>t.factoryIndex)).size,
+    completedLoads:0,
+    activeLoads:0
+  };
+  let logisticsEnabled=true;
 
   let simTime=0;
   function currentLane(agent){
     if(agent.type!=='motorcycle')return agent.lane;
     return agent.lane+Math.sin(simTime*agent.weaveSpeed+agent.weavePhase)*agent.weaveAmp;
   }
-  function placeAgent(agent){
-    const sample=sampleRoute(agent.route,agent.s);
+  function roadLanePose(agent,s=agent.s){
+    const sample=sampleRoute(agent.route,s);
     const travel=sample.tangent.clone().multiplyScalar(agent.dir);
     const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
     const pos=sample.pos.clone().addScaledVector(right,currentLane(agent));
-    agent.vehicle.position.copy(pos);
-    agent.vehicle.rotation.y=Math.atan2(travel.x,travel.z);
+    return {pos,travel};
   }
+  function placeAgent(agent){
+    const pose=roadLanePose(agent,agent.s);
+    agent.vehicle.position.copy(pose.pos);
+    agent.vehicle.rotation.y=Math.atan2(pose.travel.x,pose.travel.z);
+  }
+
+  function serviceSlotFree(agent){
+    const svc=agent.service;
+    if(!svc?.target)return false;
+    const owner=serviceSlots.get(svc.target.factoryIndex);
+    return !owner||owner===agent;
+  }
+
+  function setServicePhase(agent,phase){
+    if(!agent.service)return;
+    agent.service.phase=phase;
+    if(agent.vehicle.userData.factoryLogisticsV100){
+      agent.vehicle.userData.factoryLogisticsV100.phase=phase;
+      agent.vehicle.userData.factoryLogisticsV100.factoryIndex=agent.service.target?.factoryIndex;
+    }
+  }
+
+  function beginService(agent){
+    const svc=agent.service,target=svc?.target;
+    if(!svc||!target||!serviceSlotFree(agent))return false;
+    serviceSlots.set(target.factoryIndex,agent);
+    serviceStats.activeLoads++;
+    for(const junction of junctions)if(junction.owner===agent)junction.owner=null;
+
+    const current=agent.vehicle.position.clone();current.y=.42;
+    const edge=target.roadEdge.clone();
+    const yard=target.yard.clone();
+    const rearClear=agent.length*.5+(agent.type==='container'?1.15:.95);
+    const dockCenter=target.dockWall.clone().addScaledVector(target.outward,rearClear);
+    dockCenter.y=.42;
+
+    svc.dockCenter=dockCenter;
+    svc.path=makePolyline([current,edge,yard]);
+    svc.pathS=0;
+    svc.speed=0;
+    setServicePhase(agent,'inbound');
+    return true;
+  }
+
+  function nextServiceTarget(agent){
+    const list=serviceTargetsByRoute.get(agent.route.id)||[];
+    if(!list.length)return agent.service?.target||null;
+    const current=agent.service?.target;
+    const at=Math.max(0,list.indexOf(current));
+    return list[(at+1+agent.index)%list.length];
+  }
+
+  function routeMergeClear(agent){
+    const svc=agent.service;
+    if(!svc)return true;
+    const mergeS=svc.resumeS;
+    for(const other of agents){
+      if(other===agent||other.route!==agent.route)continue;
+      if(other.service&&other.service.phase!=='cruise')continue;
+      const gap=Math.abs(other.s-mergeS);
+      const need=agent.type==='container'?24:18;
+      if(gap<need)return false;
+    }
+    return true;
+  }
+
+  function finishService(agent){
+    const svc=agent.service;
+    if(!svc)return;
+    serviceSlots.set(svc.target.factoryIndex,null);
+    serviceStats.activeLoads=Math.max(0,serviceStats.activeLoads-1);
+    serviceStats.completedLoads++;
+    svc.completedLoads++;
+    svc.target=nextServiceTarget(agent);
+    svc.nextAt=simTime+72+(agent.index%6)*9;
+    svc.path=null;
+    svc.pathS=0;
+    agent.s=THREE.MathUtils.clamp(svc.resumeS,0,agent.route.total);
+    agent.speed=Math.min(agent.baseSpeed,2.8);
+    setServicePhase(agent,'cruise');
+    placeAgent(agent);
+  }
+
+  function updateServiceAgent(agent,dt){
+    const svc=agent.service;
+    if(!svc||svc.phase==='cruise')return;
+
+    if(svc.phase==='loading'){
+      svc.loadRemaining-=dt;
+      agent.speed=0;
+      if(svc.loadRemaining<=0){
+        const roadPose=roadLanePose(agent,svc.resumeS);
+        svc.path=makePolyline([
+          svc.dockCenter,
+          svc.target.yard,
+          svc.target.roadEdge,
+          roadPose.pos
+        ]);
+        svc.pathS=0;
+        svc.speed=0;
+        setServicePhase(agent,'outbound');
+      }
+      return;
+    }
+
+    const reverse=svc.phase==='reverse-to-dock';
+    const targetSpeed=
+      svc.phase==='inbound' ? (agent.type==='container'?2.15:2.65) :
+      reverse ? (agent.type==='container'?1.25:1.55) :
+      (agent.type==='container'?2.25:2.80);
+
+    svc.speed=THREE.MathUtils.lerp(svc.speed||0,targetSpeed,1-Math.exp(-2.4*dt));
+    let move=svc.speed*dt;
+
+    if(svc.phase==='outbound'){
+      const remain=Math.max(0,svc.path.total-svc.pathS);
+      if(remain<6&&!routeMergeClear(agent))move=0;
+    }
+
+    svc.pathS=Math.min(svc.path.total,svc.pathS+move);
+    const pose=samplePolyline(svc.path,svc.pathS);
+    const facing=reverse?pose.tangent.clone().multiplyScalar(-1):pose.tangent;
+    agent.vehicle.position.copy(pose.pos);
+    agent.vehicle.rotation.y=Math.atan2(facing.x,facing.z);
+    agent.speed=svc.speed;
+
+    if(svc.pathS<svc.path.total-.04)return;
+
+    if(svc.phase==='inbound'){
+      svc.path=makePolyline([svc.target.yard,svc.dockCenter]);
+      svc.pathS=0;
+      svc.speed=0;
+      setServicePhase(agent,'reverse-to-dock');
+    }else if(svc.phase==='reverse-to-dock'){
+      svc.loadRemaining=(agent.type==='container'?11.5:8.0)+(agent.index%4)*1.15;
+      svc.speed=0;
+      agent.speed=0;
+      setServicePhase(agent,'loading');
+    }else if(svc.phase==='outbound'){
+      finishService(agent);
+    }
+  }
+
   agents.forEach(placeAgent);
 
   let enabled=true;
   function setEnabled(v){enabled=!!v;root.visible=enabled;}
+  function setLogisticsEnabled(v){logisticsEnabled=!!v;}
 
   function update(dt){
     if(!enabled||!Number.isFinite(dt)||dt<=0)return;
@@ -392,6 +654,10 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
     for(const junction of junctions){
       if(junction.owner){
         const owner=junction.owner;
+        if(owner.service&&owner.service.phase!=='cruise'){
+          junction.owner=null;
+          continue;
+        }
         const js=junction.routeS[owner.route.id];
         if(js===undefined){
           junction.owner=null;
@@ -408,6 +674,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
       if(!junction.owner){
         let winner=null,best=Infinity;
         for(const candidate of agents){
+          if(candidate.service&&candidate.service.phase!=='cruise')continue;
           const js=junction.routeS[candidate.route.id];
           if(js===undefined)continue;
           const signed=(js-candidate.s)*candidate.dir;
@@ -421,10 +688,17 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
     }
 
     for(const agent of agents){
+      if(agent.service&&agent.service.phase!=='cruise'){
+        updateServiceAgent(agent,dt);
+        continue;
+      }
+
       let desired=agent.baseSpeed;
       let junctionStopDistance=Infinity;
+      let serviceStopDistance=Infinity;
       for(const other of agents){
         if(other===agent||other.route!==agent.route||other.dir!==agent.dir)continue;
+        if(other.service&&other.service.phase!=='cruise')continue;
 
         // Motorcycles only react to traffic occupying nearly the same micro-lane.
         // This prevents the visual "single-file train" while still avoiding overlap.
@@ -462,12 +736,33 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
         }
       }
 
+      const svc=agent.service;
+      if(logisticsEnabled&&svc?.target&&simTime>=svc.nextAt&&serviceSlotFree(agent)){
+        const signed=(svc.target.mergeS-agent.s)*agent.dir;
+        if(signed>0&&signed<22){
+          serviceStopDistance=signed;
+          const slow=THREE.MathUtils.clamp(signed/18,.20,1);
+          desired=Math.min(desired,agent.baseSpeed*slow);
+        }
+      }
+
       agent.speed=THREE.MathUtils.lerp(agent.speed,desired,1-Math.exp(-agent.response*dt));
       let move=agent.speed*dt;
       if(junctionStopDistance<move){
         move=Math.max(0,junctionStopDistance);
         agent.speed=dt>0?move/dt:0;
       }
+
+      if(serviceStopDistance<=move+.15){
+        agent.s=svc.target.mergeS;
+        svc.resumeS=THREE.MathUtils.clamp(
+          svc.target.mergeS+agent.dir*(agent.type==='container'?4.5:3.5),
+          0,agent.route.total
+        );
+        placeAgent(agent);
+        if(beginService(agent))continue;
+      }
+
       agent.s+=agent.dir*move;
       if(agent.s>agent.route.total){agent.s=agent.route.total-(agent.s-agent.route.total);agent.dir=-1;}
       else if(agent.s<0){agent.s=-agent.s;agent.dir=1;}
@@ -484,19 +779,29 @@ export async function installTrafficAIV91({world,mapPx,frameSignature}){
   };
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
-  window.__DALOC_TRAFFIC_V91={ready:true,version:91,group:root,agents,counts,junctions,update,setEnabled};
+  window.__DALOC_TRAFFIC_V91={
+    ready:true,version:100,group:root,agents,counts,junctions,
+    serviceTargets,serviceStats,update,setEnabled,setLogisticsEnabled
+  };
 
-  console.info('[DaLoc] V91 CAD-warped collision-safe mixed traffic installed',{
+  console.info('[DaLoc] V100 factory-logistics traffic installed',{
     ...counts,
+    serviceAgents:serviceAgentCount,
+    serviceTargets:serviceTargets.length,
+    serviceFactories:serviceStats.targetFactories,
     junctions:junctions.map(j=>({id:j.id,routes:j.routes})),
     corridorWarp:'raw CAD 77505'
   });
 
   return {
-    ready:true,version:91,group:root,counts,junctions,
+    ready:true,version:100,group:root,counts,junctions,
     carCount:counts.cars,cargoTruckCount:counts.cargoTrucks,
     containerTruckCount:counts.containerTrucks,motorcycleCount:counts.motorcycles,
     supercarCount:counts.supercars,totalCount:counts.total,
-    update,setEnabled
+    serviceTruckCount:serviceAgentCount,
+    serviceTargetCount:serviceTargets.length,
+    serviceFactoryCount:serviceStats.targetFactories,
+    serviceStats,
+    update,setEnabled,setLogisticsEnabled
   };
 }
