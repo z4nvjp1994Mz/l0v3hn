@@ -441,7 +441,7 @@ export async function installSecondaryRoadsV63({
   setEnabled(true);
 
   window.__DALOC_V63={
-    ready:true,version:62,frameSignature,lines:masks.snapped.length,
+    ready:true,version:63,frameSignature,lines:masks.snapped.length,
     source:'masterplan-hires.jpg',mode:'global rigid source fit: offset + tiny rotation + fitted width',
     setEnabled,
     restoreBlueprintRoads(){
