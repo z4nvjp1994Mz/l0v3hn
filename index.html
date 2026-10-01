@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V67 FOUR-SIDE ROAD NETWORK</small>
+  <small>GitHub → Netlify · BUILD V68 COMPLETE ROAD NETWORK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V67 mở rộng phép dò ra đủ bốn phía của từng nhà xưởng thay vì chỉ một mặt chính. Các tuyến được kéo dài khi hai mép đường còn tiếp tục trên masterplan, các đoạn trùng được khử và chỉ nối nhánh khi chính pixel nguồn 2D xác nhận có đường.</p>
+  <p>V68 tiếp tục khóa theo masterplan nhưng tập trung vào hai lỗi còn lại: khôi phục thêm các nhánh đường con mờ/thiếu và mở xuyên dải cây xanh, vỉa hè, curb tại đúng vị trí đường con giao đường lớn. Mỗi tuyến còn được hiệu chỉnh ngang lần cuối theo mép 2D.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V67 four-side roads</b><span>explicit raised concrete + curbs</span></div>
+    <div class="stat"><b>V68 complete roads</b><span>explicit raised concrete + curbs</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V67: scans all four factory sides, extends real 2D bands and adds only source-verified branches</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V68: recovers faint branches, re-locks road edges and opens greenbelt/curb at main-road junctions</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installSecondaryRoadsV67 } from './assets/secondary-roads-v67.js?v=67';
+import { installSecondaryRoadsV68 } from './assets/secondary-roads-v68.js?v=68';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1140,7 +1140,7 @@ roofs.forEach((r,idx)=>{
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
  .then(()=>{
    coordBadge.textContent='V53 roads ready · snapping V60 narrow secondary roads to 2D masterplan…';
-   return installSecondaryRoadsV67({
+   return installSecondaryRoadsV68({
      world,
      roofs,
      mapPx,
@@ -1151,18 +1151,21 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V67 four-side road network ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
+   coordBadge.textContent='V68 complete road network ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
-   }).then(detailResult=>({secondaryResult,detailResult}));
+   }).then(detailResult=>{
+     window.__DALOC_V68?.clearVegetation?.();
+     return {secondaryResult,detailResult};
+   });
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V67 ready · four-side source-measured road network · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V68 ready · complete source-measured road network · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V67 detail warning: '+error.message;
+   coordBadge.textContent='V68 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1179,7 +1182,7 @@ vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.clas
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V67?.setEnabled?.(true);v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V68?.setEnabled?.(true);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
