@@ -6,7 +6,7 @@ import * as THREE from 'three';
 // - 12 workers stay on the actual V53 sidewalk polygon boundary
 // No pedestrian route is derived from road centerlines.
 export async function installPedestriansV84({
-  world,mapPx,frameSignature,factoryPortals=[]
+  world,mapPx,frameSignature,factoryPortals=[],buildings=[]
 }){
   const response=await fetch(new URL('./circulation-v53.json',import.meta.url));
   if(!response.ok)throw new Error('V84 pedestrian source HTTP '+response.status);
@@ -14,14 +14,11 @@ export async function installPedestriansV84({
   if(data.frameSignature!==frameSignature)throw new Error('V84 pedestrian coordinate frame mismatch');
 
   const root=new THREE.Group();
-  root.name='PEDESTRIANS_V84';
+  root.name='PEDESTRIANS_V842';
   root.userData={
-    version:84,
+    version:'84.2',
     count:50,
-    factoryWalkers:24,
-    yardWalkers:14,
-    sidewalkWalkers:12,
-    source:'V53 sidewalk polygons + V84 factory portals'
+    source:'V53 sidewalk polygons + V84 factory portals + building-derived fallback portals'
   };
   world.add(root);
 
@@ -70,7 +67,7 @@ export async function installPedestriansV84({
     const rl=new THREE.Mesh(new THREE.CylinderGeometry(.07,.08,.72,7),pants);rl.position.y=-.34;rightLeg.add(rl);
     const rs=new THREE.Mesh(new THREE.BoxGeometry(.18,.10,.32),shoeMat);rs.position.set(0,-.72,.09);rightLeg.add(rs);person.add(rightLeg);
 
-    person.scale.setScalar(.94+(index%7)*.018);
+    person.scale.setScalar(1.02+(index%7)*.018);
     person.userData.limbs={leftArm,rightArm,leftLeg,rightLeg};
     return person;
   }
@@ -177,16 +174,86 @@ export async function installPedestriansV84({
   }
   if(!sidewalkPaths.length)throw new Error('V84 sidewalk polygon unavailable');
 
+  // Normalize interior-generated portals into the local coordinate space of "world".
+  // V84 interior portals were authored with localToWorld(), so using them directly under
+  // a child of "world" can become wrong if world ever carries a transform.
+  world.updateWorldMatrix(true,false);
+  function toWorldLocalPoint(p){
+    return world.worldToLocal(p.clone());
+  }
+  function normalizePortal(portal){
+    if(!portal?.entranceWorld||!portal?.patrolWorld?.length)return null;
+    return {
+      ...portal,
+      entranceWorld:toWorldLocalPoint(portal.entranceWorld),
+      yardWorld:toWorldLocalPoint(portal.yardWorld),
+      insideNearWorld:toWorldLocalPoint(portal.insideNearWorld),
+      insideMidWorld:toWorldLocalPoint(portal.insideMidWorld),
+      insideFarWorld:toWorldLocalPoint(portal.insideFarWorld),
+      patrolWorld:portal.patrolWorld.map(toWorldLocalPoint)
+    };
+  }
+
+  // Guaranteed fallback portals derived directly from the actual factory body geometry.
+  // This means pedestrians never collapse to count=0 just because the interior pass failed.
+  function derivePortalFromBuilding(g,index){
+    if(!g)return null;
+    const body=g.children.find(o=>
+      o.isMesh &&
+      o.geometry?.type==='BoxGeometry' &&
+      o.geometry?.parameters?.height>4 &&
+      o.geometry?.parameters?.width>10 &&
+      o.geometry?.parameters?.depth>8
+    );
+    if(!body)return null;
+    const {width:L,height:H,depth:D}=body.geometry.parameters;
+
+    g.updateWorldMatrix(true,false);
+    const local=(x,y,z)=>{
+      const scenePoint=g.localToWorld(new THREE.Vector3(x,y,z));
+      return world.worldToLocal(scenePoint);
+    };
+    return {
+      index,
+      building:g,
+      L,D,H,
+      derivedFallback:true,
+      entranceWorld:local(0,.10,D/2+1.25),
+      yardWorld:local(0,.10,D/2+5.4),
+      insideNearWorld:local(0,.10,D/2-2.6),
+      insideMidWorld:local(L*.10,.10,0),
+      insideFarWorld:local(-L*.12,.10,-D*.22),
+      patrolWorld:[
+        local(-L*.30,.10,D/2+3.8),
+        local(L*.30,.10,D/2+3.8),
+        local(L*.30,.10,D/2+7.0),
+        local(-L*.30,.10,D/2+7.0)
+      ]
+    };
+  }
+
+  const effectivePortals=[];
+  const covered=new Set();
+  for(const raw of factoryPortals){
+    const p=normalizePortal(raw);
+    if(!p)continue;
+    effectivePortals.push(p);
+    if(Number.isFinite(p.index))covered.add(p.index);
+  }
+  buildings.forEach((g,index)=>{
+    if(covered.has(index))return;
+    const p=derivePortalFromBuilding(g,index);
+    if(p)effectivePortals.push(p);
+  });
+
   const factoryPaths=[];
   const yardPaths=[];
-  for(const portal of factoryPortals){
+  for(const portal of effectivePortals){
     if(!portal?.entranceWorld||!portal?.patrolWorld?.length)continue;
-
     const p=portal;
     const left=p.patrolWorld[0].clone();
     const right=p.patrolWorld[1].clone();
 
-    // Complete commute cycle: external apron -> door -> production floor -> door -> apron.
     factoryPaths.push({
       portal,
       path:makePath([
@@ -209,15 +276,20 @@ export async function installPedestriansV84({
       path:makePath(p.patrolWorld,true)
     });
   }
-  if(!factoryPaths.length)throw new Error('V84 factory portals unavailable');
 
   const agents=[];
   let globalIndex=0;
 
-  // 24 workers actually entering/exiting buildings.
-  for(let i=0;i<24;i++){
+  // Keep the intended 24/14/12 distribution when factory paths exist.
+  // If they do not, reassign the missing workers to actual sidewalks instead of creating 0 people.
+  const factoryTarget=factoryPaths.length?24:0;
+  const yardTarget=yardPaths.length?14:0;
+  const sidewalkTarget=50-factoryTarget-yardTarget;
+
+  for(let i=0;i<factoryTarget;i++){
     const fp=factoryPaths[(i*7)%factoryPaths.length];
     const person=buildWalker(globalIndex++);
+    person.userData.mode='factory';
     root.add(person);
     agents.push({
       mode:'factory',
@@ -233,10 +305,10 @@ export async function installPedestriansV84({
     });
   }
 
-  // 14 workers walking randomly around external factory yards/aprons.
-  for(let i=0;i<14;i++){
+  for(let i=0;i<yardTarget;i++){
     const yp=yardPaths[(i*5+3)%yardPaths.length];
     const person=buildWalker(globalIndex++);
+    person.userData.mode='yard';
     root.add(person);
     agents.push({
       mode:'yard',
@@ -252,10 +324,10 @@ export async function installPedestriansV84({
     });
   }
 
-  // 12 sidewalk-only workers, constrained to the true sidewalk polygon edge.
-  for(let i=0;i<12;i++){
+  for(let i=0;i<sidewalkTarget;i++){
     const path=sidewalkPaths[i%sidewalkPaths.length];
     const person=buildWalker(globalIndex++);
+    person.userData.mode='sidewalk';
     root.add(person);
     agents.push({
       mode:'sidewalk',
@@ -275,7 +347,7 @@ export async function installPedestriansV84({
     const sample=samplePath(agent.path,agent.s);
     const travel=sample.tangent.clone().multiplyScalar(agent.dir);
     agent.person.position.copy(sample.pos);
-    agent.person.position.y=.10;
+    agent.person.position.y=.14;
     agent.person.rotation.y=Math.atan2(travel.x,travel.z);
   }
   agents.forEach(placeAgent);
@@ -328,13 +400,25 @@ export async function installPedestriansV84({
   };
   counts.total=agents.length;
 
+  root.userData.counts=counts;
+  root.userData.effectivePortalCount=effectivePortals.length;
+
   window.__DALOC_PEDESTRIANS_V84={
-    ready:true,version:84,group:root,agents,counts,update,setEnabled
+    ready:true,version:'84.2',group:root,agents,counts,
+    effectivePortalCount:effectivePortals.length,
+    update,setEnabled
   };
 
-  console.info('[DaLoc] V84 pedestrian navigation installed',counts);
+  console.info('[DaLoc] V84.2 guaranteed pedestrian navigation installed',{
+    ...counts,
+    effectivePortals:effectivePortals.length,
+    suppliedPortals:factoryPortals.length,
+    buildings:buildings.length
+  });
 
   return {
-    ready:true,version:84,group:root,count:counts.total,counts,update,setEnabled
+    ready:true,version:'84.2',group:root,count:counts.total,counts,
+    effectivePortalCount:effectivePortals.length,
+    update,setEnabled
   };
 }
