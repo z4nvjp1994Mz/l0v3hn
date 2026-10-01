@@ -36,7 +36,7 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V73 full 3D</b><span>explicit raised concrete + curbs</span></div>
+    <div class="stat"><b>V73 full 3D</b><span>source-derived 3D environment</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
@@ -1158,7 +1158,7 @@ roofs.forEach((r,idx)=>{
 
 // Detail view handler is attached later, after UI button references are initialized.
 // ---------------------------------------------------------------------------
-// V72: source-lock mode intentionally does NOT install V53/V54 heuristic geometry.
+// V73: keep CAD source-lock for roads, then restore source-derived 3D environment layers.
 installCadSourceV72({
   world,
   mapPx,
@@ -1186,7 +1186,7 @@ installCadSourceV72({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V72 source-lock warning: '+error.message;
+   coordBadge.textContent='V73 full-3D warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
