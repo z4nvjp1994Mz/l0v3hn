@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V99 FACTORY ACCESS ROADS</small>
+  <small>GitHub → Netlify · BUILD V100 FACTORY LOGISTICS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V99 giữ toàn bộ V98 và phục hồi các đường kết nối từ sân dịch vụ/nhà xưởng ra trục đường nội bộ theo masterplan 2D; các khe mở CAD giờ có mặt đường thật thay vì chỉ cắt cỏ để lộ nền xanh.</p>
+  <p>V100 giữ toàn bộ V99 và nâng cấp logistics: xe tải và xe container tự rời đường chính, đi vào sân xưởng, lùi vào dock lấy hàng, chờ bốc xếp rồi đi trở ra và nhập lại luồng giao thông.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -50,12 +50,12 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=91';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=89';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=89';
-import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=91';
+import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=100';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=97';
 import { installSiteSafetyV98 } from './assets/site-safety-v98.js?v=98';
-import { installFactoryAccessV99 } from './assets/factory-access-v99.js?v=99';
+import { installFactoryAccessV99 } from './assets/factory-access-v99.js?v=100';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
@@ -1233,6 +1233,8 @@ let trafficContainerCount=0;
 let trafficMotorcycleCount=0;
 let trafficSupercarCount=0;
 let trafficTotalCount=0;
+let trafficServiceTruckCount=0;
+let trafficServiceFactoryCount=0;
 let v53AccessCount=0;
 installCirculationV53({
   world,
@@ -1335,7 +1337,8 @@ installCirculationV53({
        return installTrafficAIV91({
          world,
          mapPx,
-         frameSignature:SITE_FRAME_SIGNATURE
+         frameSignature:SITE_FRAME_SIGNATURE,
+         factoryAccess:v99AccessResult
        }).then(trafficResult=>{
          trafficController=trafficResult;
          trafficCarCount=trafficResult?.carCount||0;
@@ -1344,6 +1347,8 @@ installCirculationV53({
          trafficMotorcycleCount=trafficResult?.motorcycleCount||0;
          trafficSupercarCount=trafficResult?.supercarCount||0;
          trafficTotalCount=trafficResult?.totalCount||0;
+         trafficServiceTruckCount=trafficResult?.serviceTruckCount||0;
+         trafficServiceFactoryCount=trafficResult?.serviceFactoryCount||0;
          return installPedestriansV84({
            world,
            mapPx,
@@ -1396,7 +1401,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V99 ready · '+(accessResult?.cadAccessPads||0)+' CAD access pads · '+(accessResult?.drivewayCount||0)+' factory driveways · '+(accessResult?.hiddenTrees||0)+' access trees cleared · '+(accessResult?.clearedInstances||0)+' access props cleared · '+((safetyResult?.movedMain?.length||0)+(safetyResult?.movedSupport?.length||0))+' boundary buildings corrected · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V100 ready · '+trafficServiceTruckCount+' freight trucks assigned to '+trafficServiceFactoryCount+' factory loading docks · '+(accessResult?.drivewayCount||0)+' factory driveways · '+trafficTotalCount+' total vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1453,6 +1458,19 @@ installCirculationV53({
    };
    document.querySelector('.controls')?.appendChild(trafficButton);
 
+   const logisticsButton=document.createElement('button');
+   logisticsButton.id='factoryLogisticsV100';
+   logisticsButton.className='active';
+   logisticsButton.textContent='Factory Logistics: On ('+trafficServiceTruckCount+')';
+   let logisticsOn=true;
+   logisticsButton.onclick=()=>{
+     logisticsOn=!logisticsOn;
+     trafficController?.setLogisticsEnabled?.(logisticsOn);
+     logisticsButton.classList.toggle('active',logisticsOn);
+     logisticsButton.textContent='Factory Logistics: '+(logisticsOn?'On':'Off')+' ('+trafficServiceTruckCount+')';
+   };
+   document.querySelector('.controls')?.appendChild(logisticsButton);
+
    const fishButton=document.createElement('button');
    fishButton.id='pondFishV82';
    fishButton.className='active';
@@ -1493,7 +1511,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V99 factory-access warning: '+error.message;
+   coordBadge.textContent='V100 factory-logistics warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
