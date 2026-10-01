@@ -133,16 +133,64 @@ export async function installCadSourceV72({
     surfaceGroup.add(mesh);
   }
 
-  // Actual CAD road edges, not centerlines. This is the verification overlay the user
-  // should compare against the masterplan in Top View.
+  // V88 registered edge overlay:
+  // raw DXF edges around 77505 are intentionally NOT drawn because the road surface is
+  // visually registered to V53. Showing raw edges beside a registered surface creates
+  // a false "misalignment" in Top View. Secondary-road raw edges remain untouched.
+  const registeredCenter=Array.isArray(roadRegistration.visualPointsPx)
+    ? roadRegistration.visualPointsPx
+    : [];
+  const registeredHalfPx=(roadRegistration.visualWidthPx||0)*.5;
+
+  function pointSegDistPx(p,a,b){
+    const vx=b[0]-a[0],vy=b[1]-a[1],wx=p[0]-a[0],wy=p[1]-a[1],vv=vx*vx+vy*vy;
+    const t=vv?Math.max(0,Math.min(1,(wx*vx+wy*vy)/vv)):0;
+    return Math.hypot(p[0]-(a[0]+t*vx),p[1]-(a[1]+t*vy));
+  }
+  function pointPathDistPx(p,path){
+    let best=Infinity;
+    for(let i=1;i<path.length;i++)best=Math.min(best,pointSegDistPx(p,path[i-1],path[i]));
+    return best;
+  }
+  function belongsToRegisteredMainEdge(edge){
+    if(registeredCenter.length<2||!edge.pointsPx?.length)return false;
+    const near=edge.pointsPx.filter(p=>pointPathDistPx(p,registeredCenter)<=18).length;
+    return near/edge.pointsPx.length>=.60;
+  }
+
   for(const edge of data.roadEdges||[]){
     if(!edge.pointsPx||edge.pointsPx.length<2)continue;
+    if(belongsToRegisteredMainEdge(edge))continue;
     const geo=new THREE.BufferGeometry().setFromPoints(edge.pointsPx.map(p=>pxToWorld(p,.72)));
     const line=new THREE.Line(geo,edgeMat);
     line.name='V72_EDGE_'+edge.handle;
     line.renderOrder=90;
     line.frustumCulled=false;
     edgeGroup.add(line);
+  }
+
+  function offsetRegisteredPath(path,side){
+    return path.map((p,i)=>{
+      const prev=path[Math.max(0,i-1)],next=path[Math.min(path.length-1,i+1)];
+      let tx=next[0]-prev[0],ty=next[1]-prev[1];
+      const len=Math.hypot(tx,ty)||1;tx/=len;ty/=len;
+      const nx=-ty,ny=tx;
+      return [p[0]+nx*registeredHalfPx*side,p[1]+ny*registeredHalfPx*side];
+    });
+  }
+  if(registeredCenter.length>=2&&registeredHalfPx>0){
+    for(const side of [-1,1]){
+      const pts=offsetRegisteredPath(registeredCenter,side);
+      const line=new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts.map(p=>pxToWorld(p,.76))),
+        edgeMat
+      );
+      line.name='V88_REGISTERED_EDGE_77505_'+(side<0?'L':'R');
+      line.renderOrder=95;
+      line.frustumCulled=false;
+      line.userData={source:'V53 registered edge',roadHandle:'77505',side};
+      edgeGroup.add(line);
+    }
   }
 
   if(data.siteBoundaryPx?.length>2){
@@ -183,28 +231,30 @@ export async function installCadSourceV72({
   controls?.appendChild(compareButton);
 
   window.__DALOC_V72={
-    ready:true,version:87,group:root,surfaceGroup,edgeGroup,boundaryGroup,
+    ready:true,version:88,group:root,surfaceGroup,edgeGroup,boundaryGroup,
     source:data.source,roads:surfaceRoads,roadEdges:data.roadEdges,siteBoundaryPx:data.siteBoundaryPx,
     roadRegistration,
     setEnabled,showEdges
   };
 
-  console.info('[DaLoc] V87 source-locked CAD road surface installed',{
+  console.info('[DaLoc] V88 source-locked CAD road + registered edge overlay installed',{
     surfacedRoads:surfaceRoads.map(r=>r.handle),
     registeredRoad:roadRegistration.roadHandle,
     fit:roadRegistration.fit,
     cadEdges:data.roadEdges?.length||0,
+    registeredEdgeOverlay:registeredCenter.length>=2,
     siteBoundaryPoints:data.siteBoundaryPx?.length||0,
     source:data.source
   });
 
   return {
     ready:true,
-    version:87,
+    version:88,
     roads:surfaceRoads.length,
     edges:data.roadEdges?.length||0,
     sourceLocked:true,
     registeredRoad:roadRegistration.roadHandle,
-    registrationFit:roadRegistration.fit
+    registrationFit:roadRegistration.fit,
+    registeredEdgeOverlay:true
   };
 }
