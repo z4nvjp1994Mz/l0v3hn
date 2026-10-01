@@ -79,7 +79,7 @@ function makeMaskCanvas(img,roofs,paths,approxBlocks){
   for(let y=1;y<IMG_H-1;y++){
     let k=y*IMG_W+1,pi=(k*4);
     for(let x=1;x<IMG_W-1;x++,k++,pi+=4){
-      if(allowA[pi+3]<128||blockedA[pi+3]>128)continue;
+      if(allowA[pi]<128||blockedA[pi]>128)continue;
       const r=pixels[pi],g=pixels[pi+1],b=pixels[pi+2];
       if(broadRoadLike(r,g,b)&&roadScore(r,g,b)<95)candidate[k]=1;
     }
@@ -128,7 +128,7 @@ function makeMaskCanvas(img,roofs,paths,approxBlocks){
   // Small single-pass hole closure for hatch/text interruptions inside concrete.
   const closed=visited.slice();
   for(let y=2;y<IMG_H-2;y++)for(let x=2;x<IMG_W-2;x++){
-    const k=idx(x,y);if(closed[k]||blockedA[k*4+3]>128||allowA[k*4+3]<128)continue;
+    const k=idx(x,y);if(closed[k]||blockedA[k*4]>128||allowA[k*4]<128)continue;
     let c=0;for(const d of n1)c+=visited[k+d]?1:0;
     if(c>=5)closed[k]=1;
   }
