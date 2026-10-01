@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V44.1 FORCE DEPLOY</small>
+  <small>GitHub → Netlify · BUILD V45 CLEAN ASPHALT</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V44.1 ép Netlify nhận commit mới nhất. Tuyến đường vẽ tay đã bị vô hiệu hóa; road layer mới được sinh từ chính pixel của masterplan-hires.jpg và dùng cùng SITE_FRAME với blueprint.</p>
+  <p>Bản V45 làm sạch lớp đường nội khu: bỏ màu đen đặc, giảm lem, làm mềm biên, dùng asphalt xám trung tính bán trong suốt để vẫn nhìn thấy chi tiết masterplan bên dưới.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V44.1 pixel roads</b><span>forced latest deploy</span></div>
+    <div class="stat"><b>V45 clean asphalt</b><span>soft road mask + neutral grey</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V44.1: forced deploy · pixel-road build</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V45: road mask cleaned · no solid black blobs</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -221,7 +221,7 @@ bpImg.onload=()=>{
         const i=y*mw+x,k=i*4;
         const r=sd[k],g=sd[k+1],b=sd[k+2];
         const hi=Math.max(r,g,b),lo=Math.min(r,g,b),sat=hi-lo,lum=(r+g+b)/3;
-        if(sat<22 && lum>178 && lum<247) cand[i]=1;
+        if(sat<16 && lum>188 && lum<238) cand[i]=1;
       }
     }
 
@@ -255,7 +255,8 @@ bpImg.onload=()=>{
       const x0=Math.max(0,x-R),y0=Math.max(0,y-R),x1=Math.min(mw-1,x+R),y1=Math.min(mh-1,y+R);
       const sum=integ[(y1+1)*iw+(x1+1)]-integ[y0*iw+(x1+1)]-integ[(y1+1)*iw+x0]+integ[y0*iw+x0];
       const area=(x1-x0+1)*(y1-y0+1);
-      if(sum/area<.58) continue;
+      const density=sum/area;
+      if(density<.70) continue;
 
       let close=false;
       for(const p of roofCenters){
@@ -265,24 +266,28 @@ bpImg.onload=()=>{
       if(!close) continue;
 
       const k=(y*mw+x)*4;
-      od[k]=58;od[k+1]=63;od[k+2]=63;od[k+3]=225;
+      // Neutral warm-grey asphalt, not black. Alpha ramps with confidence so edges fade.
+      const edge=Math.max(0,Math.min(1,(density-.70)/.22));
+      od[k]=112;od[k+1]=116;od[k+2]=113;od[k+3]=Math.round(70+110*edge);
     }
 
     mctx.putImageData(out,0,0);
     const roadTex=new THREE.CanvasTexture(mc);
     roadTex.colorSpace=THREE.SRGBColorSpace;
-    roadTex.minFilter=THREE.LinearFilter;
+    roadTex.minFilter=THREE.LinearMipmapLinearFilter;
     roadTex.magFilter=THREE.LinearFilter;
-    roadTex.generateMipmaps=false;
+    roadTex.generateMipmaps=true;
+    roadTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 
-    const roadMat=new THREE.MeshBasicMaterial({
-      map:roadTex,transparent:true,opacity:.90,depthWrite:false,depthTest:true,
+    const roadMat=new THREE.MeshStandardMaterial({
+      map:roadTex,transparent:true,opacity:.78,depthWrite:false,depthTest:true,
+      roughness:.96,metalness:0,
       polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2
     });
     const roadPlane=new THREE.Mesh(new THREE.PlaneGeometry(PLANE_W,PLANE_H),roadMat);
     roadPlane.rotation.x=-Math.PI/2;
     const bpC=mapPx(IMG_W/2,IMG_H/2);
-    roadPlane.position.set(bpC.x,.12,bpC.z);
+    roadPlane.position.set(bpC.x,.085,bpC.z);
     roadPlane.renderOrder=2;
     roadPlane.name='PIXEL_LOCKED_ROAD_SURFACE';
     roadPlane.userData.siteFrameSignature=SITE_FRAME_SIGNATURE;
