@@ -479,6 +479,8 @@ export async function installPedestriansV84({
     updateRealCharacterInstances();
   }
 
+  const pedestrianAssetMode=realCharacterAssets?'kenney-glb-skinned-walk':'capsule-fallback';
+
   const counts={
     factory:agents.filter(a=>a.mode==='factory').length,
     yard:agents.filter(a=>a.mode==='yard').length,
@@ -490,21 +492,21 @@ export async function installPedestriansV84({
   root.userData.effectivePortalCount=effectivePortals.length;
 
   window.__DALOC_PEDESTRIANS_V84={
-    ready:true,version:'105',group:root,agents,counts,
+    ready:true,version:'105',group:root,agents,counts,assetMode:pedestrianAssetMode,
     effectivePortalCount:effectivePortals.length,
     update,setEnabled
   };
 
   console.info('[DaLoc] V105 real Kenney GLB pedestrians installed',{
     ...counts,
-    assetMode:realCharacterAssets?'kenney-glb-skinned-walk':'capsule-fallback',
+    assetMode:pedestrianAssetMode,
     effectivePortals:effectivePortals.length,
     suppliedPortals:factoryPortals.length,
     buildings:buildings.length
   });
 
   return {
-    ready:true,version:'105',group:root,count:counts.total,counts,
+    ready:true,version:'105',group:root,count:counts.total,counts,assetMode:pedestrianAssetMode,
     effectivePortalCount:effectivePortals.length,
     update,setEnabled
   };
