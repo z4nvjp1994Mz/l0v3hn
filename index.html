@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V101 ANTI-GRIDLOCK TRAFFIC</small>
+  <small>GitHub → Netlify · BUILD V102 CINEMATIC DIORAMA</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V101 giữ toàn bộ V100 và nâng cấp điều phối giao thông: ngã tư dùng reservation công bằng, kiểm tra khoảng trống sau giao lộ trước khi cho xe vào, tránh xe logistics rẽ sát tâm ngã tư và có watchdog tự gỡ khóa nếu xe đứng quá lâu.</p>
+  <p>V102 giữ nguyên toàn bộ bố cục V101 và nâng chất lượng hình ảnh theo hướng diorama cao cấp: ambient occlusion, môi trường phản xạ PBR, bóng đổ 4K thích ứng theo camera, sky/atmosphere, color grading và tilt-shift nhẹ.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -60,6 +60,7 @@ import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
 import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=94';
+import { installVisualQualityV102 } from './assets/visual-quality-v102.js?v=102';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -232,6 +233,24 @@ bpImg.onerror=(err)=>{
 
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(2200,2300),new THREE.MeshStandardMaterial({color:0x91ad79,roughness:1}));
 ground.rotation.x=-Math.PI/2;ground.position.y=-.18;ground.receiveShadow=true;scene.add(ground);
+
+// V102 rendering-only upgrade. Geometry/masterplan coordinates are untouched.
+const visualQualityV102=installVisualQualityV102({
+  scene,camera,renderer,controls,sun,world,ground
+});
+let dioramaFxOn=true;
+
+const dioramaButton=document.createElement('button');
+dioramaButton.id='dioramaFxV102';
+dioramaButton.className='active';
+dioramaButton.textContent='Diorama FX: On';
+dioramaButton.onclick=()=>{
+  dioramaFxOn=!dioramaFxOn;
+  visualQualityV102.setEnabled(dioramaFxOn);
+  dioramaButton.classList.toggle('active',dioramaFxOn);
+  dioramaButton.textContent='Diorama FX: '+(dioramaFxOn?'On':'Off');
+};
+document.querySelector('.controls')?.appendChild(dioramaButton);
 
 
 
@@ -1401,7 +1420,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V101 ready · anti-gridlock junction scheduler · '+trafficServiceTruckCount+' freight trucks · '+trafficServiceFactoryCount+' loading factories · '+trafficTotalCount+' total vehicles';
+   coordBadge.textContent='V102 ready · cinematic diorama render · adaptive 4K shadows · SSAO + tilt-shift · '+trafficServiceTruckCount+' freight trucks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1511,7 +1530,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V101 traffic-control warning: '+error.message;
+   coordBadge.textContent='V102 visual/traffic warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1521,9 +1540,9 @@ function tween(pos,tgt){
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),vd=document.getElementById('vd'),bp=document.getElementById('bp');
-v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.18;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
-vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
-vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.10;factoryCutawayOn=!!factoryInteriorsV84?.ready;factoryInteriorsV84?.setCutaway?.(factoryCutawayOn);factoryCutawayButton.classList.toggle('active',factoryCutawayOn);factoryCutawayButton.textContent=factoryCutawayOn?'Factory Cutaway: On':'Factory Cutaway: Loading';tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
+v3.onclick=()=>{visualQualityV102.setMode('perspective');v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.18;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
+vt.onclick=()=>{visualQualityV102.setMode('top');vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
+vd.onclick=()=>{visualQualityV102.setMode('detail');vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.10;factoryCutawayOn=!!factoryInteriorsV84?.ready;factoryInteriorsV84?.setCutaway?.(factoryCutawayOn);factoryCutawayButton.classList.toggle('active',factoryCutawayOn);factoryCutawayButton.textContent=factoryCutawayOn?'Factory Cutaway: On':'Factory Cutaway: Loading';tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
 
 let bpOn=false;
 blueprint.visible=false;
@@ -1568,16 +1587,17 @@ let lastFrameTime=performance.now();
   pondFishV82?.update?.(dt);
   pedestrianController?.update?.(dt);
   controls.update();
+  visualQualityV102.update();
   const d=camera.position.distanceTo(controls.target);
   world.traverse(o=>{
     if(o.isSprite) o.visible=d<520;
   });
-  renderer.render(scene,camera);
+  visualQualityV102.render();
 })(performance.now());
 setTimeout(()=>{
   console.info('[DaLoc] Coordinate lock active:',SITE_FRAME_SIGNATURE);
 },0);
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);visualQualityV102.resize(innerWidth,innerHeight)});
 </script>
 </body>
 </html>
