@@ -19,7 +19,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V110';
+  root.name='AI_TRAFFIC_V111';
   root.userData={
     version:110,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
@@ -140,6 +140,23 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     if(agent.type==='supercar')return {lookahead:30,claim:13,stopGap:9,release:12};
     if(agent.type==='motorcycle')return {lookahead:19,claim:8,stopGap:5,release:8};
     return {lookahead:28,claim:12,stopGap:8,release:11};
+  }
+
+  // V111: stop/release distances are derived from the ACTUAL width of the road
+  // being crossed. A truck centre now stops far enough back that its front bumper
+  // cannot sit inside the visible junction polygon.
+  function junctionGeometryPolicy(agent,junction){
+    const base=junctionPolicy(agent);
+    const crossRouteId=junction.routes.find(id=>id!==agent.route.id);
+    const crossRoute=routes.find(r=>r.id===crossRouteId);
+    const crossHalf=Math.max(5,(crossRoute?.widthWorld||12)*.5);
+    const stopLine=crossHalf+1.0;
+    const stopGap=Math.max(base.stopGap,stopLine+agent.length*.5+1.15);
+    const release=Math.max(base.release,crossHalf+agent.length*.5+3.5);
+    const claim=Math.max(base.claim,stopGap+7.0);
+    const lookahead=Math.max(base.lookahead,claim+18.0);
+    const conflictEnter=crossHalf+agent.length*.5+.35;
+    return {...base,crossHalf,stopLine,stopGap,release,claim,lookahead,conflictEnter};
   }
 
   function sampleRoute(route,s){
@@ -617,7 +634,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   // The two junctions are offset so both crossings do not switch simultaneously.
   // -----------------------------------------------------------------------
   const signalGroup=new THREE.Group();
-  signalGroup.name='TRAFFIC_SIGNALS_V110';
+  signalGroup.name='TRAFFIC_SIGNALS_V111';
   root.add(signalGroup);
 
   const signalJunctions=junctions.slice(0,2);
@@ -742,7 +759,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const heading=Math.atan2(travel.x,travel.z);
 
     const g=new THREE.Group();
-    g.name='V110_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.name='V111_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
     g.position.set(polePos.x,.02,polePos.z);
     g.rotation.y=heading;
 
@@ -786,7 +803,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Scale stop bar to the actual source-road width instead of a fixed 8.2 m.
     const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
-    stopLine.name='V110_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.name='V111_STOP_LINE_'+junction.id+'_'+approachIndex;
     stopLine.position.set(stopCenter.x,.13,stopCenter.z);
     stopLine.rotation.y=heading;
     stopLine.scale.x=Math.max(6.5,(route.widthWorld||10)*.88);
@@ -1009,6 +1026,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const gridlockStats={
     grants:0,
     blockedBoxEntries:0,
+    physicalBoxBlocks:0,
+    initialBoxRelocations:0,
+    recoveredBoxOwners:0,
     staleLocksReleased:0,
     emergencyEvacuations:0
   };
@@ -1025,29 +1045,48 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function downstreamClear(agent,junction){
     const js=junction.routeS[agent.route.id];
     if(!Number.isFinite(js))return true;
-    const policy=junctionPolicy(agent);
-    const required=
-      policy.release+
-      agent.length*.5+
-      agent.minGap+
-      (agent.type==='container'?13:agent.type==='cargo'?9:6);
+    const policy=junctionGeometryPolicy(agent,junction);
+
+    // Candidate must be able to fully clear the junction and still retain a
+    // sensible gap to the first downstream vehicle. This is "do not block box".
+    const requiredRear=policy.release+agent.minGap+
+      (agent.type==='container'?8:agent.type==='cargo'?6:4);
 
     for(const other of agents){
       if(other===agent||other.route!==agent.route||other.dir!==agent.dir)continue;
       if(other.service&&other.service.phase!=='cruise')continue;
 
       const after=(other.s-js)*agent.dir;
-      if(after < -agent.length*.45)continue;
+      if(after<=0)continue;
 
-      // Motorcycles in a clearly separate micro-lane do not block a truck/car lane.
       if(agent.type==='motorcycle'||other.type==='motorcycle'){
         if(Math.abs(currentLane(agent)-currentLane(other))>.85)continue;
       }
 
-      const occupiedTo=after+(other.length+agent.length)*.5;
-      if(occupiedTo<required)return false;
+      const otherRear=after-other.length*.5;
+      if(otherRear<requiredRear)return false;
     }
     return true;
+  }
+
+  function junctionConflictOccupants(junction,except=null){
+    const found=[];
+    for(const other of agents){
+      if(other===except)continue;
+      if(other.service&&other.service.phase!=='cruise')continue;
+      if(junction.routeS[other.route.id]===undefined)continue;
+      const signed=junctionSigned(other,junction);
+      if(!Number.isFinite(signed))continue;
+      const policy=junctionGeometryPolicy(other,junction);
+      if(signed<policy.conflictEnter && signed>-policy.release){
+        found.push({agent:other,signed,policy});
+      }
+    }
+    return found;
+  }
+
+  function junctionPhysicalBoxClear(candidate,junction){
+    return junctionConflictOccupants(junction,candidate).length===0;
   }
 
   function approachLeader(candidate,junction){
@@ -1072,7 +1111,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
         const js=junction.routeS[agent.route.id];
         if(js===undefined)continue;
         const signed=(js-agent.s)*agent.dir;
-        const policy=junctionPolicy(agent);
+        const policy=junctionGeometryPolicy(agent,junction);
         if((!agent.service||agent.service.phase==='cruise')&&signed>0&&signed<policy.lookahead){
           agent.junctionWait[junction.id]=(agent.junctionWait[junction.id]||0)+dt;
         }else if(signed<-policy.release||signed>policy.lookahead*1.25){
@@ -1093,7 +1132,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function emergencyEvacuate(owner,junction){
     const js=junction.routeS[owner.route.id];
     if(!Number.isFinite(js))return false;
-    const policy=junctionPolicy(owner);
+    const policy=junctionGeometryPolicy(owner,junction);
 
     // Move only as a last-resort watchdog, and only to a downstream point that
     // is not already occupied. Normal traffic should never use this path.
@@ -1123,10 +1162,52 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     return false;
   }
 
+  function sanitizeInitialJunctionOccupancy(){
+    const queueSlots=new Map();
+    for(const agent of agents){
+      if(agent.service&&agent.service.phase!=='cruise')continue;
+      for(const junction of junctions){
+        const js=junction.routeS[agent.route.id];
+        if(!Number.isFinite(js))continue;
+        const signed=junctionSigned(agent,junction);
+        const policy=junctionGeometryPolicy(agent,junction);
+        if(!(signed<policy.conflictEnter && signed>-policy.release))continue;
+
+        const key=junction.id+':'+agent.route.id+':'+agent.dir;
+        const slot=queueSlots.get(key)||0;
+        const safeSigned=policy.stopGap+5+
+          slot*(agent.length+agent.minGap+3);
+        agent.s=THREE.MathUtils.clamp(js-agent.dir*safeSigned,0,agent.route.total);
+        agent.speed=0;
+        queueSlots.set(key,slot+1);
+        placeAgent(agent);
+        gridlockStats.initialBoxRelocations++;
+        break;
+      }
+    }
+  }
+
+  function recoverPhysicalBoxOwner(junction){
+    if(junction.owner)return;
+    const occupants=junctionConflictOccupants(junction);
+    if(!occupants.length)return;
+    // Prefer the vehicle that is already furthest through the crossing.
+    occupants.sort((a,b)=>a.signed-b.signed||a.agent.index-b.agent.index);
+    const winner=occupants[0];
+    junction.owner=winner.agent;
+    junction.lockSince=simTime;
+    junction.ownerLastSigned=winner.signed;
+    junction.ownerLastProgressAt=simTime;
+    gridlockStats.recoveredBoxOwners++;
+  }
+
+  sanitizeInitialJunctionOccupancy();
+
   function scheduleJunctions(dt){
     updateJunctionWaits(dt);
 
     for(const junction of junctions){
+      recoverPhysicalBoxOwner(junction);
       if(junction.owner){
         const owner=junction.owner;
 
@@ -1136,7 +1217,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
         }
 
         const signed=junctionSigned(owner,junction);
-        const policy=junctionPolicy(owner);
+        const policy=junctionGeometryPolicy(owner,junction);
 
         if(!Number.isFinite(signed)||signed < -policy.release || signed > policy.lookahead*2.5){
           junction.lastGrantedKey=approachKey(owner);
@@ -1182,13 +1263,17 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
         if(js===undefined)continue;
 
         const signed=(js-candidate.s)*candidate.dir;
-        const policy=junctionPolicy(candidate);
+        const policy=junctionGeometryPolicy(candidate,junction);
         if(signed<0||signed>policy.claim)continue;
         if(!signalAllowsNewEntry(junction,candidate.route.id))continue;
         if(!approachLeader(candidate,junction))continue;
 
         if(!downstreamClear(candidate,junction)){
           gridlockStats.blockedBoxEntries++;
+          continue;
+        }
+        if(!junctionPhysicalBoxClear(candidate,junction)){
+          gridlockStats.physicalBoxBlocks++;
           continue;
         }
 
@@ -1226,7 +1311,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     simTime+=dt;
     updateTrafficSignals();
 
-    // V107: traffic lights decide which route may request the junction.
+    // V111: lights + geometry-aware conflict box decide who may enter.
     // V101 anti-gridlock reservations remain the final safety gate.
     scheduleJunctions(dt);
 
@@ -1267,7 +1352,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
         const js=junction.routeS[agent.route.id];
         if(js===undefined)continue;
         const signed=(js-agent.s)*agent.dir;
-        const policy=junctionPolicy(agent);
+        const policy=junctionGeometryPolicy(agent,junction);
         if(signed>0 && signed<policy.lookahead){
           const owns=junction.owner===agent;
           const signalColor=signalColorForRoute(junction,agent.route.id);
@@ -1339,12 +1424,20 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:110,group:root,agents,counts,junctions,
+    ready:true,version:111,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
+    getJunctionDiagnostics:()=>junctions.map(j=>({
+      id:j.id,
+      phase:j.signal?.phase||'reservation',
+      owner:j.owner?{index:j.owner.index,type:j.owner.type,route:j.owner.route.id}:null,
+      occupants:junctionConflictOccupants(j).map(o=>({
+        index:o.agent.index,type:o.agent.type,route:o.agent.route.id,signed:Number(o.signed.toFixed(2))
+      }))
+    })),
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V110 restored traffic + polygon-validated sidewalk lights installed',{
+  console.info('[DaLoc] V111 geometry-aware anti-gridlock signal traffic installed',{
     ...counts,
     trafficLights:trafficLightStats,
     serviceAgents:serviceAgentCount,
@@ -1356,7 +1449,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   });
 
   return {
-    ready:true,version:107,group:root,counts,junctions,signalGroup,trafficLightStats,
+    ready:true,version:111,group:root,counts,junctions,signalGroup,trafficLightStats,
     carCount:counts.cars,cargoTruckCount:counts.cargoTrucks,
     containerTruckCount:counts.containerTrucks,motorcycleCount:counts.motorcycles,
     supercarCount:counts.supercars,totalCount:counts.total,
@@ -1364,6 +1457,12 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     serviceTargetCount:serviceTargets.length,
     serviceFactoryCount:serviceStats.targetFactories,
     serviceStats,gridlockStats,
+    getJunctionDiagnostics:()=>junctions.map(j=>({
+      id:j.id,
+      phase:j.signal?.phase||'reservation',
+      owner:j.owner?{index:j.owner.index,type:j.owner.type,route:j.owner.route.id}:null,
+      occupants:junctionConflictOccupants(j).length
+    })),
     update,setEnabled,setLogisticsEnabled
   };
 }
