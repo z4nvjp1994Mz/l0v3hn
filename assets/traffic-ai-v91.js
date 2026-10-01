@@ -199,17 +199,48 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     0x1f1f1f,0xf1f1ed,0xb83232,0x2f628c,0xd6a42d
   ].map(color=>new THREE.MeshStandardMaterial({color,roughness:.42,metalness:.12}));
 
+  // V104 shared vehicle geometry pool: geometry is allocated once and reused by
+  // every car/truck/container/supercar instance. Moving vehicles remain Groups,
+  // but their meshes no longer duplicate BufferGeometry in memory.
+  const vehicleGeo={
+    wheel:new THREE.CylinderGeometry(1,1,1,12),
+    light:new THREE.BoxGeometry(.32,.18,.08),
+    carBody:vehicleGeo.carBody,
+    carHood:vehicleGeo.carHood,
+    carCabin:vehicleGeo.carCabin,
+    carBumper:vehicleGeo.carBumper,
+    cargoChassis:vehicleGeo.cargoChassis,
+    cargoBox:vehicleGeo.cargoBox,
+    cargoCab:vehicleGeo.cargoCab,
+    cargoWind:vehicleGeo.cargoWind,
+    cargoGrille:vehicleGeo.cargoGrille,
+    cargoBumper:vehicleGeo.cargoBumper,
+    containerChassis:vehicleGeo.containerChassis,
+    containerBox:vehicleGeo.containerBox,
+    containerCab:vehicleGeo.containerCab,
+    containerWind:vehicleGeo.containerWind,
+    containerGrille:vehicleGeo.containerGrille,
+    containerBumper:vehicleGeo.containerBumper,
+    containerRib:vehicleGeo.containerRib,
+    superBody:vehicleGeo.superBody,
+    superNose:vehicleGeo.superNose,
+    superCabin:vehicleGeo.superCabin,
+    superRear:vehicleGeo.superRear,
+    superSpoiler:vehicleGeo.superSpoiler
+  };
+
   function addWheel(group,x,z,r=.34,w=.22){
-    const wheel=new THREE.Mesh(new THREE.CylinderGeometry(r,r,w,12),tireMat);
+    const wheel=new THREE.Mesh(vehicleGeo.wheel,tireMat);
     wheel.rotation.z=Math.PI/2;
+    wheel.scale.set(r,w,r);
     wheel.position.set(x,r,z);
     group.add(wheel);
   }
   function addLights(group,width,frontZ,rearZ,y){
     for(const sx of [-width*.28,width*.28]){
-      const lamp=new THREE.Mesh(new THREE.BoxGeometry(.32,.18,.08),lightMat);
+      const lamp=new THREE.Mesh(vehicleGeo.light,lightMat);
       lamp.position.set(sx,y,frontZ);group.add(lamp);
-      const rear=new THREE.Mesh(new THREE.BoxGeometry(.32,.18,.08),rearMat);
+      const rear=new THREE.Mesh(vehicleGeo.light,rearMat);
       rear.position.set(sx,y,rearZ);group.add(rear);
     }
   }
@@ -217,13 +248,13 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function buildCar(index){
     const g=new THREE.Group(),mat=carMats[index%carMats.length];
     g.name='V103_CAR_'+index;
-    const body=new THREE.Mesh(new RoundedBoxGeometry(1.82,.60,4.25,3,.15),mat);
+    const body=new THREE.Mesh(vehicleGeo.carBody,mat);
     body.position.y=.57;g.add(body);
-    const hood=new THREE.Mesh(new RoundedBoxGeometry(1.70,.30,1.15,2,.10),mat);
+    const hood=new THREE.Mesh(vehicleGeo.carHood,mat);
     hood.position.set(0,.80,1.34);g.add(hood);
-    const cabin=new THREE.Mesh(new RoundedBoxGeometry(1.52,.72,1.88,3,.14),glassMat);
+    const cabin=new THREE.Mesh(vehicleGeo.carCabin,glassMat);
     cabin.position.set(0,1.06,-.20);g.add(cabin);
-    const frontBumper=new THREE.Mesh(new RoundedBoxGeometry(1.58,.13,.16,2,.04),chromeMat);
+    const frontBumper=new THREE.Mesh(vehicleGeo.carBumper,chromeMat);
     frontBumper.position.set(0,.42,2.16);g.add(frontBumper);
     const rearBumper=frontBumper.clone();rearBumper.position.z=-2.16;g.add(rearBumper);
     for(const sx of [-.98,.98])for(const sz of [-1.30,1.28])addWheel(g,sx,sz,.34,.22);
@@ -234,12 +265,12 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function buildCargoTruck(index){
     const g=new THREE.Group(),cabMat=truckCabMats[index%truckCabMats.length],boxMat=cargoBoxMats[index%cargoBoxMats.length];
     g.name='V103_CARGO_TRUCK_'+index;
-    const chassis=new THREE.Mesh(new RoundedBoxGeometry(2.18,.26,7.75,2,.06),chassisMat);chassis.position.y=.58;g.add(chassis);
-    const cargo=new THREE.Mesh(new RoundedBoxGeometry(2.26,2.55,4.85,2,.08),boxMat);cargo.position.set(0,1.88,-1.05);g.add(cargo);
-    const cab=new THREE.Mesh(new RoundedBoxGeometry(2.18,2.15,2.35,3,.16),cabMat);cab.position.set(0,1.58,2.35);g.add(cab);
-    const windshield=new THREE.Mesh(new RoundedBoxGeometry(1.72,.76,.08,2,.03),glassMat);windshield.position.set(0,1.94,3.56);g.add(windshield);
-    const grille=new THREE.Mesh(new RoundedBoxGeometry(1.42,.42,.08,2,.02),trimMat);grille.position.set(0,1.13,3.59);g.add(grille);
-    const bumper=new THREE.Mesh(new RoundedBoxGeometry(1.94,.17,.16,2,.04),chromeMat);bumper.position.set(0,.72,3.64);g.add(bumper);
+    const chassis=new THREE.Mesh(vehicleGeo.cargoChassis,chassisMat);chassis.position.y=.58;g.add(chassis);
+    const cargo=new THREE.Mesh(vehicleGeo.cargoBox,boxMat);cargo.position.set(0,1.88,-1.05);g.add(cargo);
+    const cab=new THREE.Mesh(vehicleGeo.cargoCab,cabMat);cab.position.set(0,1.58,2.35);g.add(cab);
+    const windshield=new THREE.Mesh(vehicleGeo.cargoWind,glassMat);windshield.position.set(0,1.94,3.56);g.add(windshield);
+    const grille=new THREE.Mesh(vehicleGeo.cargoGrille,trimMat);grille.position.set(0,1.13,3.59);g.add(grille);
+    const bumper=new THREE.Mesh(vehicleGeo.cargoBumper,chromeMat);bumper.position.set(0,.72,3.64);g.add(bumper);
     for(const sx of [-1.20,1.20]){
       addWheel(g,sx,2.20,.43,.28);addWheel(g,sx,-.75,.43,.28);addWheel(g,sx,-2.48,.43,.28);
     }
@@ -250,15 +281,15 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function buildContainerTruck(index){
     const g=new THREE.Group(),cabMat=truckCabMats[(index+2)%truckCabMats.length],contMat=containerMats[index%containerMats.length];
     g.name='V103_CONTAINER_TRUCK_'+index;
-    const chassis=new THREE.Mesh(new RoundedBoxGeometry(2.32,.28,13.5,2,.06),chassisMat);chassis.position.y=.58;g.add(chassis);
-    const container=new THREE.Mesh(new THREE.BoxGeometry(2.46,2.65,7.55),contMat);container.position.set(0,2.02,-2.65);g.add(container);
-    const cab=new THREE.Mesh(new RoundedBoxGeometry(2.24,2.35,2.65,3,.17),cabMat);cab.position.set(0,1.65,4.72);g.add(cab);
-    const windshield=new THREE.Mesh(new RoundedBoxGeometry(1.78,.82,.08,2,.03),glassMat);windshield.position.set(0,2.04,6.08);g.add(windshield);
-    const grille=new THREE.Mesh(new RoundedBoxGeometry(1.48,.48,.08,2,.02),trimMat);grille.position.set(0,1.17,6.11);g.add(grille);
-    const bumper=new THREE.Mesh(new RoundedBoxGeometry(2.02,.18,.17,2,.04),chromeMat);bumper.position.set(0,.74,6.16);g.add(bumper);
+    const chassis=new THREE.Mesh(vehicleGeo.containerChassis,chassisMat);chassis.position.y=.58;g.add(chassis);
+    const container=new THREE.Mesh(vehicleGeo.containerBox,contMat);container.position.set(0,2.02,-2.65);g.add(container);
+    const cab=new THREE.Mesh(vehicleGeo.containerCab,cabMat);cab.position.set(0,1.65,4.72);g.add(cab);
+    const windshield=new THREE.Mesh(vehicleGeo.containerWind,glassMat);windshield.position.set(0,2.04,6.08);g.add(windshield);
+    const grille=new THREE.Mesh(vehicleGeo.containerGrille,trimMat);grille.position.set(0,1.17,6.11);g.add(grille);
+    const bumper=new THREE.Mesh(vehicleGeo.containerBumper,chromeMat);bumper.position.set(0,.74,6.16);g.add(bumper);
 
     // Container corrugation: one InstancedMesh per truck, so detail stays cheap.
-    const ribGeo=new THREE.BoxGeometry(2.50,2.44,.055);
+    const ribGeo=vehicleGeo.containerRib;
     const ribs=new THREE.InstancedMesh(ribGeo,trimMat,10);
     const dummy=new THREE.Object3D();
     for(let i=0;i<10;i++){
@@ -346,15 +377,15 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function buildSupercar(index){
     const g=new THREE.Group(),mat=superMats[index%superMats.length];
     g.name='V103_SUPERCAR_'+index;
-    const body=new THREE.Mesh(new RoundedBoxGeometry(1.98,.42,4.55,3,.14),mat);
+    const body=new THREE.Mesh(vehicleGeo.superBody,mat);
     body.position.y=.46;g.add(body);
-    const nose=new THREE.Mesh(new RoundedBoxGeometry(1.88,.24,1.28,2,.08),mat);
+    const nose=new THREE.Mesh(vehicleGeo.superNose,mat);
     nose.position.set(0,.57,1.55);g.add(nose);
-    const cabin=new THREE.Mesh(new RoundedBoxGeometry(1.45,.55,1.75,3,.13),glassMat);
+    const cabin=new THREE.Mesh(vehicleGeo.superCabin,glassMat);
     cabin.position.set(0,.86,-.25);g.add(cabin);
-    const rearDeck=new THREE.Mesh(new RoundedBoxGeometry(1.82,.18,.85,2,.06),mat);
+    const rearDeck=new THREE.Mesh(vehicleGeo.superRear,mat);
     rearDeck.position.set(0,.64,-1.62);g.add(rearDeck);
-    const spoiler=new THREE.Mesh(new RoundedBoxGeometry(1.62,.07,.28,2,.025),chassisMat);
+    const spoiler=new THREE.Mesh(vehicleGeo.superSpoiler,chassisMat);
     spoiler.position.set(0,.98,-2.02);g.add(spoiler);
     for(const sx of [-1.02,1.02])for(const sz of [-1.38,1.38])addWheel(g,sx,sz,.36,.24);
     addLights(g,1.98,2.32,-2.32,.60);
@@ -1020,7 +1051,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:101,group:root,agents,counts,junctions,
+    ready:true,version:104,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,
     update,setEnabled,setLogisticsEnabled
   };
@@ -1036,7 +1067,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   });
 
   return {
-    ready:true,version:101,group:root,counts,junctions,
+    ready:true,version:104,group:root,counts,junctions,
     carCount:counts.cars,cargoTruckCount:counts.cargoTrucks,
     containerTruckCount:counts.containerTrucks,motorcycleCount:counts.motorcycles,
     supercarCount:counts.supercars,totalCount:counts.total,
