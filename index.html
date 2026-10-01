@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V102 CINEMATIC DIORAMA</small>
+  <small>GitHub → Netlify · BUILD V103 ASSET-FIRST LITE</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V102 giữ nguyên toàn bộ bố cục V101 và nâng chất lượng hình ảnh theo hướng diorama cao cấp: ambient occlusion, môi trường phản xạ PBR, bóng đổ 4K thích ứng theo camera, sky/atmosphere, color grading và tilt-shift nhẹ.</p>
+  <p>V103 giữ nguyên toàn bộ bố cục và logic V101 nhưng bỏ toàn bộ post-processing nặng. Chất lượng được nâng bằng asset đẹp hơn: cây rừng nhiều tầng tán bằng instancing, ô tô/xe tải/container bo góc kiểu diorama, chi tiết cabin và container tốt hơn, renderer chỉ render một pass.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -49,8 +49,8 @@ import { installCirculationV53 } from './assets/circulation-v53.js?v=91';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=91';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=89';
-import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=89';
-import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=101';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=103';
+import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=103';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=97';
@@ -60,7 +60,7 @@ import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=93';
 import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=94';
-import { installVisualQualityV102 } from './assets/visual-quality-v102.js?v=102';
+import { installVisualQualityV102 } from './assets/visual-quality-v102.js?v=103';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -234,23 +234,11 @@ bpImg.onerror=(err)=>{
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(2200,2300),new THREE.MeshStandardMaterial({color:0x91ad79,roughness:1}));
 ground.rotation.x=-Math.PI/2;ground.position.y=-.18;ground.receiveShadow=true;scene.add(ground);
 
-// V102 rendering-only upgrade. Geometry/masterplan coordinates are untouched.
+// V103 lightweight render baseline. Asset quality is the focus; there is no
+// post-processing toggle because the viewer now renders a single direct pass.
 const visualQualityV102=installVisualQualityV102({
   scene,camera,renderer,controls,sun,world,ground
 });
-let dioramaFxOn=true;
-
-const dioramaButton=document.createElement('button');
-dioramaButton.id='dioramaFxV102';
-dioramaButton.className='active';
-dioramaButton.textContent='Diorama FX: On';
-dioramaButton.onclick=()=>{
-  dioramaFxOn=!dioramaFxOn;
-  visualQualityV102.setEnabled(dioramaFxOn);
-  dioramaButton.classList.toggle('active',dioramaFxOn);
-  dioramaButton.textContent='Diorama FX: '+(dioramaFxOn?'On':'Off');
-};
-document.querySelector('.controls')?.appendChild(dioramaButton);
 
 
 
@@ -1420,7 +1408,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V102 ready · cinematic diorama render · adaptive 4K shadows · SSAO + tilt-shift · '+trafficServiceTruckCount+' freight trucks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V103 ready · asset-first direct render · richer instanced trees · rounded vehicle assets · '+trafficServiceTruckCount+' freight trucks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1530,7 +1518,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V102 visual/traffic warning: '+error.message;
+   coordBadge.textContent='V103 asset/traffic warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
