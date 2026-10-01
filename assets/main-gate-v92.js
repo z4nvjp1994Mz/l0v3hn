@@ -266,19 +266,47 @@ export async function installEntranceGateV92({
   });
   group.updateMatrixWorld(true);
 
-  // Clear only large source trees that would physically intersect the two gate pylons/plinths.
+  function nearGatePylonWorld(worldPoint){
+    const local=group.worldToLocal(worldPoint.clone());
+    return Math.abs(local.z)<5.4 &&
+      Math.abs(Math.abs(local.x)-(clearSpan/2+pylonOuter*.45))<5.4;
+  }
+
+  // Clear large source trees that would physically intersect the two gate pylons/plinths.
   let hiddenTrees=0;
   const tmp=new THREE.Vector3();
   world.traverse(o=>{
     if(!o.userData?.isTreeGroup)return;
     o.getWorldPosition(tmp);
-    const local=group.worldToLocal(tmp.clone());
-    const nearPylon=Math.abs(local.z)<5.2 &&
-      Math.abs(Math.abs(local.x)-(clearSpan/2+pylonOuter*.45))<5.2;
-    if(nearPylon){
+    if(nearGatePylonWorld(tmp)){
       o.userData.hiddenByMainGateV92=true;
       o.visible=false;hiddenTrees++;
     }
+  });
+
+  // Also remove instanced greenbelt trees/shrubs/lamps right under the pylon foundations.
+  // Instances away from the gate remain untouched.
+  let clearedInstances=0;
+  const im=new THREE.Matrix4(),zero=new THREE.Matrix4().makeScale(0,0,0);
+  world.traverse(o=>{
+    if(!o.isInstancedMesh)return;
+    let parent=o.parent,eligible=false;
+    while(parent){
+      if(parent.name==='CIRCULATION_V53'||parent.name==='V54_ROAD_FURNITURE'){eligible=true;break;}
+      parent=parent.parent;
+    }
+    if(!eligible)return;
+    o.updateWorldMatrix(true,false);
+    for(let i=0;i<o.count;i++){
+      o.getMatrixAt(i,im);
+      const wp=new THREE.Vector3().setFromMatrixPosition(im).applyMatrix4(o.matrixWorld);
+      if(nearGatePylonWorld(wp)){
+        o.setMatrixAt(i,zero);
+        clearedInstances++;
+      }
+    }
+    o.instanceMatrix.needsUpdate=true;
+    o.computeBoundingSphere();
   });
 
   const updateVisibility=()=>{
@@ -294,13 +322,14 @@ export async function installEntranceGateV92({
     centerPx,
     clearSpan,
     rawRoadWidth,
-    hiddenTrees
+    hiddenTrees,
+    clearedInstances
   };
 
   console.info('[DaLoc] V92 main gate installed',{
-    centerPx,clearSpan,rawRoadWidth,hiddenTrees,
+    centerPx,clearSpan,rawRoadWidth,hiddenTrees,clearedInstances,
     source:'supplied reference rendering'
   });
 
-  return {ready:true,version:92,group,centerPx,clearSpan,rawRoadWidth,hiddenTrees};
+  return {ready:true,version:92,group,centerPx,clearSpan,rawRoadWidth,hiddenTrees,clearedInstances};
 }
