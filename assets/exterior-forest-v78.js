@@ -213,7 +213,7 @@ export async function installExteriorForestV78({
   root.userData.houseCount=houseSites.length;
 
   window.__DALOC_V79={
-    ready:true,version:105,group:root,
+    ready:true,version:105,group:root,treeAssetMode,
     treeCount:root.userData.treeCount,
     houseCount:root.userData.houseCount,
     boundaryPoints:boundary.length
