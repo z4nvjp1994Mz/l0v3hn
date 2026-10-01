@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V53 NARROW ROADS + GREEN BELTS</small>
+  <small>GitHub → Netlify · BUILD V54 DEEP GAME DETAIL</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V53: Lòng đường hẹp được dựng bằng mesh vector riêng; bó vỉa, lối đi bộ và dải cây xanh tách biệt. Không còn tô cả vùng màu xám thành nhựa. Bề rộng đo trên ảnh, chưa phải số liệu khảo sát.</p>
+  <p>V54 giữ nguyên hệ đường V53 đã xác nhận và nâng cấp sâu chi tiết game-ready: mặt đứng nhà xưởng, camera, thang mái, quạt thông gió, tủ kỹ thuật, dock, đèn đường, vạch sơn và cây bụi. Tất cả chi tiết dự án tiếp tục bám hệ tọa độ masterplan.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,16 +36,17 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V53 narrow roads</b><span>vector roads + planted green belts</span></div>
+    <div class="stat"><b>V54 deep detail</b><span>factory + road + landscape micro-assets</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V53: narrow carriageways; green belts kept separate</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V54: deep game-ready details on locked coordinates</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
+import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1132,8 +1133,21 @@ roofs.forEach((r,idx)=>{
 // ---------------------------------------------------------------------------
 // V53: install after shared resources. Failure cannot stop the existing render loop.
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
- .then(()=>{coordBadge.textContent='V53: narrow asphalt | curb | walkway | planted green belt';})
- .catch(error=>{console.error(error);coordBadge.textContent='V53 road layer failed: '+error.message;coordBadge.style.color='#ff9b9b';});
+ .then(()=>{
+   coordBadge.textContent='V53 roads ready · installing V54 deep detail…';
+   return installSiteDetailV54({
+     world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
+   });
+ })
+ .then(result=>{
+   const st=result?.stats||{};
+   coordBadge.textContent='V54 detail ready · '+(st.factories||0)+' factories · '+(st.lamps||0)+' lamps · '+(st.shrubs||0)+' shrubs';
+ })
+ .catch(error=>{
+   console.error(error);
+   coordBadge.textContent='V54 detail warning: '+error.message;
+   coordBadge.style.color='#ffcf86';
+ });
 
 // Views
 function tween(pos,tgt){
