@@ -55,10 +55,10 @@ export async function installExteriorForestV78({
     const half=(road.widthCad||12)*(data.pxPerCadUnit||1.20434303125)*metersPerPixel*.5+6;
     for(let i=1;i<pts.length;i++)roadCorridors.push({a:pts[i-1],b:pts[i],radius:half});
   }
-  // Keep the two valid presentation-context roads open too.
+  // V86: only the actually retained presentation-context road gets a forest clearance.
+  // The old {-720,620,1250m} south road was raw-world legacy geometry and is gone.
   for(const r of [
-    {x:760,z:20,w:18,l:1700,rot:-.10},
-    {x:-720,z:620,w:16,l:1250,rot:.92}
+    {x:760,z:20,w:18,l:1700,rot:-.10}
   ]){
     const dx=Math.sin(r.rot)*r.l*.5,dz=Math.cos(r.rot)*r.l*.5;
     roadCorridors.push({
@@ -68,7 +68,7 @@ export async function installExteriorForestV78({
     });
   }
 
-  // V85: forest clearance uses the exact same V53 tree-axis as the south road.
+  // V86: forest clearance uses the exact same V53 tree-axis as the south road.
   {
     const axisSouth=mapPx(358.6,1500.2);
     const axisNorth=mapPx(435.06,1395.044);
