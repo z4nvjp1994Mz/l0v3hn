@@ -20,7 +20,7 @@ export async function installTrafficAIV79({
   const routes=(data.paths||[]).filter(p=>routeIds.has(p.id)).map(path=>{
     const pts=path.pointsPx.map(([x,y])=>{
       const p=mapPx(x,y);
-      return new THREE.Vector3(p.x,.62,p.z);
+      return new THREE.Vector3(p.x,.42,p.z);
     });
     const cumulative=[0];
     let total=0;
@@ -97,10 +97,10 @@ export async function installTrafficAIV79({
 
     for(const sx of [-.55,.55]){
       const lamp=new THREE.Mesh(new THREE.BoxGeometry(.34,.18,.08),lightMat);
-      lamp.position.set(sx,.66,-2.16);
+      lamp.position.set(sx,.66,2.16);
       g.add(lamp);
       const rear=new THREE.Mesh(new THREE.BoxGeometry(.34,.18,.08),rearMat);
-      rear.position.set(sx,.66,2.16);
+      rear.position.set(sx,.66,-2.16);
       g.add(rear);
     }
     return g;
