@@ -45,18 +45,18 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { installCirculationV53 } from './assets/circulation-v53.js?v=105';
+import { installCirculationV53 } from './assets/circulation-v53.js?v=1051';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
-import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=105';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=1051';
 import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=1041';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
-import { installLandscapeV95 } from './assets/landscape-v95.js?v=1041';
+import { installLandscapeV95 } from './assets/landscape-v95.js?v=1051';
 import { installSiteSafetyV98 } from './assets/site-safety-v98.js?v=98';
 import { installFactoryAccessV99 } from './assets/factory-access-v99.js?v=100';
-import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=105';
+import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=1051';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=1041';
 import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=94';
@@ -1408,7 +1408,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V105 ready · real Kenney GLB people + trees · animated pedestrians · instanced GLB forest/greenbelt · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V105 ready · people: '+(pedestrianResult?.assetMode||'unknown')+' · forest: '+(forestResult?.treeAssetMode||'unknown')+' · park trees: '+(landscapeV95?.parkTreeAssetMode||'loading')+' · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
