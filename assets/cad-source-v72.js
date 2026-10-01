@@ -10,7 +10,7 @@ export async function installCadSourceV72({
   const [srcRes,junctionRes,registrationRes]=await Promise.all([
     fetch(new URL('./cad-source-v72.json',import.meta.url)),
     fetch(new URL('./cad-roads-v71.json',import.meta.url)),
-    fetch(new URL('./cad-road-registration-v85.json',import.meta.url))
+    fetch(new URL('./cad-road-registration-v87.json',import.meta.url))
   ]);
   if(!srcRes.ok)throw new Error('V72 CAD source HTTP '+srcRes.status);
   if(!junctionRes.ok)throw new Error('V72 junction source HTTP '+junctionRes.status);
@@ -30,7 +30,7 @@ export async function installCadSourceV72({
     sourceLocked:true,
     roofDerivedRoads:false,
     runtimeInference:false,
-    visualRegistrationVersion:85,
+    visualRegistrationVersion:87,
     registeredRoadHandle:roadRegistration.roadHandle
   };
   world.add(root);
@@ -73,7 +73,9 @@ export async function installCadSourceV72({
   function addRoadSurface(road){
     const sourcePoints=visualRoadPoints(road);
     const pts=sourcePoints.map(p=>pxToWorld(p));
-    const width=road.widthCad*data.pxPerCadUnit*metersPerPixel;
+    const width=(road.handle===roadRegistration.roadHandle && Number.isFinite(roadRegistration.visualWidthPx))
+      ? roadRegistration.visualWidthPx*metersPerPixel
+      : road.widthCad*data.pxPerCadUnit*metersPerPixel;
     for(let i=1;i<pts.length;i++){
       const a=pts[i-1],b=pts[i];
       const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
@@ -88,7 +90,7 @@ export async function installCadSourceV72({
         layer:'TIM____NG',
         handle:road.handle,
         widthCad:road.widthCad,
-        visualRegistration:road.handle===roadRegistration.roadHandle?'V85':null,
+        visualRegistration:road.handle===roadRegistration.roadHandle?'V87':null,
         rawCadPreserved:true
       };
       surfaceGroup.add(mesh);
@@ -181,13 +183,13 @@ export async function installCadSourceV72({
   controls?.appendChild(compareButton);
 
   window.__DALOC_V72={
-    ready:true,version:85,group:root,surfaceGroup,edgeGroup,boundaryGroup,
+    ready:true,version:87,group:root,surfaceGroup,edgeGroup,boundaryGroup,
     source:data.source,roads:surfaceRoads,roadEdges:data.roadEdges,siteBoundaryPx:data.siteBoundaryPx,
     roadRegistration,
     setEnabled,showEdges
   };
 
-  console.info('[DaLoc] V85 registered CAD road surface installed',{
+  console.info('[DaLoc] V87 source-locked CAD road surface installed',{
     surfacedRoads:surfaceRoads.map(r=>r.handle),
     registeredRoad:roadRegistration.roadHandle,
     fit:roadRegistration.fit,
@@ -198,7 +200,7 @@ export async function installCadSourceV72({
 
   return {
     ready:true,
-    version:85,
+    version:87,
     roads:surfaceRoads.length,
     edges:data.roadEdges?.length||0,
     sourceLocked:true,
