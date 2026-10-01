@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V50 MEDIAL ROAD NETWORK</small>
+  <small>GitHub → Netlify · BUILD V51 SMOOTH ROAD EDGES</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>Bản V50 không còn coi toàn bộ vùng circulation là lòng đường. Hệ thống đường được rút thành trục giữa bằng distance-ridge từ mask masterplan, sau đó nở theo bề rộng cố định để tạo lòng đường, bó vỉa và vỉa hè thành các dải tách biệt.</p>
+  <p>Bản V51 giữ trục đường của V50 nhưng sửa biên nham nhở: morphology vuông được thay bằng kernel tròn, sau đó road/curb/sidewalk được làm mượt bằng majority filter nhiều lượt để tạo mép cong và cạnh liền mạch hơn.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V50 medial roads</b><span>fixed-width road + curb + sidewalk</span></div>
+    <div class="stat"><b>V51 smooth roads</b><span>rounded morphology + anti-jagged edges</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V50: medial-axis road network + real layered edges</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V51: smoothed medial roads + rounded curb/sidewalk</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -340,12 +340,18 @@ bpImg.onload=()=>{
 
     const erodeMask=(srcMask,radius)=>{
       const dst=new Uint8Array(srcMask.length);
+      const r2=radius*radius;
       for(let y=0;y<mh;y++){
         for(let x=0;x<mw;x++){
+          if(!srcMask[y*mw+x]) continue;
           let ok=1;
-          outer:for(let yy=Math.max(0,y-radius);yy<=Math.min(mh-1,y+radius);yy++){
-            for(let xx=Math.max(0,x-radius);xx<=Math.min(mw-1,x+radius);xx++){
-              if(!srcMask[yy*mw+xx]){ok=0;break outer;}
+          outer:for(let dy=-radius;dy<=radius;dy++){
+            for(let dx=-radius;dx<=radius;dx++){
+              if(dx*dx+dy*dy>r2) continue;
+              const xx=x+dx,yy=y+dy;
+              if(xx<0||yy<0||xx>=mw||yy>=mh||!srcMask[yy*mw+xx]){
+                ok=0;break outer;
+              }
             }
           }
           dst[y*mw+x]=ok;
@@ -356,18 +362,47 @@ bpImg.onload=()=>{
 
     const dilateMask=(srcMask,radius)=>{
       const dst=new Uint8Array(srcMask.length);
+      const r2=radius*radius;
       for(let y=0;y<mh;y++){
         for(let x=0;x<mw;x++){
           let hit=0;
-          outer:for(let yy=Math.max(0,y-radius);yy<=Math.min(mh-1,y+radius);yy++){
-            for(let xx=Math.max(0,x-radius);xx<=Math.min(mw-1,x+radius);xx++){
-              if(srcMask[yy*mw+xx]){hit=1;break outer;}
+          outer:for(let dy=-radius;dy<=radius;dy++){
+            for(let dx=-radius;dx<=radius;dx++){
+              if(dx*dx+dy*dy>r2) continue;
+              const xx=x+dx,yy=y+dy;
+              if(xx>=0&&yy>=0&&xx<mw&&yy<mh&&srcMask[yy*mw+xx]){
+                hit=1;break outer;
+              }
             }
           }
           dst[y*mw+x]=hit;
         }
       }
       return dst;
+    };
+
+    // Majority filter used only to smooth raster stair-steps after dilation.
+    const smoothBinaryMask=(srcMask,radius=2,threshold=.48,passes=2)=>{
+      let cur=srcMask;
+      for(let pass=0;pass<passes;pass++){
+        const dst=new Uint8Array(cur.length);
+        for(let y=0;y<mh;y++){
+          for(let x=0;x<mw;x++){
+            let n=0,total=0;
+            for(let dy=-radius;dy<=radius;dy++){
+              for(let dx=-radius;dx<=radius;dx++){
+                if(dx*dx+dy*dy>radius*radius) continue;
+                const xx=x+dx,yy=y+dy;
+                if(xx<0||yy<0||xx>=mw||yy>=mh) continue;
+                total++; if(cur[yy*mw+xx]) n++;
+              }
+            }
+            dst[y*mw+x]=(total&&n/total>=threshold)?1:0;
+          }
+        }
+        cur=dst;
+      }
+      return cur;
     };
 
     const subtractMask=(a,b)=>{
@@ -450,16 +485,19 @@ bpImg.onload=()=>{
     const SIDEWALK_RADIUS=4;
 
     const rawRoad=dilateMask(skelClean,ROAD_RADIUS);
-    const roadMask=new Uint8Array(keep.length);
-    for(let i=0;i<keep.length;i++) roadMask[i]=(rawRoad[i]&&keep[i])?1:0;
+    const roadClipped=new Uint8Array(keep.length);
+    for(let i=0;i<keep.length;i++) roadClipped[i]=(rawRoad[i]&&keep[i])?1:0;
+    const roadMask=smoothBinaryMask(roadClipped,2,.46,3);
 
     const roadPlusCurbRaw=dilateMask(roadMask,CURB_RADIUS);
-    const roadPlusCurb=new Uint8Array(keep.length);
-    for(let i=0;i<keep.length;i++) roadPlusCurb[i]=(roadPlusCurbRaw[i]&&keep[i])?1:0;
+    const roadPlusCurbClipped=new Uint8Array(keep.length);
+    for(let i=0;i<keep.length;i++) roadPlusCurbClipped[i]=(roadPlusCurbRaw[i]&&keep[i])?1:0;
+    const roadPlusCurb=smoothBinaryMask(roadPlusCurbClipped,1,.45,2);
 
     const walkOuterRaw=dilateMask(roadPlusCurb,SIDEWALK_RADIUS);
-    const walkOuter=new Uint8Array(keep.length);
-    for(let i=0;i<keep.length;i++) walkOuter[i]=(walkOuterRaw[i]&&keep[i])?1:0;
+    const walkOuterClipped=new Uint8Array(keep.length);
+    for(let i=0;i<keep.length;i++) walkOuterClipped[i]=(walkOuterRaw[i]&&keep[i])?1:0;
+    const walkOuter=smoothBinaryMask(walkOuterClipped,2,.46,2);
 
     const curbMask=subtractMask(roadPlusCurb,roadMask);
     const sidewalkMask=subtractMask(walkOuter,roadPlusCurb);
@@ -494,9 +532,9 @@ bpImg.onload=()=>{
       return tex;
     };
 
-    const roadMaskTex=makeMaskTexture(roadMask,1);
-    const curbMaskTex=makeMaskTexture(curbMask,0);
-    const sidewalkMaskTex=makeMaskTexture(sidewalkMask,1);
+    const roadMaskTex=makeMaskTexture(roadMask,2);
+    const curbMaskTex=makeMaskTexture(curbMask,1);
+    const sidewalkMaskTex=makeMaskTexture(sidewalkMask,2);
 
     // ---------- procedural asphalt ----------
     const TILE=512;
@@ -633,7 +671,7 @@ bpImg.onload=()=>{
     addMaskedPlane('ROAD_SIDEWALK',sidewalkMat,.180,3);
     addMaskedPlane('ROAD_CURB',curbMat,.240,4);
 
-    coordBadge.textContent='COORD LOCK + MEDIAL ROAD / CURB / SIDEWALK';
+    coordBadge.textContent='COORD LOCK + SMOOTH ROAD / CURB / SIDEWALK';
   };
   setTimeout(buildPixelLockedRoadSurface,0);
 
