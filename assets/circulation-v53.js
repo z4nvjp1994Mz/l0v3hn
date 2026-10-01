@@ -1,16 +1,21 @@
 import * as THREE from 'three';
+import { buildCadCorridorWarpV89 } from './corridor-warp-v89.js?v=89';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls,showUI=true}) {
-  const [response,accessResponse]=await Promise.all([
+  const [response,accessResponse,cadResponse]=await Promise.all([
     fetch(new URL('./circulation-v53.json',import.meta.url)),
-    fetch(new URL('./cad-access-v75.json',import.meta.url))
+    fetch(new URL('./cad-access-v75.json',import.meta.url)),
+    fetch(new URL('./cad-source-v72.json',import.meta.url))
   ]);
   if(!response.ok) throw new Error('Circulation data: HTTP '+response.status);
   if(!accessResponse.ok) throw new Error('CAD access data: HTTP '+accessResponse.status);
+  if(!cadResponse.ok) throw new Error('CAD source data: HTTP '+cadResponse.status);
   const data=await response.json();
   const accessData=await accessResponse.json();
-  if(data.frameSignature!==frameSignature) throw new Error('Circulation coordinate frame mismatch');
+  const cadData=await cadResponse.json();
+  if(data.frameSignature!==frameSignature||cadData.frameSignature!==frameSignature) throw new Error('Circulation/CAD coordinate frame mismatch');
+  const corridorWarpV89=buildCadCorridorWarpV89({circulation:data,cad:cadData});
   const group=new THREE.Group(); group.name='CIRCULATION_V53'; group.userData.source=data.source;
   const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   function texture(kind){
@@ -72,7 +77,11 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   }
 
   function ring(points,clockwise){
-    const p=points.slice(0,-1).map(([x,y])=>{const v=mapPx(x,y);return new THREE.Vector2(v.x,-v.z);});
+    const p=points.slice(0,-1).map(([x,y])=>{
+      const q=corridorWarpV89.warpPx(x,y);
+      const v=mapPx(q.x,q.y);
+      return new THREE.Vector2(v.x,-v.z);
+    });
     if(THREE.ShapeUtils.isClockWise(p)!==clockwise)p.reverse();return p;
   }
   for(const name of ['greenbelt','sidewalk','curb','carriageway']){
@@ -106,7 +115,14 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   world.traverse(o=>{
     if(!o.userData?.isTreeGroup||!o.userData?.masterplanPx)return;
     const p=o.userData.masterplanPx;
-    if(inCadAccess(p.x,p.y)){
+    const q=corridorWarpV89.warpPx(p.x,p.y);
+    if(q.weight>.001){
+      const v=mapPx(q.x,q.y);
+      o.position.x=v.x;
+      o.position.z=v.z;
+      o.userData.cadWarpV89={x:q.x,y:q.y,weight:q.weight};
+    }
+    if(inCadAccess(q.x,q.y)){
       o.userData.hiddenByCadAccess=true;
       o.visible=false;
     }
@@ -120,9 +136,15 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
       const a=path.pointsPx[i-1],b=path.pointsPx[i],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(!len)continue;
       for(let t=14-accumulated;t<len;t+=14)for(const side of [-1,1]){
         const off=path.widthPx/2+1.93/.782+3.7;
-        const x=a[0]+dx*t/len-side*dy/len*off,y=a[1]+dy*t/len+side*dx/len*off,v=mapPx(x,y);
-        if(!inGreen(x,y)||inCadAccess(x,y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
-        let safe=true;for(let k=0;k<8;k++){const tx=x+Math.cos(k*Math.PI/4)*2,ty=y+Math.sin(k*Math.PI/4)*2;if(!inGreen(tx,ty)||inCadAccess(tx,ty))safe=false;}
+        const x=a[0]+dx*t/len-side*dy/len*off,y=a[1]+dy*t/len+side*dx/len*off;
+        const q=corridorWarpV89.warpPx(x,y),v=mapPx(q.x,q.y);
+        if(!inGreen(x,y)||inCadAccess(q.x,q.y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
+        let safe=true;
+        for(let k=0;k<8;k++){
+          const tx=x+Math.cos(k*Math.PI/4)*2,ty=y+Math.sin(k*Math.PI/4)*2;
+          const tq=corridorWarpV89.warpPx(tx,ty);
+          if(!inGreen(tx,ty)||inCadAccess(tq.x,tq.y))safe=false;
+        }
         if(safe&&!planting.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<7))planting.push(v);
       }accumulated=(accumulated+len)%14;
     }
@@ -160,7 +182,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:76,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,
+  window.__DALOC_V53={ready:true,version:89,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV89,
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
