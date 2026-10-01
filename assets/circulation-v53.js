@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCadCorridorWarpV89 } from './corridor-warp-v89.js?v=89';
+import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls,showUI=true}) {
@@ -15,7 +15,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   const accessData=await accessResponse.json();
   const cadData=await cadResponse.json();
   if(data.frameSignature!==frameSignature||cadData.frameSignature!==frameSignature) throw new Error('Circulation/CAD coordinate frame mismatch');
-  const corridorWarpV89=buildCadCorridorWarpV89({circulation:data,cad:cadData});
+  const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
   const group=new THREE.Group(); group.name='CIRCULATION_V53'; group.userData.source=data.source;
   const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   function texture(kind){
@@ -78,7 +78,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
 
   function ring(points,clockwise){
     const p=points.slice(0,-1).map(([x,y])=>{
-      const q=corridorWarpV89.warpPx(x,y);
+      const q=corridorWarpV91.warpPx(x,y);
       const v=mapPx(q.x,q.y);
       return new THREE.Vector2(v.x,-v.z);
     });
@@ -115,12 +115,12 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   world.traverse(o=>{
     if(!o.userData?.isTreeGroup||!o.userData?.masterplanPx)return;
     const p=o.userData.masterplanPx;
-    const q=corridorWarpV89.warpPx(p.x,p.y);
+    const q=corridorWarpV91.warpPx(p.x,p.y);
     if(q.weight>.001){
       const v=mapPx(q.x,q.y);
       o.position.x=v.x;
       o.position.z=v.z;
-      o.userData.cadWarpV89={x:q.x,y:q.y,weight:q.weight};
+      o.userData.cadWarpV91={x:q.x,y:q.y,weight:q.weight};
     }
     if(inCadAccess(q.x,q.y)){
       o.userData.hiddenByCadAccess=true;
@@ -137,12 +137,12 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
       for(let t=14-accumulated;t<len;t+=14)for(const side of [-1,1]){
         const off=path.widthPx/2+1.93/.782+3.7;
         const x=a[0]+dx*t/len-side*dy/len*off,y=a[1]+dy*t/len+side*dx/len*off;
-        const q=corridorWarpV89.warpPx(x,y),v=mapPx(q.x,q.y);
+        const q=corridorWarpV91.warpPx(x,y),v=mapPx(q.x,q.y);
         if(!inGreen(x,y)||inCadAccess(q.x,q.y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
         let safe=true;
         for(let k=0;k<8;k++){
           const tx=x+Math.cos(k*Math.PI/4)*2,ty=y+Math.sin(k*Math.PI/4)*2;
-          const tq=corridorWarpV89.warpPx(tx,ty);
+          const tq=corridorWarpV91.warpPx(tx,ty);
           if(!inGreen(tx,ty)||inCadAccess(tq.x,tq.y))safe=false;
         }
         if(safe&&!planting.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<7))planting.push(v);
@@ -182,7 +182,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:89,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV89,
+  window.__DALOC_V53={ready:true,version:91,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
