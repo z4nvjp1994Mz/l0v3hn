@@ -55,11 +55,10 @@ export async function installExteriorForestV78({
     const half=(road.widthCad||12)*(data.pxPerCadUnit||1.20434303125)*metersPerPixel*.5+6;
     for(let i=1;i<pts.length;i++)roadCorridors.push({a:pts[i-1],b:pts[i],radius:half});
   }
-  // Keep the existing presentation-context roads open too.
+  // Keep the two valid presentation-context roads open too.
   for(const r of [
     {x:760,z:20,w:18,l:1700,rot:-.10},
-    {x:-720,z:620,w:16,l:1250,rot:.92},
-    {x:0,z:900,w:16,l:1650,rot:Math.PI/2}
+    {x:-720,z:620,w:16,l:1250,rot:.92}
   ]){
     const dx=Math.sin(r.rot)*r.l*.5,dz=Math.cos(r.rot)*r.l*.5;
     roadCorridors.push({
@@ -67,6 +66,22 @@ export async function installExteriorForestV78({
       b:{x:r.x+dx,z:r.z+dz},
       radius:r.w*.5+7
     });
+  }
+
+  // V84.3: reserve forest clearance for the real southern exit continuation.
+  // The obsolete transverse road at z=900 was removed from the viewer.
+  {
+    const prev=mapPx(673.9909258589748,1067.9921641772735);
+    const tip=mapPx(325.8244141578689,1544.6951245152172);
+    const dx=tip.x-prev.x,dz=tip.z-prev.z,len=Math.hypot(dx,dz);
+    if(len>.001){
+      const ux=dx/len,uz=dz/len,extension=92;
+      roadCorridors.push({
+        a:{x:tip.x,z:tip.z},
+        b:{x:tip.x+ux*extension,z:tip.z+uz*extension},
+        radius:(20*1.20434303125*metersPerPixel)*.5+7
+      });
+    }
   }
 
   function inRoadCorridor(x,z,pad=0){
