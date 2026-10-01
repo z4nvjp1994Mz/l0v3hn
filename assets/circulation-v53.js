@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
+import { loadKenneyTreeAssets, createStaticInstancedAsset, createPrototypeGroup } from './real-assets-v105.js?v=105';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls,showUI=true}) {
@@ -172,6 +173,33 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     }
   });
 
+  // V105: replace the old cylinder/icosahedron roadside tree Groups with actual
+  // vendored Kenney Nature Kit GLBs. The wrapper Groups are preserved so all
+  // later CAD-access/gate/road-safety visibility logic keeps working unchanged.
+  const realTreeAssets=await loadKenneyTreeAssets().catch(error=>{
+    console.error('[DaLoc] V105 roadside real-tree asset fallback',error);
+    return null;
+  });
+  let upgradedLegacyTrees=0;
+  if(realTreeAssets){
+    const legacyTreeGroups=world.children.filter(o=>o.userData?.isTreeGroup);
+    legacyTreeGroups.forEach((g,i)=>{
+      let inferredScale=1;
+      const oldTrunk=g.children.find(c=>c.geometry?.type==='CylinderGeometry'&&c.geometry?.parameters?.height);
+      if(oldTrunk)inferredScale=Math.max(.72,Math.min(1.45,oldTrunk.geometry.parameters.height/4.2));
+      g.clear();
+      const usePine=i%7===0;
+      const visual=createPrototypeGroup(usePine?realTreeAssets.pine:realTreeAssets.oak,{
+        name:'V105_ROADSIDE_TREE_'+i,castShadow:true,receiveShadow:true
+      });
+      if(!visual)return;
+      visual.scale.setScalar(inferredScale*(usePine?.90:1.0));
+      g.add(visual);
+      g.userData.realTreeAssetV105=usePine?'kenney-pine':'kenney-oak';
+      upgradedLegacyTrees++;
+    });
+  }
+
   const existing=world.children.filter(o=>o.userData.isTreeGroup).map(o=>o.position),planting=[];
   // Supplementary planting belongs ONLY to the green belt. Existing tree positions never move.
   for(const path of data.paths){
@@ -194,15 +222,31 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     }
   }
   if(planting.length){
-    const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.13,.20,2.8,6),new THREE.MeshStandardMaterial({color:0x79533b,roughness:1}),planting.length);
-    const crown=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.25,1),new THREE.MeshStandardMaterial({color:0x4c8147,roughness:1}),planting.length);
-    const tip=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.95,1),new THREE.MeshStandardMaterial({color:0x619653,roughness:1}),planting.length);
-    const dummy=new THREE.Object3D();planting.forEach((p,i)=>{
-      dummy.position.set(p.x,1.54,p.z);dummy.updateMatrix();trunk.setMatrixAt(i,dummy.matrix);
-      dummy.position.y=3.1;dummy.updateMatrix();crown.setMatrixAt(i,dummy.matrix);
-      dummy.position.y=4.05;dummy.updateMatrix();tip.setMatrixAt(i,dummy.matrix);
-    });
-    for(const mesh of [trunk,crown,tip]){mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();group.add(mesh);}
+    if(realTreeAssets){
+      const oak=[],pine=[];
+      planting.forEach((p,i)=>{
+        const item={
+          position:new THREE.Vector3(p.x,.05,p.z),
+          rotationY:(i*.61803398875%1)*Math.PI*2,
+          scale:i%6===0?.64:.72
+        };
+        (i%6===0?pine:oak).push(item);
+      });
+      createStaticInstancedAsset(group,realTreeAssets.oak,oak,{
+        name:'V105_GREENBELT_OAKS',castShadow:true,receiveShadow:true
+      });
+      createStaticInstancedAsset(group,realTreeAssets.pine,pine,{
+        name:'V105_GREENBELT_PINES',castShadow:true,receiveShadow:true
+      });
+    }else{
+      const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.13,.20,2.8,8),new THREE.MeshStandardMaterial({color:0x79533b,roughness:1}),planting.length);
+      const crown=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1.25,1),new THREE.MeshStandardMaterial({color:0x4c8147,roughness:1}),planting.length);
+      const dummy=new THREE.Object3D();planting.forEach((p,i)=>{
+        dummy.position.set(p.x,1.54,p.z);dummy.updateMatrix();trunk.setMatrixAt(i,dummy.matrix);
+        dummy.position.y=3.3;dummy.updateMatrix();crown.setMatrixAt(i,dummy.matrix);
+      });
+      for(const mesh of [trunk,crown]){mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();group.add(mesh);}
+    }
   }
   // Clip legacy approximate park fills where they used to overhang the measured roads.
   // Trees, benches, materials and park areas away from the corridor remain unchanged.
@@ -226,7 +270,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:104,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,
+  window.__DALOC_V53={ready:true,version:105,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,treeAssetMode:realTreeAssets?'kenney-glb':'fallback',
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
