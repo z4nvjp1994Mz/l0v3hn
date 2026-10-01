@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
-import { loadKenneyCharacterAssets, createAnimatedCharacterInstance } from './real-assets-v105.js?v=105';
+import { loadKenneyCharacterAssets, createAnimatedCharacterInstance } from './real-assets-v105.js?v=1051';
 
 // V84 pedestrian behavior:
 // - 24 workers enter/exit factories through V84 personnel portals
