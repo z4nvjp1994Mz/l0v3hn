@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V84.2 GUARANTEED 50 PEDESTRIANS</small>
+  <small>GitHub → Netlify · BUILD V84.3 SOUTH EXIT ROAD HOTFIX</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V84 giữ nguyên traffic/rừng/hồ sen và nâng nhà xưởng lên interior 3D chi tiết. 50 người áo xanh không còn suy từ tim đường: 24 người ra/vào xưởng, 14 người đi quanh sân xưởng và 12 người chỉ đi trên polygon vỉa hè V53.</p>
 </div>
@@ -648,7 +648,48 @@ function addRoad(x,z,w,l,rot=0){
 }
 addRoad(760,20,18,1700,-.10);
 addRoad(-720,620,16,1250,.92);
-addRoad(0,900,16,1650,Math.PI/2);
+
+// V84.3: removed the obsolete 1,650 m transverse foreground road.
+// It incorrectly crossed the source-locked southern end of CAD road 77505.
+// Replace it with a short continuation aligned exactly to the registered V77 axis.
+const southExitRoadV843=new THREE.Group();
+southExitRoadV843.name='V843_SOUTH_EXIT_CONTINUATION';
+world.add(southExitRoadV843);
+{
+  const prev=mapPx(673.9909258589748,1067.9921641772735);
+  const tip=mapPx(325.8244141578689,1544.6951245152172);
+  const dx=tip.x-prev.x,dz=tip.z-prev.z;
+  const baseLen=Math.hypot(dx,dz);
+  const ux=dx/baseLen,uz=dz/baseLen;
+  const extension=92;
+  const ex=tip.x+ux*extension,ez=tip.z+uz*extension;
+  const cx=(tip.x+ex)/2,cz=(tip.z+ez)/2;
+  const rot=Math.atan2(ex-tip.x,ez-tip.z);
+  const width=20*1.20434303125*S;
+
+  const shoulder=new THREE.Mesh(
+    new THREE.BoxGeometry(width+2.2,.10,extension+1.8),
+    roadEdgeMat
+  );
+  shoulder.position.set(cx,.255,cz);
+  shoulder.rotation.y=rot;
+  shoulder.receiveShadow=true;
+  southExitRoadV843.add(shoulder);
+
+  const asphalt=new THREE.Mesh(
+    new THREE.BoxGeometry(width,.16,extension+.30),
+    roadMat
+  );
+  asphalt.position.set(cx,.31,cz);
+  asphalt.rotation.y=rot;
+  asphalt.receiveShadow=true;
+  asphalt.userData={
+    source:'V77 registered CAD 77505 continuation',
+    endpointPx:[325.8244141578689,1544.6951245152172],
+    extensionMeters:extension
+  };
+  southExitRoadV843.add(asphalt);
+}
 
 // village houses outside the project
 function addHouse(x,z,rot=0,sc=1){
