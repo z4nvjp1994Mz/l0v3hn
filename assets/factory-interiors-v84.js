@@ -203,11 +203,11 @@ export function installFactoryInteriorsV84({world,buildings}){
     cutaway=!!v;
     shellMeshes.forEach(({body,roofs})=>{
       body.material.transparent=cutaway;
-      body.material.opacity=cutaway?.20:1;
+      body.material.opacity=cutaway ? .20 : 1;
       body.material.depthWrite=!cutaway;
       roofs.forEach((m,i)=>{
         m.material.transparent=cutaway;
-        m.material.opacity=cutaway?(i===0?.08:.11):1;
+        m.material.opacity=cutaway ? (i===0 ? .08 : .11) : 1;
         m.material.depthWrite=!cutaway;
       });
     });
