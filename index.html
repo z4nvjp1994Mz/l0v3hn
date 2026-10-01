@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V83 RIDERS + 50 GREEN-SHIRT PEDESTRIANS</small>
+  <small>GitHub → Netlify · BUILD V84 FACTORY INTERIORS + SAFE PEDESTRIANS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V83 giữ nguyên toàn bộ V82, tách xe máy thành nhiều micro-lane để không nối đuôi cứng, bổ sung người lái 3D trên từng xe máy và 50 người áo sơ mi xanh lá đi bộ ngẫu nhiên trên vỉa hè nội khu.</p>
+  <p>V84 giữ nguyên traffic/rừng/hồ sen và nâng nhà xưởng lên interior 3D chi tiết. 50 người áo xanh không còn suy từ tim đường: 24 người ra/vào xưởng, 14 người đi quanh sân xưởng và 12 người chỉ đi trên polygon vỉa hè V53.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V83 riders + pedestrians</b><span>CAD roads + restored 3D layers</span></div>
+    <div class="stat"><b>V84 interiors + people</b><span>CAD roads + restored 3D layers</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V83: motorcycle riders + de-queued bikes + 50 green-shirt pedestrians</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -53,7 +53,8 @@ import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=79';
 import { installTrafficAIV83 } from './assets/traffic-ai-v83.js?v=83';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
-import { installPedestriansV83 } from './assets/pedestrians-v83.js?v=83';
+import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=84';
+import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1174,6 +1175,20 @@ roofs.forEach((r,idx)=>{
   }
 });
 
+// V84: production-floor interiors and personnel-safe factory portals.
+const factoryInteriorsV84=installFactoryInteriorsV84({world,buildings});
+let factoryCutawayOn=false;
+const factoryCutawayButton=document.createElement('button');
+factoryCutawayButton.id='factoryCutawayV84';
+factoryCutawayButton.textContent='Factory Cutaway: Off';
+factoryCutawayButton.onclick=()=>{
+  factoryCutawayOn=!factoryCutawayOn;
+  factoryInteriorsV84.setCutaway(factoryCutawayOn);
+  factoryCutawayButton.classList.toggle('active',factoryCutawayOn);
+  factoryCutawayButton.textContent='Factory Cutaway: '+(factoryCutawayOn?'On':'Off');
+};
+document.querySelector('.controls')?.appendChild(factoryCutawayButton);
+
 // Detail view handler is attached later, after UI button references are initialized.
 // ---------------------------------------------------------------------------
 // V74: restore previously-built 3D detail without replacing authoritative CAD asphalt.
@@ -1243,11 +1258,11 @@ installCirculationV53({
          trafficMotorcycleCount=trafficResult?.motorcycleCount||0;
          trafficSupercarCount=trafficResult?.supercarCount||0;
          trafficTotalCount=trafficResult?.totalCount||0;
-         return installPedestriansV83({
+         return installPedestriansV84({
            world,
            mapPx,
            frameSignature:SITE_FRAME_SIGNATURE,
-           metersPerPixel:S
+           factoryPortals:factoryInteriorsV84.portals
          }).then(pedestrianResult=>{
            pedestrianController=pedestrianResult;
            pedestrianCount=pedestrianResult?.count||0;
@@ -1259,7 +1274,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V83 ready · '+trafficMotorcycleCount+' motorcycles with riders · '+trafficSupercarCount+' supercars · '+pedestrianCount+' green-shirt pedestrians · '+pondFishV82.fishCount+' pond fish · '+trafficTotalCount+' moving vehicles · '+(st.factories||0)+' factory detail sets';
+   coordBadge.textContent='V84 ready · '+factoryInteriorsV84.factoryCount+' detailed factory interiors · '+pedestrianResult.counts.factory+' entering/exiting · '+pedestrianResult.counts.yard+' yard walkers · '+pedestrianResult.counts.sidewalk+' sidewalk-only · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1276,6 +1291,7 @@ installCirculationV53({
      if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
      if(pedestrianController?.group)pedestrianController.group.visible=envOn;
+     factoryInteriorsV84.setVisible(envOn);
      const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
@@ -1313,7 +1329,7 @@ installCirculationV53({
    document.querySelector('.controls')?.appendChild(fishButton);
 
    const peopleButton=document.createElement('button');
-   peopleButton.id='pedestriansV83';
+   peopleButton.id='pedestriansV84';
    peopleButton.className='active';
    peopleButton.textContent='Pedestrians 50: On';
    let peopleOn=true;
@@ -1327,7 +1343,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V83 riders/pedestrians warning: '+error.message;
+   coordBadge.textContent='V84 interiors/pedestrians warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1337,15 +1353,15 @@ function tween(pos,tgt){
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),vd=document.getElementById('vd'),bp=document.getElementById('bp');
-v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.18;tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
-vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
-vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.10;tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
+v3.onclick=()=>{v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.18;factoryCutawayOn=false;factoryInteriorsV84.setCutaway(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent='Factory Cutaway: Off';tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
+vt.onclick=()=>{vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;factoryCutawayOn=false;factoryInteriorsV84.setCutaway(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent='Factory Cutaway: Off';tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
+vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.10;factoryCutawayOn=true;factoryInteriorsV84.setCutaway(true);factoryCutawayButton.classList.add('active');factoryCutawayButton.textContent='Factory Cutaway: On';tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
 
 let bpOn=false;
 blueprint.visible=false;
 ground.visible=true;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=false;blueprint.visible=false;ground.visible=true;bp.classList.remove('active');bp.textContent='Blueprint Off';window.__DALOC_V72?.setEnabled?.(true);window.__DALOC_V72?.showEdges?.(false);v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=false;blueprint.visible=false;ground.visible=true;bp.classList.remove('active');bp.textContent='Blueprint Off';factoryCutawayOn=false;factoryInteriorsV84.setCutaway(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent='Factory Cutaway: Off';window.__DALOC_V72?.setEnabled?.(true);window.__DALOC_V72?.showEdges?.(false);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
