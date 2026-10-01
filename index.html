@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V62 STRAIGHT SOURCE-FIT ROADS</small>
+  <small>GitHub → Netlify · BUILD V63 GLOBAL RIGID ROAD FIT</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V62 sửa trực tiếp lỗi đường con cong như con giun: không còn snap từng điểm độc lập. Mỗi tuyến chỉ được dò vị trí từ masterplan 2D rồi fit thành một đoạn thẳng duy nhất, chỉ cho phép dịch ngang và xoay rất nhỏ để bám đúng nét quy hoạch.</p>
+  <p>V63 không còn căn từng điểm hay dùng median offset. Mỗi đường con được so khớp toàn tuyến với masterplan 2D bằng một phép fit cứng duy nhất gồm dịch ngang, xoay rất nhỏ và tự dò bề rộng; mục tiêu là bám đúng hai mép đường trên bản 2D nhưng vẫn giữ đường thẳng.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V62 straight roads</b><span>explicit raised concrete + curbs</span></div>
+    <div class="stat"><b>V63 rigid-fit roads</b><span>explicit raised concrete + curbs</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V62: straight source-fit roads — no per-point wobble</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V63: whole-segment rigid fit — source-matched offset, angle and width</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installSecondaryRoadsV62 } from './assets/secondary-roads-v62.js?v=62';
+import { installSecondaryRoadsV63 } from './assets/secondary-roads-v63.js?v=63';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1140,7 +1140,7 @@ roofs.forEach((r,idx)=>{
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
  .then(()=>{
    coordBadge.textContent='V53 roads ready · snapping V60 narrow secondary roads to 2D masterplan…';
-   return installSecondaryRoadsV62({
+   return installSecondaryRoadsV63({
      world,
      roofs,
      mapPx,
@@ -1151,18 +1151,18 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V62 straight-fit roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
+   coordBadge.textContent='V63 rigid-fit roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>({secondaryResult,detailResult}));
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V62 ready · straight source-fit secondary roads · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V63 ready · global rigid-fit secondary roads · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V62 detail warning: '+error.message;
+   coordBadge.textContent='V63 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1179,7 +1179,7 @@ vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.clas
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V62?.setEnabled?.(true);v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V63?.setEnabled?.(true);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
