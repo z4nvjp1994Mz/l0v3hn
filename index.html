@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V104 DIORAMA ASSET PACK</small>
+  <small>GitHub → Netlify · BUILD V105 REAL GLB ASSETS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V104 giữ nguyên CAD, bố cục và logic giao thông; nâng lần lượt tree → vehicle → factory → lamp → bench → road material → sidewalk → gate → people theo phong cách diorama, ưu tiên InstancedMesh/shared geometry và vẫn render trực tiếp một pass.</p>
+  <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -45,18 +45,18 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { installCirculationV53 } from './assets/circulation-v53.js?v=1041';
+import { installCirculationV53 } from './assets/circulation-v53.js?v=105';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
-import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=1041';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=105';
 import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=1041';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=1041';
 import { installSiteSafetyV98 } from './assets/site-safety-v98.js?v=98';
 import { installFactoryAccessV99 } from './assets/factory-access-v99.js?v=100';
-import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=1041';
+import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=105';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=1041';
 import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=94';
@@ -1408,7 +1408,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V104 ready · diorama asset pack · instanced trees/lamps/benches · shared vehicle/person geometry · textured CAD roads + paver sidewalks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V105 ready · real Kenney GLB people + trees · animated pedestrians · instanced GLB forest/greenbelt · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1518,7 +1518,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V104 asset-pack warning: '+error.message;
+   coordBadge.textContent='V105 real-asset warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
