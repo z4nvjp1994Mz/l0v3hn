@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V79 ULTRA FOREST + AI TRAFFIC</small>
+  <small>GitHub → Netlify · BUILD V80 INDUSTRIAL MIXED TRAFFIC</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V79 giữ nguyên hình học chính xác của V77/V78, tăng ngoại cảnh lên 14.000 cây instanced và bổ sung 6 xe tự hành dạng traffic agent chạy hai chiều trên các tuyến nội khu, có bám tuyến và giữ khoảng cách cơ bản.</p>
+  <p>V80 giữ nguyên 14.000 cây và hình học source-lock, đồng thời nâng traffic lên 20 phương tiện: 4 ô tô con, 10 xe tải chở hàng và 6 xe container. Mỗi nhóm có kích thước, tốc độ và khoảng cách an toàn riêng.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V79 forest + traffic</b><span>CAD roads + restored 3D layers</span></div>
+    <div class="stat"><b>V80 industrial traffic</b><span>CAD roads + restored 3D layers</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V79: 14k forest + moving autonomous traffic agents</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V80: 14k forest + 4 cars + 10 cargo trucks + 6 container trucks</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -50,7 +50,7 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=77';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=79';
-import { installTrafficAIV79 } from './assets/traffic-ai-v79.js?v=79';
+import { installTrafficAIV80 } from './assets/traffic-ai-v80.js?v=80';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1169,6 +1169,9 @@ let v78TreeCount=0;
 let v78HouseCount=0;
 let trafficController=null;
 let trafficCarCount=0;
+let trafficCargoCount=0;
+let trafficContainerCount=0;
+let trafficTotalCount=0;
 let v53AccessCount=0;
 installCirculationV53({
   world,
@@ -1209,13 +1212,16 @@ installCirculationV53({
        v78ExteriorGroup=forestResult?.group||null;
        v78TreeCount=forestResult?.treeCount||0;
        v78HouseCount=forestResult?.houseCount||0;
-       return installTrafficAIV79({
+       return installTrafficAIV80({
          world,
          mapPx,
          frameSignature:SITE_FRAME_SIGNATURE
        }).then(trafficResult=>{
          trafficController=trafficResult;
          trafficCarCount=trafficResult?.carCount||0;
+         trafficCargoCount=trafficResult?.cargoTruckCount||0;
+         trafficContainerCount=trafficResult?.containerTruckCount||0;
+         trafficTotalCount=trafficResult?.totalCount||0;
          return {cadResult,detailResult,forestResult,trafficResult};
        });
      });
@@ -1223,7 +1229,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V79 ready · '+v78TreeCount+' exterior trees · '+v78HouseCount+' houses · '+trafficCarCount+' AI traffic cars · registered CAD road '+(cadResult?.registeredRoad||'')+' · '+v53AccessCount+' grass cutouts · '+(st.factories||0)+' factory micro-detail sets';
+   coordBadge.textContent='V80 ready · '+v78TreeCount+' exterior trees · '+trafficCarCount+' cars · '+trafficCargoCount+' cargo trucks · '+trafficContainerCount+' container trucks · '+trafficTotalCount+' vehicles total · '+(st.factories||0)+' factory micro-detail sets';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1248,21 +1254,21 @@ installCirculationV53({
    document.querySelector('.controls')?.appendChild(envButton);
 
    const trafficButton=document.createElement('button');
-   trafficButton.id='trafficV79';
+   trafficButton.id='trafficV80';
    trafficButton.className='active';
-   trafficButton.textContent='AI Traffic: On';
+   trafficButton.textContent='Traffic 20: On';
    let trafficOn=true;
    trafficButton.onclick=()=>{
      trafficOn=!trafficOn;
      trafficController?.setEnabled?.(trafficOn);
      trafficButton.classList.toggle('active',trafficOn);
-     trafficButton.textContent='AI Traffic: '+(trafficOn?'On':'Off');
+     trafficButton.textContent='Traffic 20: '+(trafficOn?'On':'Off');
    };
    document.querySelector('.controls')?.appendChild(trafficButton);
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V79 forest/traffic warning: '+error.message;
+   coordBadge.textContent='V80 industrial-traffic warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
