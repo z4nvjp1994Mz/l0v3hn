@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V60.1 SECONDARY TOGGLE FIX</small>
+  <small>GitHub → Netlify · BUILD V60.2 TRUE ROAD LAYER TOGGLE</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V60.1 giữ nguyên đường con hẹp của V60 và sửa nút Secondary roads On/Off: khi bật, lớp đường 3D thay đúng phần đường tương ứng trên blueprint; khi tắt, lớp 3D biến mất và blueprint 2D gốc được khôi phục.</p>
+  <p>V60.2 sửa triệt để nút Secondary roads: phần đường tương ứng trên blueprint luôn được khoét khỏi lớp tham chiếu, vì vậy ON sẽ hiện đường con 3D còn OFF sẽ thật sự để trống phần đường đó. Không còn hiện tượng tắt mesh 3D nhưng blueprint bên dưới làm người dùng tưởng nút không hoạt động.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -1151,18 +1151,18 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V60.1 secondary roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
+   coordBadge.textContent='V60.2 secondary roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>({secondaryResult,detailResult}));
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V60.1 ready · secondary toggle fixed · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V60.2 ready · true road-layer toggle · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V60.1 detail warning: '+error.message;
+   coordBadge.textContent='V60.2 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
