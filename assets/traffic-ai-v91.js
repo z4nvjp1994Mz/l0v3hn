@@ -19,9 +19,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V112';
+  root.name='AI_TRAFFIC_V113';
   root.userData={
-    version:112,
+    version:113,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
@@ -86,6 +86,49 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       if(!pointInRingXZ(point,poly.outer))return false;
       return !poly.holes.some(hole=>pointInRingXZ(point,hole));
     });
+  }
+
+  function signalBaseClear(point,radius=.52){
+    if(pointInsideCarriageway(point))return false;
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4;
+      const q=new THREE.Vector3(
+        point.x+Math.cos(a)*radius,
+        point.y,
+        point.z+Math.sin(a)*radius
+      );
+      if(pointInsideCarriageway(q))return false;
+    }
+    return true;
+  }
+
+  // Find the actual right-hand road edge at one approach station by scanning
+  // perpendicular to the route. This is deliberately NOT a diagonal push from
+  // junction centre; it follows the real rendered carriageway boundary.
+  function findRightRoadEdge(origin,right,nominalHalf){
+    let lastInside=origin.clone();
+    let firstOutside=null;
+    const max=Math.max(24,nominalHalf+18);
+    for(let d=0;d<=max;d+=.35){
+      const q=origin.clone().addScaledVector(right,d);
+      if(pointInsideCarriageway(q)){
+        lastInside=q;
+      }else if(d>=Math.max(1,nominalHalf*.45)){
+        firstOutside=q;
+        break;
+      }
+    }
+    if(!firstOutside){
+      firstOutside=origin.clone().addScaledVector(right,nominalHalf+4);
+    }
+
+    // Refine the edge between the last inside and first outside samples.
+    let a=lastInside.clone(),b=firstOutside.clone();
+    for(let i=0;i<8;i++){
+      const mid=a.clone().lerp(b,.5);
+      if(pointInsideCarriageway(mid))a=mid;else b=mid;
+    }
+    return b;
   }
 
   // V91: derive real conflict points from the three source-locked route polylines.
@@ -634,7 +677,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   // The two junctions are offset so both crossings do not switch simultaneously.
   // -----------------------------------------------------------------------
   const signalGroup=new THREE.Group();
-  signalGroup.name='TRAFFIC_SIGNALS_V112';
+  signalGroup.name='TRAFFIC_SIGNALS_V113';
   root.add(signalGroup);
 
   const signalJunctions=junctions.slice(0,2);
@@ -734,50 +777,41 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const travel=sample.tangent.clone().multiplyScalar(dir).normalize();
     const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
 
-    // V109 definitive corner placement.
-    // The pole belongs on the approach-side sidewalk corner, NOT beside the
-    // junction centre. Longitudinal offset comes from the CROSSING road width;
-    // lateral offset comes from this approach road width.
+    // V113: standard near-side RIGHT-hand signal placement.
+    // 1) locate stop station before the crossing road;
+    // 2) scan PERPENDICULARLY from that station to the actual rendered road edge;
+    // 3) put the pole 1.35 m behind that edge on sidewalk/green verge.
+    // This prevents the previous diagonal "corner push" from scattering poles
+    // around the junction or placing them on unrelated corners.
     const crossRouteId=junction.routes.find(id=>id!==route.id);
     const crossRoute=routes.find(r=>r.id===crossRouteId);
     const halfRoad=Math.max(4.8,(route.widthWorld||12)*.5);
     const crossHalf=Math.max(4.8,(crossRoute?.widthWorld||12)*.5);
-    const cornerClearance=2.6;
 
-    // Put the stop bar just before the crossing carriageway.
-    const stopDistance=crossHalf+1.0;
+    const stopDistance=crossHalf+1.35;
     const stopCenter=junction.point.clone().addScaledVector(travel,-stopDistance);
 
-    // Initial pole corner = upstream of crossing + outside this road edge.
-    let longitudinal=crossHalf+cornerClearance;
-    let lateral=halfRoad+cornerClearance;
-    let polePos=junction.point.clone()
-      .addScaledVector(travel,-longitudinal)
-      .addScaledVector(right,lateral);
+    const roadEdge=findRightRoadEdge(stopCenter,right,halfRoad);
+    let polePos=roadEdge.clone().addScaledVector(right,1.35);
 
-    // The rendered junction polygon can flare wider than nominal route widths.
-    // Push diagonally outward until the BASE is genuinely outside the actual
-    // carriageway polygon, then add an extra verge margin.
-    const outward=right.clone().sub(travel).normalize();
-    let maskPush=0;
-    while(pointInsideCarriageway(polePos)&&maskPush<32){
-      polePos.addScaledVector(outward,.75);
-      maskPush+=.75;
-    }
-    polePos.addScaledVector(outward,1.25);
-
-    // Safety validation: if the extra margin somehow re-enters a concave road
-    // polygon, keep walking outward until definitely clear.
-    while(pointInsideCarriageway(polePos)&&maskPush<48){
-      polePos.addScaledVector(outward,.75);
-      maskPush+=.75;
+    // Ensure the whole concrete base footprint clears asphalt. Only push
+    // SIDEWAYS away from the approach road; never diagonally toward another arm.
+    let sidePush=0;
+    while(!signalBaseClear(polePos,.58)&&sidePush<8){
+      polePos.addScaledVector(right,.35);
+      sidePush+=.35;
     }
 
-    const poleSideOffset=lateral+maskPush/Math.SQRT2;
+    // Keep the pole slightly upstream from the painted stop bar so it reads as
+    // a conventional roadside signal and never sits on the junction flare.
+    polePos.addScaledVector(travel,-.65);
+
+    const poleSideOffset=polePos.clone().sub(stopCenter).dot(right);
     const heading=Math.atan2(travel.x,travel.z);
 
+
     const g=new THREE.Group();
-    g.name='V112_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.name='V113_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
     g.position.set(polePos.x,.02,polePos.z);
     g.rotation.y=heading;
 
@@ -791,11 +825,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     pole.castShadow=true;pole.receiveShadow=true;
     g.add(pole);
 
-    // Mast arm reaches inward from the sidewalk/green verge over the nearest lane.
-    // Because local +X is travel-right, negative X points back toward the roadway.
-    // V110 hotfix: remove the stale deleted-variable reference that was throwing
-    // ReferenceError and aborting the whole traffic bootstrap.
-    const armReach=Math.min(5.2,Math.max(3.8,cornerClearance+1.55));
+    // Pole is on driver's right; local -X points back toward the carriageway.
+    // Reach only over the near lane instead of stretching across the intersection.
+    const armReach=Math.min(5.6,Math.max(3.6,poleSideOffset-halfRoad+2.1));
     const arm=new THREE.Mesh(signalGeo.arm,poleMat);
     arm.scale.x=armReach;
     arm.position.set(-armReach*.5,5.02,0);
@@ -821,7 +853,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Scale stop bar to the actual source-road width instead of a fixed 8.2 m.
     const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
-    stopLine.name='V112_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.name='V113_STOP_LINE_'+junction.id+'_'+approachIndex;
     stopLine.position.set(stopCenter.x,.13,stopCenter.z);
     stopLine.rotation.y=heading;
     stopLine.scale.x=Math.max(6.5,(route.widthWorld||10)*.88);
@@ -830,8 +862,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     return {
       junction,routeId:route.id,dir,group:g,red,yellow,green,lastColor:null,
-      halfRoad,crossHalf,poleSideOffset,maskPush,
-      baseOutsideCarriageway:!pointInsideCarriageway(polePos)
+      halfRoad,crossHalf,poleSideOffset,sidePush,
+      roadEdge:{x:roadEdge.x,z:roadEdge.z},
+      baseOutsideCarriageway:signalBaseClear(polePos,.58)
     };
   }
 
@@ -868,9 +901,10 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     allRedSeconds:SIGNAL_TIMING.allRed,
     curbsidePlacement:true,
     polygonValidatedPlacement:true,
+    placementMode:'near-side right road-edge scan',
     carriagewayPolygonCount:carriagewayWorldPolys.length,
     basesOutsideCarriageway:signalHeads.every(h=>h.baseOutsideCarriageway),
-    maxMaskPush:Number(Math.max(0,...signalHeads.map(h=>h.maskPush||0)).toFixed(2)),
+    maxSidePush:Number(Math.max(0,...signalHeads.map(h=>h.sidePush||0)).toFixed(2)),
     sourceRoadWidths:Object.fromEntries(routes.map(r=>[r.id,Number(r.widthWorld.toFixed(2))]))
   };
 
@@ -1484,7 +1518,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:112,group:root,agents,counts,junctions,
+    ready:true,version:113,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
     getJunctionDiagnostics:()=>junctions.map(j=>({
       id:j.id,
@@ -1497,7 +1531,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V112 adaptive geometry-aware anti-gridlock signal traffic installed',{
+  console.info('[DaLoc] V113 adaptive geometry-aware anti-gridlock signal traffic installed',{
     ...counts,
     trafficLights:trafficLightStats,
     serviceAgents:serviceAgentCount,
@@ -1509,7 +1543,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   });
 
   return {
-    ready:true,version:112,group:root,counts,junctions,signalGroup,trafficLightStats,
+    ready:true,version:113,group:root,counts,junctions,signalGroup,trafficLightStats,
     carCount:counts.cars,cargoTruckCount:counts.cargoTrucks,
     containerTruckCount:counts.containerTrucks,motorcycleCount:counts.motorcycles,
     supercarCount:counts.supercars,totalCount:counts.total,
