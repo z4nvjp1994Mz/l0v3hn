@@ -19,7 +19,7 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V84.1 HOTFIX · SAFE DEFERRED INTERIORS</small>
+  <small>GitHub → Netlify · BUILD V84.2 GUARANTEED 50 PEDESTRIANS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V84 giữ nguyên traffic/rừng/hồ sen và nâng nhà xưởng lên interior 3D chi tiết. 50 người áo xanh không còn suy từ tim đường: 24 người ra/vào xưởng, 14 người đi quanh sân xưởng và 12 người chỉ đi trên polygon vỉa hè V53.</p>
 </div>
@@ -53,7 +53,7 @@ import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=79';
 import { installTrafficAIV83 } from './assets/traffic-ai-v83.js?v=83';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
-import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=84';
+import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=842';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
 
 const scene=new THREE.Scene();
@@ -1294,7 +1294,8 @@ installCirculationV53({
            world,
            mapPx,
            frameSignature:SITE_FRAME_SIGNATURE,
-           factoryPortals:factoryInteriorsV84.portals
+           factoryPortals:factoryInteriorsV84.portals,
+           buildings
          })
          .catch(error=>{
            console.error('[DaLoc] V84.1 pedestrian fallback',error);
@@ -1318,7 +1319,7 @@ installCirculationV53({
  })
  .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V84.1 ready · '+factoryInteriorsV84.factoryCount+' factory interiors · '+(pedestrianResult.counts?.factory||0)+' entering/exiting · '+(pedestrianResult.counts?.yard||0)+' yard walkers · '+(pedestrianResult.counts?.sidewalk||0)+' sidewalk-only · '+trafficTotalCount+' vehicles'+(factoryInteriorLoadError?' · interior fallback active':'');
+   coordBadge.textContent='V84.2 ready · '+pedestrianCount+' pedestrians loaded · '+(pedestrianResult.counts?.factory||0)+' entering/exiting · '+(pedestrianResult.counts?.yard||0)+' yard walkers · '+(pedestrianResult.counts?.sidewalk||0)+' sidewalk-only · '+(pedestrianResult.effectivePortalCount||0)+' usable factory portals · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1375,19 +1376,19 @@ installCirculationV53({
    const peopleButton=document.createElement('button');
    peopleButton.id='pedestriansV84';
    peopleButton.className='active';
-   peopleButton.textContent='Pedestrians 50: On';
+   peopleButton.textContent='Pedestrians: On ('+pedestrianCount+')';
    let peopleOn=true;
    peopleButton.onclick=()=>{
      peopleOn=!peopleOn;
      pedestrianController?.setEnabled?.(peopleOn);
      peopleButton.classList.toggle('active',peopleOn);
-     peopleButton.textContent='Pedestrians 50: '+(peopleOn?'On':'Off');
+     peopleButton.textContent='Pedestrians: '+(peopleOn?'On':'Off')+' ('+pedestrianCount+')';
    };
    document.querySelector('.controls')?.appendChild(peopleButton);
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V84 interiors/pedestrians warning: '+error.message;
+   coordBadge.textContent='V84.2 pedestrians warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
