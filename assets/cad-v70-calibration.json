@@ -1,0 +1,74 @@
+{
+  "version": 70,
+  "source": "01.BDTD GT N1,D1,D2 _ ĐL.dxf",
+  "target": "assets/masterplan-hires.jpg",
+  "targetSizePx": [
+    1616,
+    2048
+  ],
+  "method": "Similarity transform after Y-axis inversion, solved from two CAD/masterplan road-intersection anchors. CAD main-road axes visually overlay the masterplan within line-width tolerance.",
+  "cadToPixel": {
+    "u": "1.204201271264511*x + 0.018477965419567165*y - 722515.20057577",
+    "v": "0.018477965419567165*x - 1.204201271264511*y + 2760122.42521958",
+    "matrix": [
+      [
+        1.204201271264511,
+        0.018477965419567165,
+        -722515.20057577
+      ],
+      [
+        0.018477965419567165,
+        -1.204201271264511,
+        2760122.42521958
+      ]
+    ],
+    "pxPerCadUnit": 1.2043430312502792,
+    "cadUnitsPerPixel": 0.8303282155100428,
+    "rotationDegAfterYFlip": 0.8791108067180406
+  },
+  "anchors": [
+    {
+      "id": "central_x_north",
+      "cad": [
+        565584.5154730955,
+        2300104.919733713
+      ],
+      "pixel": [
+        1063.651132672117,
+        784.0079532445257
+      ],
+      "source": "intersection TIM____NG 77505 x 77536 -> circulation-v53 central-spine x north-cross"
+    },
+    {
+      "id": "central_x_south",
+      "cad": [
+        565265.1240443194,
+        2299864.841451698
+      ],
+      "pixel": [
+        674.6034099159054,
+        1067.2088218736765
+      ],
+      "source": "intersection TIM____NG 77505 x 7754C -> circulation-v53 central-spine x south-cross"
+    }
+  ],
+  "matchedCadAxes": {
+    "centralSpine": "TIM____NG handle 77505",
+    "northCross": "TIM____NG handle 77536",
+    "southCross": "TIM____NG handle 7754C"
+  },
+  "policy": {
+    "cadIsAuthoritativeFor": [
+      "N1/D1/D2 axes",
+      "major-road geometry",
+      "junction geometry",
+      "site/boundary anchors"
+    ],
+    "masterplanIsAuthoritativeFor": [
+      "factory footprints",
+      "secondary/service roads absent from DXF",
+      "landscape/park/internal site detail"
+    ],
+    "rule": "Do not infer secondary roads at runtime. Trace them once from masterplan into explicit vectors in the same locked pixel frame, then render those vectors directly in 3D."
+  }
+}
