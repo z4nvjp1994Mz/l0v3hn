@@ -189,8 +189,22 @@ function alphaTexture(canvas,renderer){
   t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t;
 }
 
+function makeBlueprintCutoutMask(roadMask){
+  const c=document.createElement('canvas');c.width=IMG_W;c.height=IMG_H;
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  const src=roadMask.getContext('2d',{willReadFrequently:true}).getImageData(0,0,IMG_W,IMG_H).data;
+  const out=ctx.createImageData(IMG_W,IMG_H);
+  for(let i=0;i<IMG_W*IMG_H;i++){
+    const a=src[i*4+3];
+    const v=a>20?0:255;
+    const p=i*4;out.data[p]=v;out.data[p+1]=v;out.data[p+2]=v;out.data[p+3]=255;
+  }
+  ctx.putImageData(out,0,0);
+  return c;
+}
+
 export async function installSecondaryRoadsV60({
-  world,roofs,mapPx,metersPerPixel,frameSignature,renderer
+  world,roofs,mapPx,metersPerPixel,frameSignature,renderer,blueprintMat=null
 }){
   const response=await fetch(new URL('./circulation-v53.json',import.meta.url));
   if(!response.ok)throw new Error('V60 circulation data HTTP '+response.status);
@@ -231,14 +245,40 @@ export async function installSecondaryRoadsV60({
   document.getElementById('secondaryRoadsV58')?.remove();
   document.getElementById('secondaryRoadsV59')?.remove();
 
-  const button=document.createElement('button');button.textContent='Secondary roads: On';
+  const originalBlueprintAlphaMap=blueprintMat?.alphaMap||null;
+  const blueprintCutoutCanvas=makeBlueprintCutoutMask(masks.outer);
+  const blueprintCutoutTex=alphaTexture(blueprintCutoutCanvas,renderer);
+
+  let enabled=true;
+  const setEnabled=(on)=>{
+    enabled=!!on;
+    root.visible=enabled;
+
+    // The 2D masterplan already contains these service roads. When the 3D layer
+    // is ON, cut those pixels out of the blueprint so the replacement is
+    // visually obvious and there is no double-drawing. OFF restores the exact
+    // original 2D blueprint, so the toggle now has a clear before/after effect.
+    if(blueprintMat){
+      blueprintMat.alphaMap=enabled?blueprintCutoutTex:originalBlueprintAlphaMap;
+      blueprintMat.needsUpdate=true;
+    }
+
+    button.classList.toggle('active',enabled);
+    button.textContent='Secondary roads: '+(enabled?'On':'Off');
+    button.setAttribute('aria-pressed',enabled?'true':'false');
+    root.traverse(o=>{if(o.isMesh)o.visible=enabled;});
+  };
+
+  const button=document.createElement('button');
   button.className='active';button.id='secondaryRoadsV60';
-  button.onclick=()=>{root.visible=!root.visible;button.classList.toggle('active',root.visible);button.textContent='Secondary roads: '+(root.visible?'On':'Off');};
+  button.onclick=()=>setEnabled(!enabled);
   document.querySelector('.controls')?.appendChild(button);
+  setEnabled(true);
 
   window.__DALOC_V60={
     ready:true,version:60,frameSignature,lines:masks.snapped.length,
-    source:'masterplan-hires.jpg',mode:'source-snapped narrow centerline roads'
+    source:'masterplan-hires.jpg',mode:'source-snapped narrow centerline roads',
+    setEnabled,get enabled(){return enabled;}
   };
   console.info('[DaLoc] V60 source-snapped narrow secondary roads installed',window.__DALOC_V60);
   return {group:root,count:blocks.length,lines:masks.snapped.length};
