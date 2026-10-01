@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V91 FULL ROAD-TREE CAD NETWORK LOCK</small>
+  <small>GitHub → Netlify · BUILD V92 MAIN GATE · CAD-LOCKED</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V91 giữ CAD gốc làm chuẩn và khóa toàn bộ hàng cây/cỏ/curb/sidewalk quanh 3 trục đường chính theo đúng network CAD: 77505, 7754C và tổ hợp 77536+77537.</p>
+  <p>V92 giữ toàn bộ V91 và bổ sung cổng chính Cụm công nghiệp Đa Lộc tại đầu phía Nam road CAD 77505, dựng theo form ảnh tham chiếu HAPLAST.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -55,6 +55,7 @@ import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=82';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=91';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
+import { installEntranceGateV92 } from './assets/main-gate-v92.js?v=92';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1205,6 +1206,8 @@ let v54DetailGroup=null;
 let v78ExteriorGroup=null;
 let v78TreeCount=0;
 let v78HouseCount=0;
+let v92GateGroup=null;
+let v92GateResult=null;
 let trafficController=null;
 let pedestrianController=null;
 let pedestrianCount=0;
@@ -1306,20 +1309,36 @@ installCirculationV53({
          .then(pedestrianResult=>{
            pedestrianController=pedestrianResult;
            pedestrianCount=pedestrianResult?.count||0;
-           return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult};
+           return installEntranceGateV92({
+             world,
+             mapPx,
+             metersPerPixel:S,
+             frameSignature:SITE_FRAME_SIGNATURE,
+             camera,
+             controls
+           })
+           .catch(error=>{
+             console.error('[DaLoc] V92 main gate fallback',error);
+             return {ready:false,version:92,group:null,error};
+           })
+           .then(gateResult=>{
+             v92GateResult=gateResult;
+             v92GateGroup=gateResult?.group||null;
+             return {cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult};
+           });
          });
        });
      });
    });
  })
- .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult})=>{
+ .then(({cadResult,detailResult,forestResult,trafficResult,pedestrianResult,gateResult})=>{
    const st=detailResult?.stats||{};
    const v53Asphalt=world.getObjectByName('V53_CARRIAGEWAY');
    if(v53Asphalt){
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='V91 ready · 3 major CAD corridors locked · roadside tree rows + shrubs aligned · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='V92 ready · main gate '+(gateResult?.ready?'installed':'fallback')+' · CAD road-tree network locked · '+(trafficResult.junctions?.length||0)+' protected junctions · '+pedestrianCount+' pedestrians · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1333,6 +1352,7 @@ installCirculationV53({
      if(v53DetailGroup)v53DetailGroup.visible=envOn;
      if(v54DetailGroup)v54DetailGroup.visible=envOn;
      if(v78ExteriorGroup)v78ExteriorGroup.visible=envOn;
+     if(v92GateGroup)v92GateGroup.visible=envOn;
      if(lotusPondV81?.group)lotusPondV81.group.visible=envOn;
      if(pondFishV82?.group)pondFishV82.group.visible=envOn;
      if(pedestrianController?.group)pedestrianController.group.visible=envOn;
@@ -1388,7 +1408,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V91 road-tree CAD-network warning: '+error.message;
+   coordBadge.textContent='V92 gate/CAD-network warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1414,7 +1434,7 @@ function updateTreeVisibility(){
   const show=d<2400;
   if(show===treeVisibilityState) return;
   treeVisibilityState=show;
-  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show&&!obj.userData?.hiddenByCadAccess;});
+  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show&&!obj.userData?.hiddenByCadAccess&&!obj.userData?.hiddenByMainGateV92;});
 }
 controls.addEventListener('change',updateTreeVisibility);
 updateTreeVisibility();
