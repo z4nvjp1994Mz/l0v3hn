@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V64 EDGE-LOCKED ROADS</small>
+  <small>GitHub → Netlify · BUILD V65 PARCEL-EDGE ROADS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V64 bỏ cách tối ưu theo màu nền của V63. Mỗi đường con giờ dò trực tiếp HAI mép nét đường trên masterplan 2D tại nhiều lát cắt, loại nhiễu chữ/hatch rồi dựng một dải bê tông thẳng theo đúng hai biên đó. Tuyến nào không đủ bằng chứng sẽ bị bỏ qua thay vì dựng sai.</p>
+  <p>V65 sửa đúng nguyên nhân lệch: V64 vẫn bắt nhầm dải sân/loading apron ngay sát mặt nhà xưởng. V65 đẩy seed ra mép parcel/corridor thực tế theo footprint nhà xưởng, sau đó chỉ cho phép hiệu chỉnh rất nhỏ theo hai biên 2D; không còn được nhảy ngược vào sát tường.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V64 edge-locked roads</b><span>explicit raised concrete + curbs</span></div>
+    <div class="stat"><b>V65 parcel-edge roads</b><span>explicit raised concrete + curbs</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V64: dual-edge source lock — road center and width come from two 2D boundaries</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V65: parcel-edge seed + local dual-edge lock — avoids warehouse loading apron</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -48,7 +48,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { installCirculationV53 } from './assets/circulation-v53.js';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
-import { installSecondaryRoadsV64 } from './assets/secondary-roads-v64.js?v=64';
+import { installSecondaryRoadsV65 } from './assets/secondary-roads-v65.js?v=65';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -1140,7 +1140,7 @@ roofs.forEach((r,idx)=>{
 installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls})
  .then(()=>{
    coordBadge.textContent='V53 roads ready · snapping V60 narrow secondary roads to 2D masterplan…';
-   return installSecondaryRoadsV64({
+   return installSecondaryRoadsV65({
      world,
      roofs,
      mapPx,
@@ -1151,18 +1151,18 @@ installCirculationV53({world,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,
    });
  })
  .then(secondaryResult=>{
-   coordBadge.textContent='V64 edge-locked roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
+   coordBadge.textContent='V65 parcel-edge roads ready · '+(secondaryResult?.lines||0)+' snapped segments · installing V54 detail…';
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>({secondaryResult,detailResult}));
  })
  .then(({secondaryResult,detailResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V64 ready · dual-edge locked secondary roads · '+(st.factories||0)+' detailed factories';
+   coordBadge.textContent='V65 ready · parcel-edge secondary roads · '+(st.factories||0)+' detailed factories';
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V64 detail warning: '+error.message;
+   coordBadge.textContent='V65 detail warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
@@ -1179,7 +1179,7 @@ vd.onclick=()=>{vd.classList.add('active');v3.classList.remove('active');vt.clas
 let bpOn=true;
 ground.visible=false;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V64?.setEnabled?.(true);v3.click()};
+document.getElementById('reset').onclick=()=>{bpOn=true;blueprint.visible=true;ground.visible=false;bp.classList.add('active');bp.textContent='Blueprint On';window.__DALOC_V65?.setEnabled?.(true);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
