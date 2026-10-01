@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildCadCorridorWarpV89 } from './corridor-warp-v89.js?v=89';
 
 // V84 pedestrian behavior:
 // - 24 workers enter/exit factories through V84 personnel portals
@@ -8,17 +9,23 @@ import * as THREE from 'three';
 export async function installPedestriansV84({
   world,mapPx,frameSignature,factoryPortals=[],buildings=[]
 }){
-  const response=await fetch(new URL('./circulation-v53.json',import.meta.url));
-  if(!response.ok)throw new Error('V84 pedestrian source HTTP '+response.status);
+  const [response,cadResponse]=await Promise.all([
+    fetch(new URL('./circulation-v53.json',import.meta.url)),
+    fetch(new URL('./cad-source-v72.json',import.meta.url))
+  ]);
+  if(!response.ok)throw new Error('V89 pedestrian source HTTP '+response.status);
+  if(!cadResponse.ok)throw new Error('V89 pedestrian CAD source HTTP '+cadResponse.status);
   const data=await response.json();
-  if(data.frameSignature!==frameSignature)throw new Error('V84 pedestrian coordinate frame mismatch');
+  const cadData=await cadResponse.json();
+  if(data.frameSignature!==frameSignature||cadData.frameSignature!==frameSignature)throw new Error('V89 pedestrian coordinate frame mismatch');
+  const corridorWarpV89=buildCadCorridorWarpV89({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
   root.name='PEDESTRIANS_V842';
   root.userData={
-    version:'84.2',
+    version:'89',
     count:50,
-    source:'V53 sidewalk polygons + V84 factory portals + building-derived fallback portals'
+    source:'CAD-warped V53 sidewalks + V84 factory portals + building-derived fallback portals'
   };
   world.add(root);
 
@@ -131,8 +138,8 @@ export async function installPedestriansV84({
   }
 
   const sidewalkPolysWorld=sidewalkPolys.map(poly=>({
-    outer:poly.outer.map(([x,y])=>{const p=mapPx(x,y);return new THREE.Vector3(p.x,.10,p.z);}),
-    holes:(poly.holes||[]).map(h=>h.map(([x,y])=>{const p=mapPx(x,y);return new THREE.Vector3(p.x,.10,p.z);}))
+    outer:poly.outer.map(([x,y])=>{const q=corridorWarpV89.warpPx(x,y),p=mapPx(q.x,q.y);return new THREE.Vector3(p.x,.10,p.z);}),
+    holes:(poly.holes||[]).map(h=>h.map(([x,y])=>{const q=corridorWarpV89.warpPx(x,y),p=mapPx(q.x,q.y);return new THREE.Vector3(p.x,.10,p.z);}))
   }));
 
   function insideSidewalk(x,z){
@@ -404,12 +411,12 @@ export async function installPedestriansV84({
   root.userData.effectivePortalCount=effectivePortals.length;
 
   window.__DALOC_PEDESTRIANS_V84={
-    ready:true,version:'84.2',group:root,agents,counts,
+    ready:true,version:'89',group:root,agents,counts,
     effectivePortalCount:effectivePortals.length,
     update,setEnabled
   };
 
-  console.info('[DaLoc] V84.2 guaranteed pedestrian navigation installed',{
+  console.info('[DaLoc] V89 CAD-warped pedestrian navigation installed',{
     ...counts,
     effectivePortals:effectivePortals.length,
     suppliedPortals:factoryPortals.length,
@@ -417,7 +424,7 @@ export async function installPedestriansV84({
   });
 
   return {
-    ready:true,version:'84.2',group:root,count:counts.total,counts,
+    ready:true,version:'89',group:root,count:counts.total,counts,
     effectivePortalCount:effectivePortals.length,
     update,setEnabled
   };
