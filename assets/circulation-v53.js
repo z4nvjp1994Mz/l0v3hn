@@ -1,11 +1,15 @@
 import * as THREE from 'three';
-import { computeSecondaryRoadsV58 } from './secondary-roads-v58.js';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls,showUI=true}) {
-  const response=await fetch(new URL('./circulation-v53.json',import.meta.url));
+  const [response,accessResponse]=await Promise.all([
+    fetch(new URL('./circulation-v53.json',import.meta.url)),
+    fetch(new URL('./cad-access-v75.json',import.meta.url))
+  ]);
   if(!response.ok) throw new Error('Circulation data: HTTP '+response.status);
+  if(!accessResponse.ok) throw new Error('CAD access data: HTTP '+accessResponse.status);
   const data=await response.json();
+  const accessData=await accessResponse.json();
   if(data.frameSignature!==frameSignature) throw new Error('Circulation coordinate frame mismatch');
   const group=new THREE.Group(); group.name='CIRCULATION_V53'; group.userData.source=data.source;
   const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
@@ -29,7 +33,8 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     carriageway:new THREE.MeshStandardMaterial({map:texture('asphalt'),bumpMap:texture('height'),bumpScale:.005,roughness:.97}),
     curb:new THREE.MeshStandardMaterial({color:0xbfc2b8,roughness:.95}),
     sidewalk:new THREE.MeshStandardMaterial({map:texture('pavers'),roughness:.96}),
-    greenbelt:new THREE.MeshStandardMaterial({map:texture('grass'),roughness:1})
+    greenbelt:new THREE.MeshStandardMaterial({map:texture('grass'),roughness:1}),
+    driveway:new THREE.MeshStandardMaterial({color:0xc7c8c2,roughness:.97})
   };
   const specs={carriageway:[0,.10,2],curb:[0,.28,2],sidewalk:[.10,.13,1.6],greenbelt:[0,.14,2]};
   function ring(points,clockwise){
@@ -57,11 +62,47 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   const green=data.layers.greenbelt;
   const inGreen=(x,y)=>green.some(p=>insideRing(x,y,p.outer)&&!p.holes.some(h=>insideRing(x,y,h)));
 
-  // V56 concrete access lanes cut through the planted green belt.
-  // Exclude those exact access polygons before supplementary V53 trees are instanced.
-  const v58Secondary=computeSecondaryRoadsV58(window.__DA_LOC_ROOFS||[],data.paths||[]);
-  const v58NoPlant=v58Secondary.flatMap(b=>b.noPlantPolygons||[]);
-  const inV58Secondary=(x,y)=>v58NoPlant.some(poly=>insideRing(x,y,poly));
+  // V75: authoritative openings come from discontinuities in CAD layer HTKT_GT_HEDUONG.
+  // These replace the old roof-derived V58 no-plant guesses.
+  const cadAccessPolygons=(accessData.accesses||[]).map(a=>a.polygonPx);
+  const inCadAccess=(x,y)=>cadAccessPolygons.some(poly=>insideRing(x,y,poly));
+
+  // Lay a concrete driveway slab over the legacy greenbelt/sidewalk mesh at each
+  // verified CAD opening. This visually carves the continuous V53 strip without CSG.
+  const accessShapes=[];
+  for(const access of accessData.accesses||[]){
+    const pts=access.polygonPx||[];
+    if(pts.length<3)continue;
+    const p0=mapPx(pts[0][0],pts[0][1]);
+    const shape=new THREE.Shape();
+    shape.moveTo(p0.x,-p0.z);
+    for(let i=1;i<pts.length;i++){
+      const p=mapPx(pts[i][0],pts[i][1]);
+      shape.lineTo(p.x,-p.z);
+    }
+    shape.closePath();
+    accessShapes.push(shape);
+  }
+  if(accessShapes.length){
+    const geo=new THREE.ExtrudeGeometry(accessShapes,{depth:.12,bevelEnabled:false,steps:1,curveSegments:1});
+    geo.rotateX(-Math.PI/2);
+    const mesh=new THREE.Mesh(geo,materials.driveway);
+    mesh.name='V75_CAD_ACCESS_DRIVEWAYS';
+    mesh.position.y=.18;
+    mesh.receiveShadow=true;
+    mesh.userData={layer:'cad-access',source:accessData.source,sourceLayer:accessData.layer,accessCount:accessShapes.length};
+    group.add(mesh);
+  }
+
+  // Existing masterplan trees must also respect the CAD openings.
+  world.traverse(o=>{
+    if(!o.userData?.isTreeGroup||!o.userData?.masterplanPx)return;
+    const p=o.userData.masterplanPx;
+    if(inCadAccess(p.x,p.y)){
+      o.userData.hiddenByCadAccess=true;
+      o.visible=false;
+    }
+  });
 
   const existing=world.children.filter(o=>o.userData.isTreeGroup).map(o=>o.position),planting=[];
   // Supplementary planting belongs ONLY to the green belt. Existing tree positions never move.
@@ -72,8 +113,8 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
       for(let t=14-accumulated;t<len;t+=14)for(const side of [-1,1]){
         const off=path.widthPx/2+1.93/.782+3.7;
         const x=a[0]+dx*t/len-side*dy/len*off,y=a[1]+dy*t/len+side*dx/len*off,v=mapPx(x,y);
-        if(!inGreen(x,y)||inV58Secondary(x,y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
-        let safe=true;for(let k=0;k<8;k++){const tx=x+Math.cos(k*Math.PI/4)*2,ty=y+Math.sin(k*Math.PI/4)*2;if(!inGreen(tx,ty)||inV58Secondary(tx,ty))safe=false;}
+        if(!inGreen(x,y)||inCadAccess(x,y)||existing.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<4.5))continue;
+        let safe=true;for(let k=0;k<8;k++){const tx=x+Math.cos(k*Math.PI/4)*2,ty=y+Math.sin(k*Math.PI/4)*2;if(!inGreen(tx,ty)||inCadAccess(tx,ty))safe=false;}
         if(safe&&!planting.some(p=>Math.hypot(p.x-v.x,p.z-v.z)<7))planting.push(v);
       }accumulated=(accumulated+len)%14;
     }
@@ -111,7 +152,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:53,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,
+  window.__DALOC_V53={ready:true,version:75,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
-  return {group,plantingCount:planting.length};
+  return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
