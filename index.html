@@ -19,9 +19,9 @@
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V77 MAIN-SPINE AXIS REGISTRATION</small>
+  <small>GitHub → Netlify · BUILD V78 DENSE FOREST CONTEXT</small>
   <h1>Đa Lộc Industrial Cluster</h1>
-  <p>V77 giữ toàn bộ detail 3D/V76 và hiệu chỉnh riêng trục đường chính 77505 theo anchor giao nhau giữa CAD và masterplan. Nhánh phía Nam không còn drift dần khỏi hàng cây/greenbelt; raw CAD vẫn được giữ nguyên để đối chiếu.</p>
+  <p>V78 giữ nguyên toàn bộ hình học chính xác của V77 và thay ngoại cảnh bằng vành rừng dày bao quanh toàn bộ CCN theo ranh CAD. Rừng tránh đường giao thông, chỉ chừa một số khoảng trống nhỏ với vài nhà dân rải rác.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -36,11 +36,11 @@
   <div class="stats">
     <div class="stat"><b>≈0.78 m/px</b><span>physical scale calibration</span></div>
     <div class="stat"><b>1616×2048</b><span>same coordinate system</span></div>
-    <div class="stat"><b>V77 axis registered</b><span>CAD roads + restored 3D layers</span></div>
+    <div class="stat"><b>V78 dense forest</b><span>CAD roads + restored 3D layers</span></div>
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V77: V76 detail + registered main asphalt axis</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V78: V77 geometry + dense CAD-boundary forest context</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -49,6 +49,7 @@ import { installCirculationV53 } from './assets/circulation-v53.js?v=76';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=74';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=77';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=78';
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xa9c390);
@@ -601,7 +602,7 @@ function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}
 function rr(a,b){return a+(b-a)*rnd();}
 
 // Instanced conifer forest around the industrial-cluster presentation slab.
-const forestCount=900;
+const forestCount=0;
 const trunkGeo=new THREE.CylinderGeometry(.22,.34,4.8,7);
 const crownGeo=new THREE.ConeGeometry(1.85,6.8,9);
 const forestTrunkMat=new THREE.MeshStandardMaterial({color:0x65452f,roughness:1});
@@ -643,8 +644,7 @@ function addHouse(x,z,rot=0,sc=1){
   const door=new THREE.Mesh(new THREE.BoxGeometry(1.0*sc,2.1*sc,.10),darkMat);
   door.position.set(0,1.05*sc,d/2+.06);g.add(door);
 }
-for(let i=0;i<72;i++) addHouse(rr(-790,-655),rr(-690,760),rr(-.4,.4),rr(.85,1.22));
-for(let i=0;i<70;i++) addHouse(rr(655,790),rr(-720,720),rr(-.3,.3),rr(.84,1.20));
+// V78 replaces the old dense village strips with only a few houses in forest clearings.
 
 // scattered deciduous trees around village edges
 function addOuterTree(x,z,sc=1){
@@ -654,7 +654,7 @@ function addOuterTree(x,z,sc=1){
   const cr=new THREE.Mesh(new THREE.IcosahedronGeometry(1.8*sc,1),treeLeafMat2);
   cr.position.y=5.8*sc;cr.castShadow=true;g.add(cr);
 }
-for(let i=0;i<260;i++){
+for(let i=0;i<0;i++){
   const side=i%2===0?-1:1;
   addOuterTree(side*rr(650,860),rr(-820,820),rr(.85,1.35));
 }
@@ -751,10 +751,7 @@ function addFieldPatch(x,z,w,d,rot=0,matIndex=0){
   m.position.set(x,-.45,z);m.rotation.y=rot;m.receiveShadow=true;outerContext.add(m);
 }
 // field patches close to each edge of the plan
-addFieldPatch(-760,-180,230,1050,.05,0);
-addFieldPatch(760,-120,230,1050,-.04,1);
-addFieldPatch(0,-930,1180,250,.02,2);
-addFieldPatch(0,930,1180,250,-.02,3);
+// V78 forest floor replaces the old open field patches around the project.
 
 // closer village clusters immediately outside the plan
 function addOuterVillageHouse(x,z,rot=0,sc=1){
@@ -765,9 +762,7 @@ function addOuterVillageHouse(x,z,rot=0,sc=1){
   const roof=new THREE.Mesh(new THREE.ConeGeometry(5.4*sc,2.5*sc,4),houseRoofMats[Math.floor(rnd()*houseRoofMats.length)]);
   roof.rotation.y=Math.PI/4;roof.position.y=h+1.15*sc;roof.castShadow=true;g.add(roof);
 }
-for(let i=0;i<26;i++) addOuterVillageHouse(-720+rr(-45,45),rr(-650,650),rr(-.5,.5),rr(.8,1.25));
-for(let i=0;i<24;i++) addOuterVillageHouse(720+rr(-45,45),rr(-620,620),rr(-.5,.5),rr(.8,1.22));
-for(let i=0;i<18;i++) addOuterVillageHouse(rr(-520,520),-855+rr(-30,30),rr(-.4,.4),rr(.78,1.18));
+// V78 provides the sparse village houses; legacy edge clusters are disabled.
 
 // tree belts immediately around the project edge, large enough to read at current physical scale
 function addContextTree(x,z,sc=1){
@@ -779,12 +774,12 @@ function addContextTree(x,z,sc=1){
   const c2=new THREE.Mesh(new THREE.IcosahedronGeometry(1.35*sc,1),treeLeafMat3);
   c2.position.set(.7*sc,6.6*sc,-.2*sc);c2.castShadow=true;g.add(c2);
 }
-for(let i=0;i<95;i++){
+for(let i=0;i<0;i++){
   const z=-760+i*(1520/94);
   addContextTree(-655+Math.sin(i*.7)*12,z,rr(.85,1.25));
   addContextTree(655+Math.cos(i*.9)*12,z,rr(.85,1.25));
 }
-for(let i=0;i<70;i++){
+for(let i=0;i<0;i++){
   const x=-590+i*(1180/69);
   addContextTree(x,-800+Math.sin(i*.8)*10,rr(.82,1.18));
   addContextTree(x,800+Math.cos(i*.65)*10,rr(.82,1.18));
@@ -1168,6 +1163,9 @@ roofs.forEach((r,idx)=>{
 // V74: restore previously-built 3D detail without replacing authoritative CAD asphalt.
 let v53DetailGroup=null;
 let v54DetailGroup=null;
+let v78ExteriorGroup=null;
+let v78TreeCount=0;
+let v78HouseCount=0;
 let v53AccessCount=0;
 installCirculationV53({
   world,
@@ -1198,12 +1196,23 @@ installCirculationV53({
      v54DetailGroup=detailResult?.group||null;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
-     return {cadResult,detailResult};
+     return installExteriorForestV78({
+       scene,
+       mapPx,
+       metersPerPixel:S,
+       frameSignature:SITE_FRAME_SIGNATURE,
+       renderer
+     }).then(forestResult=>{
+       v78ExteriorGroup=forestResult?.group||null;
+       v78TreeCount=forestResult?.treeCount||0;
+       v78HouseCount=forestResult?.houseCount||0;
+       return {cadResult,detailResult,forestResult};
+     });
    });
  })
- .then(({cadResult,detailResult})=>{
+ .then(({cadResult,detailResult,forestResult})=>{
    const st=detailResult?.stats||{};
-   coordBadge.textContent='V77 ready · registered CAD road '+(cadResult?.registeredRoad||'')+' · '+(cadResult?.roads||0)+' road axes · '+v53AccessCount+' grass cutouts · '+(st.factories||0)+' factory micro-detail sets';
+   coordBadge.textContent='V78 ready · '+v78TreeCount+' exterior trees · '+v78HouseCount+' houses · registered CAD road '+(cadResult?.registeredRoad||'')+' · '+v53AccessCount+' grass cutouts · '+(st.factories||0)+' factory micro-detail sets';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1216,6 +1225,7 @@ installCirculationV53({
      diorama.visible=envOn;
      if(v53DetailGroup)v53DetailGroup.visible=envOn;
      if(v54DetailGroup)v54DetailGroup.visible=envOn;
+     if(v78ExteriorGroup)v78ExteriorGroup.visible=envOn;
      const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
@@ -1228,7 +1238,7 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V77 road-registration warning: '+error.message;
+   coordBadge.textContent='V78 exterior-forest warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
 
