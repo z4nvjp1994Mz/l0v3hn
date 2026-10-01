@@ -52,16 +52,39 @@ export function installFactoryInteriorsV84({world,buildings}){
     group.add(fg);
   }
 
-  buildings.forEach((g,idx)=>{
-    const body=g.children.find(o=>o.isMesh&&o.geometry?.type==='BoxGeometry'&&o.position.y>1);
-    if(!body)return;
-    const {width:L,height:H,depth:D}=body.geometry.parameters;
+  function cloneMaterialSafe(material){
+    if(Array.isArray(material)){
+      return material.map(m=>m&&typeof m.clone==='function'?m.clone():m);
+    }
+    return material&&typeof material.clone==='function'?material.clone():material;
+  }
 
-    // Clone shell materials so V84 cutaway does not mutate other shared materials.
-    body.material=body.material.clone();
-    const roofCandidates=g.children.filter(o=>o.isMesh&&o.geometry?.type==='BoxGeometry'&&o.position.y>H);
-    roofCandidates.forEach(m=>{m.material=m.material.clone();});
-    shellMeshes.push({body,roofs:roofCandidates});
+  const failedFactories=[];
+
+  buildings.forEach((g,idx)=>{
+    try{
+      // Pick the structural wall box, never a roof/detail box.
+      const body=g.children.find(o=>
+        o.isMesh &&
+        o.geometry?.type==='BoxGeometry' &&
+        o.geometry?.parameters?.height>4 &&
+        o.geometry?.parameters?.width>10 &&
+        o.geometry?.parameters?.depth>8
+      );
+      if(!body)return;
+      const {width:L,height:H,depth:D}=body.geometry.parameters;
+
+      // Clone shell materials safely; some Three meshes may use material arrays.
+      body.material=cloneMaterialSafe(body.material);
+      const roofCandidates=g.children.filter(o=>
+        o.isMesh &&
+        o.geometry?.type==='BoxGeometry' &&
+        o.geometry?.parameters?.height<1.0 &&
+        o.geometry?.parameters?.width>L*.45 &&
+        o.position.y>H
+      );
+      roofCandidates.forEach(m=>{m.material=cloneMaterialSafe(m.material);});
+      shellMeshes.push({body,roofs:roofCandidates});
 
     const interior=new THREE.Group();
     interior.name='V84_FACTORY_INTERIOR_'+idx;
@@ -189,8 +212,12 @@ export function installFactoryInteriorsV84({world,buildings}){
       insideFarWorld:localToWorld(g,insideFarLocal),
       patrolWorld:patrolLocal.map(v=>localToWorld(g,v))
     };
-    portals.push(portal);
-    g.userData.factoryV84=portal;
+      portals.push(portal);
+      g.userData.factoryV84=portal;
+    }catch(error){
+      console.error('[DaLoc] V84 factory interior failed for building',idx,error);
+      failedFactories.push({index:idx,message:error?.message||String(error)});
+    }
   });
 
   let cutaway=false;
@@ -214,16 +241,16 @@ export function installFactoryInteriorsV84({world,buildings}){
   }
 
   window.__DALOC_FACTORY_INTERIORS_V84={
-    ready:true,version:84,controller,interiors,portals,
+    ready:true,version:84,controller,interiors,portals,failedFactories,
     factoryCount:interiors.length,setVisible,setCutaway
   };
 
   console.info('[DaLoc] V84 factory interiors installed',{
-    factories:interiors.length,portals:portals.length
+    factories:interiors.length,portals:portals.length,failed:failedFactories.length
   });
 
   return {
-    ready:true,version:84,controller,interiors,portals,
+    ready:true,version:84,controller,interiors,portals,failedFactories,
     factoryCount:interiors.length,setVisible,setCutaway,
     get cutaway(){return cutaway;}
   };
