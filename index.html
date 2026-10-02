@@ -1650,16 +1650,17 @@ function refreshFpsStaticColliders(){
   const scale=new THREE.Vector3();
   const q=new THREE.Quaternion();
   const p=new THREE.Vector3();
+  const instanceMatrix=new THREE.Matrix4();
+  const instanceWorld=new THREE.Matrix4();
 
-  scene.traverse(object=>{
-    if(!object.isMesh||object.isInstancedMesh||!object.geometry)return;
-    if(!fpsObjectVisible(object)||fpsIsDynamicObject(object))return;
+  function inExteriorForest(object){
+    for(let o=object;o;o=o.parent)if(o.name==='EXTERIOR_FOREST_V78')return true;
+    return false;
+  }
 
-    if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();
-    if(!object.geometry.boundingBox||object.geometry.boundingBox.isEmpty())return;
-
-    localBox.copy(object.geometry.boundingBox);
-    worldBox.copy(localBox).applyMatrix4(object.matrixWorld);
+  function registerCollider(object,geometryBox,matrixWorld){
+    localBox.copy(geometryBox);
+    worldBox.copy(localBox).applyMatrix4(matrixWorld);
     worldBox.getSize(worldSize);
 
     // Ignore roads, ground sheets, paint and other floor-like geometry.
@@ -1670,12 +1671,12 @@ function refreshFpsStaticColliders(){
     if(worldSize.y<.28&&worldBox.max.y<.85)return;
     if(worldSize.x>1500||worldSize.z>1500)return;
 
-    object.matrixWorld.decompose(p,q,scale);
+    matrixWorld.decompose(p,q,scale);
     const planarScale=Math.max(.001,Math.min(Math.abs(scale.x)||1,Math.abs(scale.z)||1));
     const collider={
       object,
       localBox:localBox.clone(),
-      inverse:object.matrixWorld.clone().invert(),
+      inverse:matrixWorld.clone().invert(),
       worldBox:worldBox.clone(),
       localRadius:FPS_PLAYER_RADIUS/planarScale
     };
@@ -1694,6 +1695,34 @@ function refreshFpsStaticColliders(){
       if(!fpsColliderGrid.has(key))fpsColliderGrid.set(key,[]);
       fpsColliderGrid.get(key).push(id);
     }
+  }
+
+  scene.traverse(object=>{
+    if(!object.isMesh||!object.geometry)return;
+    if(!fpsObjectVisible(object)||fpsIsDynamicObject(object))return;
+
+    if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();
+    const geometryBox=object.geometry.boundingBox;
+    if(!geometryBox||geometryBox.isEmpty())return;
+
+    if(object.isInstancedMesh){
+      // Internal trees/props get real per-instance collision. The 14k-tree
+      // exterior forest is intentionally excluded to keep FPS mode lightweight.
+      if(inExteriorForest(object))return;
+      for(let i=0;i<object.count;i++){
+        object.getMatrixAt(i,instanceMatrix);
+        if(
+          Math.abs(instanceMatrix.elements[0])<1e-6&&
+          Math.abs(instanceMatrix.elements[5])<1e-6&&
+          Math.abs(instanceMatrix.elements[10])<1e-6
+        )continue;
+        instanceWorld.multiplyMatrices(object.matrixWorld,instanceMatrix);
+        registerCollider(object,geometryBox,instanceWorld);
+      }
+      return;
+    }
+
+    registerCollider(object,geometryBox,object.matrixWorld);
   });
 
   fpsColliderRevision++;
