@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { installEntranceGateV92 } from './main-gate-v92.js?v=1041';
+import { installEntranceGateV92 } from './main-gate-v92.js?v=1695';
 
 // V93 dual-gate system.
 // - Existing V92 reference gate is moved to the FAR/opposite endpoint of raw CAD road 77505.
@@ -111,6 +111,8 @@ export async function installDualEntranceGatesV93({
     ctx.arcTo(x,y,x+w,y,rr);ctx.closePath();
   }
 
+  const VI_FONT_STACK='Tahoma, "Arial Unicode MS", Arial, "DejaVu Sans", sans-serif';
+
   function logoTexture(){
     const cv=document.createElement('canvas');cv.width=900;cv.height=520;
     const ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);
@@ -123,24 +125,26 @@ export async function installDualEntranceGatesV93({
     }
     ctx.fillStyle='#b62f29';
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.font='800 96px Georgia, Times New Roman, serif';
+    ctx.font='800 96px '+VI_FONT_STACK;
     ctx.fillText('HAPLAST',450,354);
     ctx.fillStyle='#544c43';
-    ctx.font='600 26px Arial, sans-serif';
+    ctx.font='600 26px '+VI_FONT_STACK;
     ctx.fillText('Green Packaging For Green Future',450,425);
     const tex=new THREE.CanvasTexture(cv);
     tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
     return tex;
   }
 
-  function textTexture(text,{w=1800,h=420,size=120,color='#b62f29',font='Georgia'}={}){
+  function textTexture(text,{w=1800,h=420,size=120,color='#b62f29'}={}){
+    const safeText=String(text).normalize('NFC');
     const cv=document.createElement('canvas');cv.width=w;cv.height=h;
     const ctx=cv.getContext('2d');ctx.clearRect(0,0,w,h);
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.font='800 '+size+'px '+font+', Times New Roman, serif';
+    ctx.font='800 '+size+'px '+VI_FONT_STACK;
+    ctx.fontKerning='normal';
     ctx.lineWidth=5;ctx.strokeStyle='rgba(255,247,236,.72)';
-    ctx.strokeText(text,w/2,h/2);
-    ctx.fillStyle=color;ctx.fillText(text,w/2,h/2);
+    ctx.strokeText(safeText,w/2,h/2);
+    ctx.fillStyle=color;ctx.fillText(safeText,w/2,h/2);
     const tex=new THREE.CanvasTexture(cv);
     tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
     return tex;
@@ -152,10 +156,12 @@ export async function installDualEntranceGatesV93({
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillStyle=color;ctx.strokeStyle='rgba(255,247,236,.72)';ctx.lineWidth=4;
     lines.forEach((line,i)=>{
+      const safeLine=String(line).normalize('NFC');
       const fs=i===lines.length-1?Math.round(size*1.08):size;
-      ctx.font='800 '+fs+'px Georgia, Times New Roman, serif';
+      ctx.font='800 '+fs+'px '+VI_FONT_STACK;
+      ctx.fontKerning='normal';
       const y=h*(.30+i*.36);
-      ctx.strokeText(line,w/2,y);ctx.fillText(line,w/2,y);
+      ctx.strokeText(safeLine,w/2,y);ctx.fillText(safeLine,w/2,y);
     });
     const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=4;
     return tex;

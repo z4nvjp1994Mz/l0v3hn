@@ -17,7 +17,7 @@ export function installRoadNameSignsV169({
   const root=new THREE.Group();
   root.name='ROAD_NAME_SIGNS_V169';
   root.userData={
-    version:169.4,
+    version:169.5,
     frameSignature,
     source:'user-annotated-masterplan-1616x2048'
   };
@@ -56,7 +56,7 @@ export function installRoadNameSignsV169({
   const routeById=new Map(routes.map(r=>[r.id,r]));
 
   // Two verified junctions derived from the converging colored route endpoints.
-  // V169.4: the old manual postPx values are kept only as side hints. Final pole
+  // V169.5: the old manual postPx values are kept only as side hints. Final pole
   // positions are solved after CAD warp from road tangent/normal + road width and
   // validated against the live FPS road-safe corridors.
   const posts=[
@@ -91,6 +91,9 @@ export function installRoadNameSignsV169({
   };
 
   const textureCache=new Map();
+  // V169.5: stable Vietnamese glyph coverage across Windows/macOS/Linux browsers.
+  // NFC avoids detached combining marks on Đ/Ạ/Ế/Ộ/Ụ etc.
+  const VI_FONT_STACK='Tahoma, "Arial Unicode MS", Arial, "DejaVu Sans", sans-serif';
 
   function warped(px,py){
     if(typeof warpPx==='function'){
@@ -105,7 +108,7 @@ export function installRoadNameSignsV169({
     return mapPx(x,y);
   }
 
-  // V169.4 uses the actual rendered surfaces as authority. V72 CAD asphalt and
+  // V169.5 uses the actual rendered surfaces as authority. V72 CAD asphalt and
   // junction polygons are the same geometry the player/vehicles see, so a sign is
   // accepted only when its full safety footprint misses CAD road surfaces and its
   // base lands on a rendered sidewalk or greenbelt.
@@ -184,7 +187,7 @@ export function installRoadNameSignsV169({
     }
 
     if(!best){
-      console.warn('[DaLoc] V169.4 no CAD-surface-safe roadside position for',post.id);
+      console.warn('[DaLoc] V169.5 no CAD-surface-safe roadside position for',post.id);
       return {
         position:{x:junction.x,y:.04,z:junction.z},valid:false,offsetM:0,
         directionMode:'hidden-no-cad-safe-position',supportSurface:null,
@@ -209,7 +212,8 @@ export function installRoadNameSignsV169({
   }
 
   function signTexture(label){
-    if(textureCache.has(label))return textureCache.get(label);
+    const safeLabel=String(label).normalize('NFC');
+    if(textureCache.has(safeLabel))return textureCache.get(safeLabel);
 
     const canvas=document.createElement('canvas');
     canvas.width=1024;
@@ -226,14 +230,15 @@ export function installRoadNameSignsV169({
     ctx.fillStyle='#ffffff';
     ctx.textAlign='center';
     ctx.textBaseline='middle';
-    ctx.font='900 106px Arial, sans-serif';
-    ctx.fillText(label,canvas.width/2,canvas.height/2+4);
+    ctx.font='800 104px '+VI_FONT_STACK;
+    ctx.fontKerning='normal';
+    ctx.fillText(safeLabel,canvas.width/2,canvas.height/2+3);
 
     const tex=new THREE.CanvasTexture(canvas);
     tex.colorSpace=THREE.SRGBColorSpace;
     tex.anisotropy=Math.min(8,renderer?.capabilities?.getMaxAnisotropy?.()||4);
     tex.needsUpdate=true;
-    textureCache.set(label,tex);
+    textureCache.set(safeLabel,tex);
     return tex;
   }
 
@@ -331,7 +336,7 @@ export function installRoadNameSignsV169({
     base.userData.fpsNonSolid=true;
     g.add(base);
 
-    // V169.4: wayfinding must visually clear the V115 traffic signals.
+    // V169.5: wayfinding must visually clear the V115 traffic signals.
     // Traffic signal housing tops out at ~5.46 m, so the LOWEST blade begins
     // at 6.35 m and the pole reaches ~9.05 m overall.
     const pole=new THREE.Mesh(new THREE.CylinderGeometry(.10,.13,9.00,12),mats.pole);
@@ -359,7 +364,7 @@ export function installRoadNameSignsV169({
 
   const api={
     ready:true,
-    version:169.4,
+    version:169.5,
     group:root,
     routes,
     posts,
@@ -370,7 +375,7 @@ export function installRoadNameSignsV169({
   };
 
   window.__DALOC_ROAD_SIGNS_V169=api;
-  console.info('[DaLoc] V169.4 road-safe named-road wayfinding signs installed',{
+  console.info('[DaLoc] V169.5 road-safe named-road wayfinding signs installed',{
     routes:routes.map(r=>r.name),
     posts:postGroups.length,
     placements,

@@ -70,6 +70,8 @@ export async function installEntranceGateV92({
     return tex;
   }
 
+  const VI_FONT_STACK='Tahoma, "Arial Unicode MS", Arial, "DejaVu Sans", sans-serif';
+
   function makeTextTexture(lines,{
     width=2048,height=512,
     titleSize=150,subSize=66,
@@ -82,20 +84,20 @@ export async function installEntranceGateV92({
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.shadowColor='rgba(65,28,20,.30)';ctx.shadowBlur=6;ctx.shadowOffsetY=3;
 
-    const entries=Array.isArray(lines)?lines:[lines];
+    const entries=(Array.isArray(lines)?lines:[lines]).map(v=>String(v).normalize('NFC'));
     if(entries.length===1){
-      ctx.font='800 '+titleSize+'px Arial, DejaVu Sans, sans-serif';
+      ctx.font='800 '+titleSize+'px '+VI_FONT_STACK;
       ctx.lineWidth=7;ctx.strokeStyle=stroke;ctx.strokeText(entries[0],width/2,height/2);
       ctx.fillStyle=titleColor;ctx.fillText(entries[0],width/2,height/2);
     }else{
-      ctx.font='800 '+titleSize+'px Arial, DejaVu Sans, sans-serif';
+      ctx.font='800 '+titleSize+'px '+VI_FONT_STACK;
       ctx.lineWidth=6;ctx.strokeStyle=stroke;ctx.strokeText(entries[0],width/2,height*.34);
       ctx.fillStyle=titleColor;ctx.fillText(entries[0],width/2,height*.34);
-      ctx.font='700 '+subSize+'px Arial, DejaVu Sans, sans-serif';
+      ctx.font='700 '+subSize+'px '+VI_FONT_STACK;
       ctx.lineWidth=4;ctx.strokeStyle=stroke;ctx.strokeText(entries[1],width/2,height*.69);
       ctx.fillStyle=subColor;ctx.fillText(entries[1],width/2,height*.69);
       if(entries[2]){
-        ctx.font='800 '+Math.round(subSize*1.08)+'px Arial, DejaVu Sans, sans-serif';
+        ctx.font='800 '+Math.round(subSize*1.08)+'px '+VI_FONT_STACK;
         ctx.strokeText(entries[2],width/2,height*.86);
         ctx.fillText(entries[2],width/2,height*.86);
       }
@@ -128,7 +130,7 @@ export async function installEntranceGateV92({
       ctx.stroke();
     }
     ctx.fillStyle='#b52b26';
-    ctx.font='800 88px Georgia, Times New Roman, serif';
+    ctx.font='800 88px '+VI_FONT_STACK;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.shadowColor='rgba(80,30,20,.20)';ctx.shadowBlur=4;
     ctx.fillText('HAPLAST',320,390);
