@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V145.5-roof-edge-jump-fall-fix">
+<meta name="daloc-build" content="V146-fps-deep-performance-profile">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V145.5 ROOF EDGE JUMP + FALL FIX</small>
+  <small>GitHub → Netlify · BUILD V146 FPS DEEP PERFORMANCE OPTIMIZATION</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1644,7 +1644,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V145.5 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V146 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1868,8 +1868,23 @@ const fpsDoorLocalPoint=new THREE.Vector3();
 const fpsEmptyColliderIds=[];
 let fpsSavedPixelRatio=null;
 let fpsSavedShadowAutoUpdate=true;
+let fpsSavedShadowMapSize=null;
 let fpsShadowFrame=0;
 let fpsExteriorTreeVisibility=null;
+
+// V146 FPS performance profile state.
+let fpsV120TreeBatchRoot=null;
+let fpsV120TreeVisibility=null;
+let fpsVegetationShadowState=null;
+let fpsSpriteCache=[];
+let fpsSpriteCacheFrame=0;
+let fpsSpriteWorldChildCount=-1;
+const fpsSpriteWorldPosition=new THREE.Vector3();
+let fpsPerfFrame=0;
+let fpsPondFishAccum=0;
+let fpsPedestrianAccum=0;
+let fpsFactoryAccum=0;
+let fpsAtmosphereAccum=0;
 const fpsLastSafePosition=new THREE.Vector3();
 let fpsHasSafePosition=false;
 let fpsLastBlockReason='none';
@@ -3256,23 +3271,154 @@ function fpsMoveWithCollision(delta){
   }
 }
 
+function fpsSetShadowMapSize(size){
+  if(!sun?.shadow?.mapSize)return;
+  const next=Math.max(512,Math.round(size||1024));
+  if(sun.shadow.mapSize.width===next&&sun.shadow.mapSize.height===next)return;
+  sun.shadow.mapSize.set(next,next);
+
+  // Three.js keeps the allocated shadow render target after mapSize changes.
+  // Dispose only that target so the next scheduled shadow pass recreates it
+  // at the requested FPS resolution.
+  if(sun.shadow.map){
+    sun.shadow.map.dispose?.();
+    sun.shadow.map=null;
+  }
+  renderer.shadowMap.needsUpdate=true;
+}
+
+function fpsBuildV120TreeBatch(){
+  const source=world.children.filter(o=>o.userData?.lushTreeV120===true);
+  if(!source.length)return;
+
+  // Save per-session visibility so overview mode is restored exactly.
+  fpsV120TreeVisibility=source.map(g=>[g,g.visible]);
+
+  // Build the proxy once. Trees are partitioned into spatial cells so Three.js
+  // can frustum-cull whole batches instead of drawing ~500 trees every frame.
+  if(!fpsV120TreeBatchRoot){
+    const root=new THREE.Group();
+    root.name='FPS_V146_V120_TREE_BATCHES';
+    root.userData.ignoreFpsCollision=true;
+    const cellSize=180;
+    const cells=new Map();
+
+    for(const g of source){
+      if(!g.visible)continue;
+      const key=Math.floor(g.position.x/cellSize)+':'+Math.floor(g.position.z/cellSize);
+      let cell=cells.get(key);
+      if(!cell){
+        cell={all:[],green:[],flower:[]};
+        cells.set(key,cell);
+      }
+      g.updateMatrix();
+      const matrix=g.matrix.clone();
+      cell.all.push(matrix);
+      const flowering=g.children.some(c=>c.material===flowerLeafMat);
+      (flowering?cell.flower:cell.green).push(matrix);
+    }
+
+    const addBatch=(name,geometry,material,matrices)=>{
+      if(!matrices.length)return;
+      const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);
+      mesh.name=name;
+      mesh.castShadow=false;
+      mesh.receiveShadow=true;
+      mesh.frustumCulled=true;
+      matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));
+      mesh.instanceMatrix.needsUpdate=true;
+      mesh.computeBoundingSphere();
+      root.add(mesh);
+    };
+
+    for(const [key,cell] of cells){
+      addBatch('FPS_V146_TREE_WOOD_'+key,V120_TREE_WOOD_GEOMETRY,treeTrunkMat,cell.all);
+      addBatch('FPS_V146_TREE_GREEN_'+key,V120_TREE_FOLIAGE_GEOMETRY,treeLeafMat,cell.green);
+      addBatch('FPS_V146_TREE_FLOWER_'+key,V120_TREE_FOLIAGE_GEOMETRY,flowerLeafMat,cell.flower);
+    }
+
+    fpsV120TreeBatchRoot=root;
+    world.add(root);
+  }else{
+    fpsV120TreeBatchRoot.visible=true;
+  }
+
+  // Hide the original Group-per-tree representation only in FPS. This removes
+  // hundreds of Groups and roughly a thousand individual Mesh draw submissions.
+  for(const [g] of fpsV120TreeVisibility)g.visible=false;
+}
+
+function fpsDisableLargeInstancedShadows(){
+  if(fpsVegetationShadowState)return;
+  fpsVegetationShadowState=[];
+  world.traverse(o=>{
+    if(!o.isInstancedMesh||!o.castShadow)return;
+    const count=Number(o.count)||0;
+    const vegetation=/TREE|OAK|PINE|FLOWER|SHRUB|HEDGE|GRASS|VEST|HELMET/i.test(o.name||'');
+    if(count<24&&!vegetation)return;
+    fpsVegetationShadowState.push([o,o.castShadow]);
+    o.castShadow=false;
+  });
+}
+
+function fpsRefreshSpriteCache(){
+  fpsSpriteCache=[];
+  world.traverse(o=>{if(o.isSprite)fpsSpriteCache.push(o);});
+  fpsSpriteWorldChildCount=world.children.length;
+}
+
+function fpsUpdateSpriteVisibility(activeCamera){
+  // Sprite labels are static. Re-evaluate visibility at 10 Hz rather than
+  // traversing every object in the world on every animation frame.
+  fpsSpriteCacheFrame++;
+  if((fpsSpriteCacheFrame%6)!==0)return;
+  if(
+    !fpsSpriteCache.length||
+    fpsSpriteWorldChildCount!==world.children.length||
+    (fpsSpriteCacheFrame%300)===0
+  )fpsRefreshSpriteCache();
+
+  if(fpsMode){
+    const maxDistanceSq=180*180;
+    for(const sprite of fpsSpriteCache){
+      sprite.getWorldPosition(fpsSpriteWorldPosition);
+      sprite.visible=fpsSpriteWorldPosition.distanceToSquared(activeCamera.position)<=maxDistanceSq;
+    }
+  }else{
+    // Preserve the previous overview/detail behavior outside FPS.
+    const show=activeCamera.position.distanceTo(controls.target)<520;
+    for(const sprite of fpsSpriteCache)sprite.visible=show;
+  }
+}
+
+function fpsUpdateShadowBudget(){
+  // 1024² at 15-20 Hz is dramatically cheaper than the old 2048² pass every
+  // second frame. The sun is static enough that this remains visually stable.
+  const interval=fpsVehicleMode?3:4;
+  renderer.shadowMap.needsUpdate=(fpsShadowFrame++%interval)===0;
+}
+
 function applyFpsRenderProfile(){
   if(fpsSavedPixelRatio===null){
     fpsSavedPixelRatio=renderer.getPixelRatio();
     fpsSavedShadowAutoUpdate=renderer.shadowMap.autoUpdate;
+    fpsSavedShadowMapSize=sun?.shadow?.mapSize?.width||2048;
   }
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));
   renderer.setSize(innerWidth,innerHeight,false);
 
-  // Dynamic shadows at half-rate are visually smooth enough while walking and
-  // cut one of the most expensive ground-level passes roughly in half.
   renderer.shadowMap.autoUpdate=false;
+  fpsSetShadowMapSize(1024);
   renderer.shadowMap.needsUpdate=true;
   fpsShadowFrame=0;
 
+  fpsBuildV120TreeBatch();
+  fpsDisableLargeInstancedShadows();
+  fpsRefreshSpriteCache();
+
   // EXTERIOR_FOREST_V78 holds ~14k trees in giant batches. A giant InstancedMesh
-  // cannot frustum-cull individual trees, so at eye level the GPU still processes
-  // the full batch. Keep the forest floor/houses, but hide only tree instances in FPS.
+  // cannot frustum-cull individual trees, so keep those tree instances hidden in
+  // FPS while retaining the forest floor and village context.
   if(v78ExteriorGroup&&!fpsExteriorTreeVisibility){
     fpsExteriorTreeVisibility=[];
     v78ExteriorGroup.traverse(o=>{
@@ -3289,12 +3435,31 @@ function restoreFpsRenderProfile(){
     renderer.setSize(innerWidth,innerHeight,false);
     fpsSavedPixelRatio=null;
   }
+
   renderer.shadowMap.autoUpdate=fpsSavedShadowAutoUpdate;
+  if(fpsSavedShadowMapSize!==null){
+    fpsSetShadowMapSize(fpsSavedShadowMapSize);
+    fpsSavedShadowMapSize=null;
+  }
   renderer.shadowMap.needsUpdate=true;
+
   if(fpsExteriorTreeVisibility){
     for(const [o,visible] of fpsExteriorTreeVisibility)o.visible=visible;
     fpsExteriorTreeVisibility=null;
   }
+
+  if(fpsV120TreeVisibility){
+    for(const [g,visible] of fpsV120TreeVisibility)g.visible=visible;
+    fpsV120TreeVisibility=null;
+  }
+  if(fpsV120TreeBatchRoot)fpsV120TreeBatchRoot.visible=false;
+
+  if(fpsVegetationShadowState){
+    for(const [o,castShadow] of fpsVegetationShadowState)o.castShadow=castShadow;
+    fpsVegetationShadowState=null;
+  }
+
+  fpsRefreshSpriteCache();
 }
 
 // V138: build shorter thicker FPS arms synchronously during startup.
@@ -4407,6 +4572,7 @@ function fpsUpdateScope(dt){
 
 function updateFirstPerson(dt){
   if(!fpsMode)return;
+  fpsUpdateShadowBudget();
   if(fpsVehicleMode){
     fpsUpdateVehicleMode(dt);
     return;
@@ -4434,10 +4600,6 @@ function updateFirstPerson(dt){
   // V138 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
   if(!fpsRealArmsRig)prepareFpsRealArmsV138();
   fpsApplyViewModeVisibility();
-
-  // Ground-level shadows are the expensive pass in FPS. Update them every
-  // second frame instead of forcing a 2048 shadow render every frame.
-  renderer.shadowMap.needsUpdate=(fpsShadowFrame++&1)===0;
 
   // If the exterior forest finishes loading after FPS was entered, apply the
   // same tree-batch optimization as soon as it becomes available.
@@ -4515,7 +4677,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:145.5,
+  version:146,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -4600,6 +4762,17 @@ const fpsApiV139={
   get locomotionBlend(){return Number(fpsLocomotionBlend.toFixed(3));},
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
+  get performanceProfile(){return {
+    version:146,
+    shadowMapSize:sun?.shadow?.mapSize?.width||0,
+    shadowUpdateEvery:fpsVehicleMode?3:4,
+    sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
+    v120BatchMeshes:fpsV120TreeBatchRoot?.children?.length||0,
+    originalV120TreesHidden:fpsV120TreeVisibility?.length||0,
+    largeInstancedShadowBatchesDisabled:fpsVegetationShadowState?.length||0,
+    spriteCacheCount:fpsSpriteCache.length,
+    secondaryAnimationRate:fpsMode?'~30 Hz':'full-rate'
+  };},
   get renderInfo(){return {
     calls:renderer.info.render.calls,
     triangles:renderer.info.render.triangles,
@@ -4660,11 +4833,37 @@ let lastFrameTime=performance.now();
   const t=Number.isFinite(now)?now:performance.now();
   const dt=Math.min(.05,Math.max(0,(t-lastFrameTime)/1000));
   lastFrameTime=t;
+
+  // Traffic stays full-rate because driving/collision depends on it.
   trafficController?.update?.(dt);
-  pondFishV82?.update?.(dt);
-  pedestrianController?.update?.(dt);
-  factoryInteriorsV84?.update?.(dt);
-  atmosphereV106?.update?.(dt);
+
+  // V146: non-critical ambient simulations run at ~30 Hz only in FPS.
+  // Their accumulated dt is preserved, so animation speed does not slow down.
+  if(fpsMode){
+    fpsPerfFrame++;
+    fpsPondFishAccum+=dt;
+    fpsPedestrianAccum+=dt;
+    fpsFactoryAccum+=dt;
+    fpsAtmosphereAccum+=dt;
+    if((fpsPerfFrame&1)===0){
+      pondFishV82?.update?.(Math.min(.05,fpsPondFishAccum));
+      pedestrianController?.update?.(Math.min(.05,fpsPedestrianAccum));
+      factoryInteriorsV84?.update?.(Math.min(.05,fpsFactoryAccum));
+      atmosphereV106?.update?.(Math.min(.05,fpsAtmosphereAccum));
+      fpsPondFishAccum=0;
+      fpsPedestrianAccum=0;
+      fpsFactoryAccum=0;
+      fpsAtmosphereAccum=0;
+    }
+  }else{
+    fpsPerfFrame=0;
+    fpsPondFishAccum=fpsPedestrianAccum=fpsFactoryAccum=fpsAtmosphereAccum=0;
+    pondFishV82?.update?.(dt);
+    pedestrianController?.update?.(dt);
+    factoryInteriorsV84?.update?.(dt);
+    atmosphereV106?.update?.(dt);
+  }
+
   if(fpsMode)updateFirstPerson(dt);else controls.update();
 
   multiplayerV142?.updateLocal?.({
@@ -4687,10 +4886,7 @@ let lastFrameTime=performance.now();
     ?(fpsVehicleViewMode==='third'?fpsVehicleCamera:camera)
     :(fpsMode&&fpsViewMode==='third'?fpsThirdPersonCamera:camera);
   visualQualityV102.setRenderCamera?.(activeRenderCamera);
-  const d=activeRenderCamera.position.distanceTo(controls.target);
-  world.traverse(o=>{
-    if(o.isSprite) o.visible=d<520;
-  });
+  fpsUpdateSpriteVisibility(activeRenderCamera);
   visualQualityV102.render();
 
   // V131 dedicated FPS arm pass. Preserve world color, clear only depth, then
