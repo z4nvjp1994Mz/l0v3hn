@@ -90,9 +90,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=154';
-import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=154';
+import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=155';
 import { createPlayerVehicleControllerV145 } from './assets/player-vehicle-v145.js?v=1451';
-import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=154';
+import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=155';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=1392';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -2767,6 +2767,61 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
       0,
       Math.sin(phase)*.0048*runMul*blend
     );
+
+    // V155: move the entire hand/weapon rig with the axe swing so the weapon
+    // no longer appears to rotate independently from the player's hands.
+    if(fpsActiveWeapon==='axe'&&fpsMeleeAttack){
+      const mp=fpsMeleeProgress();
+      const smooth=t=>{
+        t=THREE.MathUtils.clamp(t,0,1);
+        return t*t*(3-2*t);
+      };
+
+      if(fpsMeleeType==='strong'){
+        if(mp<.34){
+          const t=smooth(mp/.34);
+          fpsRealArmsRig.position.x+=THREE.MathUtils.lerp(0,.015,t);
+          fpsRealArmsRig.position.y+=THREE.MathUtils.lerp(0,.075,t);
+          fpsRealArmsRig.position.z+=THREE.MathUtils.lerp(0,.045,t);
+          fpsRealArmsRig.rotation.x+=THREE.MathUtils.lerp(0,-.10,t);
+          fpsRealArmsRig.rotation.z+=THREE.MathUtils.lerp(0,.035,t);
+        }else if(mp<.72){
+          const t=smooth((mp-.34)/.38);
+          fpsRealArmsRig.position.x+=THREE.MathUtils.lerp(.015,-.010,t);
+          fpsRealArmsRig.position.y+=THREE.MathUtils.lerp(.075,-.095,t);
+          fpsRealArmsRig.position.z+=THREE.MathUtils.lerp(.045,-.020,t);
+          fpsRealArmsRig.rotation.x+=THREE.MathUtils.lerp(-.10,.17,t);
+          fpsRealArmsRig.rotation.z+=THREE.MathUtils.lerp(.035,-.055,t);
+        }else{
+          const t=smooth((mp-.72)/.28);
+          fpsRealArmsRig.position.x+=THREE.MathUtils.lerp(-.010,0,t);
+          fpsRealArmsRig.position.y+=THREE.MathUtils.lerp(-.095,0,t);
+          fpsRealArmsRig.position.z+=THREE.MathUtils.lerp(-.020,0,t);
+          fpsRealArmsRig.rotation.x+=THREE.MathUtils.lerp(.17,0,t);
+          fpsRealArmsRig.rotation.z+=THREE.MathUtils.lerp(-.055,0,t);
+        }
+      }else{
+        if(mp<.26){
+          const t=smooth(mp/.26);
+          fpsRealArmsRig.position.x+=THREE.MathUtils.lerp(0,.050,t);
+          fpsRealArmsRig.position.y+=THREE.MathUtils.lerp(0,.045,t);
+          fpsRealArmsRig.rotation.y+=THREE.MathUtils.lerp(0,-.12,t);
+          fpsRealArmsRig.rotation.z+=THREE.MathUtils.lerp(0,-.10,t);
+        }else if(mp<.66){
+          const t=smooth((mp-.26)/.40);
+          fpsRealArmsRig.position.x+=THREE.MathUtils.lerp(.050,-.055,t);
+          fpsRealArmsRig.position.y+=THREE.MathUtils.lerp(.045,-.060,t);
+          fpsRealArmsRig.rotation.y+=THREE.MathUtils.lerp(-.12,.15,t);
+          fpsRealArmsRig.rotation.z+=THREE.MathUtils.lerp(-.10,.13,t);
+        }else{
+          const t=smooth((mp-.66)/.34);
+          fpsRealArmsRig.position.x+=THREE.MathUtils.lerp(-.055,0,t);
+          fpsRealArmsRig.position.y+=THREE.MathUtils.lerp(-.060,0,t);
+          fpsRealArmsRig.rotation.y+=THREE.MathUtils.lerp(.15,0,t);
+          fpsRealArmsRig.rotation.z+=THREE.MathUtils.lerp(.13,0,t);
+        }
+      }
+    }
   }else{
     const swing=.018*runMul*blend;
     fpsLeftArmPivot.position.set(
