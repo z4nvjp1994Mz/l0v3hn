@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V153-recoil-magazines-shift-reload">
+<meta name="daloc-build" content="V154-axe-melee-40-80">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V153 RECOIL + MAGAZINES + SHIFT RELOAD</small>
+  <small>GitHub → Netlify · BUILD V154 AXE MELEE 40 + 80 DAMAGE</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -83,16 +83,16 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · Tap Shift reload · Hold Shift sprint · RMB aim sniper · LMB bắn · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V153: recoil return + Sniper 10 + Gatling 100 · tap Shift reload</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V154: 1 Sniper · 2 Gatling · 3 Axe · LMB 40 · RMB 80</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=152';
-import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=152';
+import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=154';
+import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=154';
 import { createPlayerVehicleControllerV145 } from './assets/player-vehicle-v145.js?v=1451';
-import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=152';
+import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=154';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=1392';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1943,6 +1943,10 @@ let fpsGatlingBarrelPhase=0;
 let fpsSniperViewModel=null;
 let fpsGatlingViewModel=null;
 let fpsGatlingBarrelCluster=null;
+let fpsAxeViewModel=null;
+let fpsMeleeAttack=null;
+let fpsMeleeSeq=0;
+let fpsMeleeType='none';
 let fpsRecoilPitchOffset=0;
 let fpsReloading=false;
 let fpsReloadTimer=0;
@@ -1982,6 +1986,14 @@ const FPS_SHIFT_SPRINT_DELAY_MS=220;
 const FPS_SNIPER_RECOIL_KICK=.018;
 const FPS_GATLING_RECOIL_KICK=.0042;
 const FPS_GATLING_RECOIL_MAX=.28;
+const FPS_AXE_NORMAL_DAMAGE=40;
+const FPS_AXE_STRONG_DAMAGE=80;
+const FPS_AXE_NORMAL_DURATION=.56;
+const FPS_AXE_STRONG_DURATION=.88;
+const FPS_AXE_NORMAL_IMPACT=.47;
+const FPS_AXE_STRONG_IMPACT=.56;
+const FPS_AXE_NORMAL_REACH=2.45;
+const FPS_AXE_STRONG_REACH=2.75;
 const fpsAmmo={
   sniper:FPS_SNIPER_MAG_SIZE,
   gatling:FPS_GATLING_MAG_SIZE
@@ -2013,23 +2025,38 @@ function fpsCurrentPlayerHeight(){
 }
 
 function fpsWeaponMagSize(weapon=fpsActiveWeapon){
+  if(weapon==='axe')return 0;
   return weapon==='gatling'
     ?FPS_GATLING_MAG_SIZE
     :FPS_SNIPER_MAG_SIZE;
 }
 
 function fpsWeaponReloadTime(weapon=fpsActiveWeapon){
+  if(weapon==='axe')return 0;
   return weapon==='gatling'
     ?FPS_GATLING_RELOAD_TIME
     :FPS_SNIPER_RELOAD_TIME;
 }
 
 function fpsCurrentAmmo(){
+  if(fpsActiveWeapon==='axe')return 0;
   return Math.max(0,Number(fpsAmmo[fpsActiveWeapon])||0);
 }
 
 function fpsUpdateAmmoHud(){
-  const weapon=fpsActiveWeapon==='gatling'?'gatling':'sniper';
+  const weapon=
+    fpsActiveWeapon==='axe'
+      ?'axe'
+      :(fpsActiveWeapon==='gatling'?'gatling':'sniper');
+
+  if(weapon==='axe'){
+    if(fpsAmmoWeapon)fpsAmmoWeapon.textContent='AXE';
+    if(fpsAmmoCount)fpsAmmoCount.textContent='MELEE';
+    if(fpsAmmoHint)fpsAmmoHint.textContent='LMB 40 HP · RMB 80 HP';
+    fpsAmmoHud?.classList.remove('reloading','empty');
+    return;
+  }
+
   const ammo=Math.max(0,Number(fpsAmmo[weapon])||0);
   const cap=fpsWeaponMagSize(weapon);
 
@@ -2078,6 +2105,7 @@ function fpsStartReload(){
   )return false;
 
   const weapon=fpsActiveWeapon;
+  if(weapon==='axe')return false;
   const cap=fpsWeaponMagSize(weapon);
   if((Number(fpsAmmo[weapon])||0)>=cap)return false;
 
@@ -2202,6 +2230,7 @@ function fpsDie(sourcePeerId='unknown'){
   fpsShiftCode='';
   fpsTriggerHeld=false;
   fpsCancelReload();
+  fpsCancelMelee();
   fpsRecoilPitchOffset=0;
   fpsAimHeld=false;
   fpsAiming=false;
@@ -2252,6 +2281,7 @@ function fpsRespawnPlayer(){
   fpsShotCooldown=0;
   fpsRecoilPitchOffset=0;
   fpsCancelReload();
+  fpsCancelMelee();
   fpsShiftDownAt=0;
   fpsShiftCode='';
   fpsKeys.clear();
@@ -2361,10 +2391,11 @@ function prepareFpsRealArmsV138(){
     fpsRealArmsAction=null;
     fpsRealArmsReady=true;
     fpsRealArmsError=null;
-    fpsArmAssetMode='v152-sniper-gatling-viewmodels';
+    fpsArmAssetMode='v154-sniper-gatling-axe-viewmodels';
     fpsSniperViewModel=rig.userData?.sniper||rig.getObjectByName('FPS_SNIPER_V140');
     fpsGatlingViewModel=rig.userData?.gatling||rig.getObjectByName('FPS_GATLING_V152');
     fpsGatlingBarrelCluster=rig.userData?.gatlingBarrel||rig.getObjectByName('FPS_GATLING_BARREL_CLUSTER_V152');
+    fpsAxeViewModel=rig.userData?.axe||rig.getObjectByName('FPS_AXE_V154');
     fpsRealArmsPromise=Promise.resolve(rig);
 
     if(fpsLeftArmPivot)fpsLeftArmPivot.visible=false;
@@ -2606,17 +2637,22 @@ function ensureFpsThirdPersonAvatar(){
 function fpsApplyWeaponModelVisibility(){
   if(fpsSniperViewModel)fpsSniperViewModel.visible=fpsActiveWeapon==='sniper';
   if(fpsGatlingViewModel)fpsGatlingViewModel.visible=fpsActiveWeapon==='gatling';
+  if(fpsAxeViewModel)fpsAxeViewModel.visible=fpsActiveWeapon==='axe';
   if(fpsRealArmsRig)fpsRealArmsRig.userData.weapon=fpsActiveWeapon;
 }
 
 function fpsSetWeapon(next){
-  const weapon=next==='gatling'?'gatling':'sniper';
+  const weapon=
+    next==='axe'
+      ?'axe'
+      :(next==='gatling'?'gatling':'sniper');
   if(fpsActiveWeapon===weapon){
     fpsApplyWeaponModelVisibility();
     return weapon;
   }
 
   fpsCancelReload();
+  fpsCancelMelee();
   fpsActiveWeapon=weapon;
   fpsTriggerHeld=false;
   fpsShotCooldown=0;
@@ -2638,8 +2674,14 @@ function fpsSetWeapon(next){
   fpsUpdateAmmoHud();
   fpsApplyLookRotation();
   if(fpsHud){
+    const weaponHelp=
+      weapon==='axe'
+        ?'AXE · LMB 40 HP · RMB 80 HP'
+        :(weapon==='gatling'
+          ?'GATLING 10 DMG/viên · giữ LMB'
+          :'SNIPER 50 DMG/viên · RMB scope');
     fpsHud.textContent=
-      'FPS WALK · 1 Sniper · 2 Gatling · '+(weapon==='gatling'?'GATLING 10 DMG/viên · giữ LMB':'SNIPER 50 DMG/viên · RMB scope')+
+      'FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · '+weaponHelp+
       ' · V camera · WASD · E tương tác/xe · ESC thoát';
   }
   return weapon;
@@ -2798,7 +2840,9 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
     running,
     alive:fpsAlive,
     weapon:fpsActiveWeapon,
-    firing:fpsTriggerHeld
+    firing:fpsTriggerHeld,
+    meleeType:fpsMeleeType,
+    meleeProgress:fpsMeleeProgress()
   });
 }
 
@@ -4604,6 +4648,10 @@ renderer.domElement.addEventListener('mousedown',e=>{
       renderer.domElement.requestPointerLock?.();
       return;
     }
+    if(fpsActiveWeapon==='axe'){
+      fpsStartMeleeAttack('strong');
+      return;
+    }
     if(fpsActiveWeapon==='sniper')fpsAimHeld=true;
     return;
   }
@@ -4613,6 +4661,10 @@ renderer.domElement.addEventListener('mousedown',e=>{
       return;
     }
     e.preventDefault();
+    if(fpsActiveWeapon==='axe'){
+      fpsStartMeleeAttack('normal');
+      return;
+    }
     fpsTriggerHeld=true;
     fpsFireActiveWeapon();
   }
@@ -4704,6 +4756,13 @@ window.addEventListener('keydown',e=>{
     e.preventDefault();
     e.stopPropagation();
     if(!e.repeat&&!fpsVehicleMode)fpsSetWeapon('gatling');
+    return;
+  }
+
+  if(e.code==='Digit3'){
+    e.preventDefault();
+    e.stopPropagation();
+    if(!e.repeat&&!fpsVehicleMode)fpsSetWeapon('axe');
     return;
   }
 
@@ -4801,6 +4860,176 @@ window.addEventListener('blur',()=>{
   fpsAiming=false;
   document.body.classList.remove('fps-aiming');
 });
+
+function fpsMeleeProgress(){
+  if(!fpsMeleeAttack)return 0;
+  return THREE.MathUtils.clamp(
+    fpsMeleeAttack.elapsed/Math.max(.001,fpsMeleeAttack.duration),
+    0,
+    1
+  );
+}
+
+function fpsResetAxePose(){
+  if(!fpsAxeViewModel)return;
+  fpsAxeViewModel.position.set(.12,-.16,-.20);
+  fpsAxeViewModel.rotation.set(.18,-.12,-.24);
+}
+
+function fpsCancelMelee(){
+  fpsMeleeAttack=null;
+  fpsMeleeType='none';
+  fpsResetAxePose();
+}
+
+function fpsResolveMeleeHit(attack){
+  if(!attack||attack.hitDone)return false;
+  attack.hitDone=true;
+
+  const origin=camera.position.clone();
+  camera.getWorldDirection(fpsBulletDir);
+  fpsBulletDir.normalize();
+  origin.addScaledVector(fpsBulletDir,.18);
+
+  const end=fpsBulletNext
+    .copy(origin)
+    .addScaledVector(fpsBulletDir,attack.reach);
+
+  fpsBulletRaycaster.set(origin,fpsBulletDir);
+  fpsBulletRaycaster.near=.001;
+  fpsBulletRaycaster.far=attack.reach;
+
+  const raycastRoots=world.children.filter(child=>
+    child!==fpsThirdPersonAvatar?.root &&
+    child?.userData?.thirdPersonLocalRoot!==true &&
+    child?.userData?.multiplayerRoot!==true &&
+    child?.name!=='MULTIPLAYER_V142'
+  );
+  const worldHit=fpsBulletRaycaster
+    .intersectObjects(raycastRoots,true)
+    .find(fpsBulletHitAllowed)||null;
+
+  const remoteHit=multiplayerV142?.raycastRemoteSegment?.(
+    [origin.x,origin.y,origin.z],
+    [end.x,end.y,end.z]
+  )||null;
+
+  const worldDistance=worldHit?.distance??Infinity;
+  const remoteDistance=remoteHit?.distance??Infinity;
+
+  if(remoteHit&&remoteDistance<worldDistance&&remoteDistance<=attack.reach){
+    const remoteState=multiplayerV142?.remoteStatus;
+    if(remoteHit.peerId&&remoteState?.alive!==false){
+      multiplayerV142?.sendDamage?.(
+        remoteHit.peerId,
+        attack.damage,
+        attack.id
+      );
+      fpsLastImpactObject='REMOTE_PLAYER_'+remoteHit.zone;
+      fpsShowHitMarker();
+      fpsSpawnImpact(new THREE.Vector3(...remoteHit.point));
+      if((Number(remoteState?.hp)||FPS_MAX_HP)<=attack.damage)fpsKills++;
+      return true;
+    }
+  }
+
+  if(worldHit&&worldDistance<=attack.reach){
+    fpsLastImpactObject=fpsBulletObjectName(worldHit.object);
+    fpsSpawnImpact(worldHit.point);
+  }
+  return false;
+}
+
+function fpsStartMeleeAttack(type='normal'){
+  if(
+    !fpsMode||
+    !fpsAlive||
+    fpsVehicleMode||
+    fpsClimbState||
+    fpsActiveWeapon!=='axe'||
+    fpsMeleeAttack||
+    document.pointerLockElement!==renderer.domElement
+  )return false;
+
+  const strong=type==='strong';
+  fpsTriggerHeld=false;
+  fpsAimHeld=false;
+  fpsAiming=false;
+  fpsAimAmount=0;
+  fpsCancelReload();
+  document.body.classList.remove('fps-aiming');
+
+  fpsMeleeSeq++;
+  fpsMeleeType=strong?'strong':'normal';
+  fpsMeleeAttack={
+    type:fpsMeleeType,
+    elapsed:0,
+    duration:strong?FPS_AXE_STRONG_DURATION:FPS_AXE_NORMAL_DURATION,
+    impactAt:strong?FPS_AXE_STRONG_IMPACT:FPS_AXE_NORMAL_IMPACT,
+    damage:strong?FPS_AXE_STRONG_DAMAGE:FPS_AXE_NORMAL_DAMAGE,
+    reach:strong?FPS_AXE_STRONG_REACH:FPS_AXE_NORMAL_REACH,
+    hitDone:false,
+    id:
+      (multiplayerV142?.selfId||'local')+
+      '-axe-'+fpsMeleeSeq+'-'+Math.round(performance.now())
+  };
+  return true;
+}
+
+function fpsUpdateMelee(dt){
+  fpsResetAxePose();
+  if(!fpsMeleeAttack||fpsActiveWeapon!=='axe')return;
+
+  const a=fpsMeleeAttack;
+  a.elapsed+=dt;
+  const p=fpsMeleeProgress();
+
+  if(fpsAxeViewModel){
+    if(a.type==='strong'){
+      if(p<.28){
+        const t=p/.28;
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(.18,-1.28,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.24,-.04,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(-.16,.03,t);
+      }else if(p<.68){
+        const t=(p-.28)/.40;
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(-1.28,.94,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.04,-.44,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(.03,-.28,t);
+      }else{
+        const t=(p-.68)/.32;
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(.94,.18,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.44,-.24,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(-.28,-.16,t);
+      }
+    }else{
+      if(p<.22){
+        const t=p/.22;
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(-.12,-.92,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.24,-.46,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.12,.23,t);
+      }else if(p<.62){
+        const t=(p-.22)/.40;
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(-.92,1.02,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.46,-.12,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.23,-.10,t);
+      }else{
+        const t=(p-.62)/.38;
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(1.02,-.12,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.12,-.24,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(-.10,.12,t);
+      }
+    }
+  }
+
+  if(!a.hitDone&&p>=a.impactAt){
+    fpsResolveMeleeHit(a);
+  }
+
+  if(p>=1){
+    fpsCancelMelee();
+  }
+}
 
 function fpsBulletObjectName(object){
   for(let o=object;o;o=o.parent){
@@ -5146,6 +5375,7 @@ function fpsUpdateScope(dt){
   fpsWeaponKick=Math.max(0,fpsWeaponKick-dt*(fpsActiveWeapon==='gatling'?11:6.8));
   fpsUpdateReload(dt);
   fpsUpdateRecoil(dt);
+  fpsUpdateMelee(dt);
 
   const gatlingWantsSpin=
     fpsActiveWeapon==='gatling'&&
@@ -5303,7 +5533,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:153,
+  version:154,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -5345,13 +5575,26 @@ const fpsApiV139={
   get deaths(){return fpsDeaths;},
   get kills(){return fpsKills;},
   get damagePerHit(){
+    if(fpsActiveWeapon==='axe')return FPS_AXE_NORMAL_DAMAGE;
     return fpsActiveWeapon==='gatling'
       ?FPS_GATLING_DAMAGE
       :FPS_SNIPER_DAMAGE;
   },
   get weaponDamage(){return {
     sniper:FPS_SNIPER_DAMAGE,
-    gatling:FPS_GATLING_DAMAGE
+    gatling:FPS_GATLING_DAMAGE,
+    axeNormal:FPS_AXE_NORMAL_DAMAGE,
+    axeStrong:FPS_AXE_STRONG_DAMAGE
+  };},
+  get melee(){return {
+    active:!!fpsMeleeAttack,
+    type:fpsMeleeType,
+    progress:Number(fpsMeleeProgress().toFixed(3)),
+    sequence:fpsMeleeSeq,
+    normalDamage:FPS_AXE_NORMAL_DAMAGE,
+    strongDamage:FPS_AXE_STRONG_DAMAGE,
+    normalReach:FPS_AXE_NORMAL_REACH,
+    strongReach:FPS_AXE_STRONG_REACH
   };},
   get triggerHeld(){return fpsTriggerHeld;},
   get gatlingSpinSpeed(){return Number(fpsGatlingSpinSpeed.toFixed(2));},
@@ -5420,7 +5663,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:153,
+    version:154,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
@@ -5544,6 +5787,8 @@ let lastFrameTime=performance.now();
     crouch:fpsCrouchAmount,
     aim:fpsAimAmount,
     weapon:fpsActiveWeapon,
+    meleeSeq:fpsMeleeSeq,
+    meleeType:fpsMeleeType,
     hp:fpsHealth,
     alive:fpsAlive
   });
