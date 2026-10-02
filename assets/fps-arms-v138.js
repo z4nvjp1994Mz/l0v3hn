@@ -153,10 +153,10 @@ function makeArm(side,materials){
   const arm=new THREE.Group();
   arm.name=side<0?'FPS_LEFT_ARM_V138':'FPS_RIGHT_ARM_V138';
 
-  // V138: shorten the visible forearm by ~30% and make it materially thicker.
+  // V138.2: keep V138 thickness but recess the visible forearm down/back toward the player.
   // The hand topology stays unchanged from V137.
-  const sleeveStart=[side*.425,-.350,.165];
-  const sleeveEnd=[side*.320,-.235,.020];
+  const sleeveStart=[side*.440,-.405,.225];
+  const sleeveEnd=[side*.326,-.250,.040];
 
   arm.add(segmentBetween(
     sleeveStart,
@@ -169,8 +169,8 @@ function makeArm(side,materials){
   ));
 
   const underside=segmentBetween(
-    [side*.418,-.344,.158],
-    [side*.326,-.242,.025],
+    [side*.433,-.398,.218],
+    [side*.332,-.257,.045],
     .066,
     .051,
     materials.sleeveDark,
@@ -182,7 +182,7 @@ function makeArm(side,materials){
 
   arm.add(segmentBetween(
     sleeveEnd,
-    [side*.300,-.207,-.026],
+    [side*.304,-.213,-.020],
     .062,
     .055,
     materials.cuff,
