@@ -306,6 +306,11 @@ export async function loadKenneyFpsArmsAssetV129(){
   };
 }
 
+
+export async function loadKenneyFpsArmsBakedV130(){
+  return loadGLTF('./models/kenney/fps-arms-baked-v130.glb');
+}
+
 export function createAnimatedCharacterInstance(prototype,{
   name='V105_KENNEY_CHARACTER',
   clip='walk',
