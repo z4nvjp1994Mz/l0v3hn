@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V137 SHAPED FPS GLOVE SHELL</small>
+  <small>GitHub → Netlify · BUILD V138 SHORTER THICKER FPS ARMS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -53,7 +53,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createShapedFpsArmsV137 } from './assets/fps-arms-v137.js?v=137';
+import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=138';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1516,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V137 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V138 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1732,16 +1732,16 @@ function fpsMesh(geometry,material,renderOrder=0){
   return mesh;
 }
 
-function prepareFpsRealArmsV137(){
+function prepareFpsRealArmsV138(){
   if(fpsRealArmsReady&&fpsRealArmsRig)return fpsRealArmsRig;
 
   try{
-    const rig=createShapedFpsArmsV137();
-    rig.name='FPS_SHAPED_OVERLAY_RIG_V137';
+    const rig=createThickerFpsArmsV138();
+    rig.name='FPS_THICKER_OVERLAY_RIG_V138';
     rig.userData.ignoreFpsCollision=true;
     rig.visible=false;
 
-    // Preserve V136 low/outward framing; V137 changes only hand topology.
+    // Keep the V137 hand framing; proportions are corrected inside the arm module.
     rig.scale.setScalar(1.00);
     rig.rotation.set(-.01,0,0);
     rig.position.set(0,-.12,-1.08);
@@ -1754,14 +1754,14 @@ function prepareFpsRealArmsV137(){
     fpsRealArmsAction=null;
     fpsRealArmsReady=true;
     fpsRealArmsError=null;
-    fpsArmAssetMode='shaped-glove-shell-v137';
+    fpsArmAssetMode='thicker-shorter-arms-v138';
     fpsRealArmsPromise=Promise.resolve(rig);
 
     if(fpsLeftArmPivot)fpsLeftArmPivot.visible=false;
     if(fpsRightArmPivot)fpsRightArmPivot.visible=false;
     if(fpsMode)fpsRealArmsRig.visible=true;
 
-    console.info('[DaLoc] V137 shaped FPS gloves ready',{
+    console.info('[DaLoc] V138 shorter thicker FPS arms ready',{
       triangles:rig.userData.triangles||0,
       children:rig.children.length,
       mode:fpsArmAssetMode
@@ -1770,8 +1770,8 @@ function prepareFpsRealArmsV137(){
   }catch(error){
     fpsRealArmsError=error;
     fpsRealArmsReady=false;
-    fpsArmAssetMode='v137-shaped-glove-error';
-    console.error('[DaLoc] V137 FPS glove setup failed',error);
+    fpsArmAssetMode='v138-thicker-arm-error';
+    console.error('[DaLoc] V138 FPS arm setup failed',error);
     return null;
   }
 }
@@ -1809,7 +1809,7 @@ function buildFpsCharacterRig(){
   // Arms are a camera-relative first-person viewmodel: always readable at the
   // bottom of frame, independent from pitch/yaw and without entering collision.
   fpsViewModel=new THREE.Group();
-  fpsViewModel.name='FPS_VIEWMODEL_V137';
+  fpsViewModel.name='FPS_VIEWMODEL_V138';
   fpsViewModel.userData.ignoreFpsCollision=true;
   fpsViewModel.visible=false;
   scene.add(fpsViewModel);
@@ -1836,7 +1836,7 @@ function buildFpsCharacterRig(){
     // (-Z), slightly higher and closer to the center. This makes the forearm
     // visually point INTO the scene like an FPS viewmodel instead of toward camera.
     const root=new THREE.Group();
-    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V137':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V137';
+    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V138':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V138';
     root.userData.ignoreFpsCollision=true;
 
     const shoulder=[side*.33,-.41,-.52];
@@ -1993,7 +1993,7 @@ function setFpsRigVisible(visible){
   fpsLeftArmPivot.visible=false;
   fpsRightArmPivot.visible=false;
 
-  if(!fpsRealArmsRig)prepareFpsRealArmsV137();
+  if(!fpsRealArmsRig)prepareFpsRealArmsV138();
   if(fpsRealArmsRig)fpsRealArmsRig.visible=visible;
 }
 
@@ -2486,8 +2486,8 @@ function restoreFpsRenderProfile(){
   }
 }
 
-// V137: build shaped FPS glove shells synchronously during startup.
-prepareFpsRealArmsV137();
+// V138: build shorter thicker FPS arms synchronously during startup.
+prepareFpsRealArmsV138();
 
 function enterFirstPerson(){
   if(fpsMode){
@@ -2632,8 +2632,8 @@ window.addEventListener('blur',()=>fpsKeys.clear());
 function updateFirstPerson(dt){
   if(!fpsMode)return;
 
-  // V137 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
-  if(!fpsRealArmsRig)prepareFpsRealArmsV137();
+  // V138 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
+  if(!fpsRealArmsRig)prepareFpsRealArmsV138();
   if(fpsRealArmsRig)fpsRealArmsRig.visible=true;
 
   // Ground-level shadows are the expensive pass in FPS. Update them every
@@ -2688,8 +2688,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V137={
-  version:137,
+window.__DALOC_FPS_V138={
+  version:138,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -2708,7 +2708,7 @@ window.__DALOC_FPS_V137={
   get approvedLookPx(){return {x:343.50,y:1492.90};},
   get bodyRigVisible(){return !!fpsBodyRig?.visible;},
   get armAssetMode(){return fpsArmAssetMode;},
-  get armAssetPath(){return 'module:assets/fps-arms-v137.js';},
+  get armAssetPath(){return 'module:assets/fps-arms-v138.js';},
   get realArmsReady(){return fpsRealArmsReady;},
   get overlayVisible(){return !!(fpsMode&&fpsRealArmsReady&&fpsRealArmsRig?.visible);},
   get overlayChildren(){return fpsArmOverlayRoot.children.length;},
