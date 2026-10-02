@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V145-drivable-traffic-cars">
+<meta name="daloc-build" content="V145.1-all-traffic-vehicles-steering-fix">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V145 FPS + THIRD PERSON + DRIVABLE CARS</small>
+  <small>GitHub → Netlify · BUILD V145.1 ALL TRAFFIC VEHICLES + STEERING FIX</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -84,7 +84,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=140';
 import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=144';
-import { createPlayerVehicleControllerV145 } from './assets/player-vehicle-v145.js?v=145';
+import { createPlayerVehicleControllerV145 } from './assets/player-vehicle-v145.js?v=1451';
 import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=1433';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=1392';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
@@ -1644,7 +1644,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V145 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V145.1 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -3298,21 +3298,34 @@ function ensurePlayerVehicleControllerV145(){
   fpsVehicleController=createPlayerVehicleControllerV145({
     getAgents:()=>trafficController?.agents||window.__DALOC_TRAFFIC_V91?.agents||[],
     collisionTest:(position,yaw,agent)=>{
-      const halfW=agent?.type==='supercar'?1.10:1.03;
-      const halfL=Math.max(2.1,(agent?.length||4.3)*.5);
+      const shape={
+        motorcycle:{halfW:.44,halfL:1.12,probeY:.95,height:1.85},
+        car:{halfW:1.05,halfL:2.22,probeY:1.05,height:1.90},
+        supercar:{halfW:1.10,halfL:2.38,probeY:1.00,height:1.65},
+        cargo:{halfW:1.34,halfL:4.12,probeY:1.35,height:2.75},
+        container:{halfW:1.42,halfL:6.95,probeY:1.45,height:3.05}
+      }[agent?.type]||{halfW:1.05,halfL:2.22,probeY:1.05,height:1.90};
       const c=Math.cos(yaw),sn=Math.sin(yaw);
       const probes=[
-        [ halfW, halfL],[ -halfW, halfL],
-        [ halfW,-halfL],[ -halfW,-halfL],
-        [0,halfL+.35],[0,-halfL-.35]
+        [ shape.halfW, shape.halfL],[-shape.halfW, shape.halfL],
+        [ shape.halfW,-shape.halfL],[-shape.halfW,-shape.halfL],
+        [ shape.halfW,0],[-shape.halfW,0],
+        [0,shape.halfL+.28],[0,-shape.halfL-.28]
       ];
       for(const [lx,lz] of probes){
         fpsVehicleCollisionProbe.set(
           position.x+lx*c+lz*sn,
-          1.05,
+          shape.probeY,
           position.z-lx*sn+lz*c
         );
-        if(fpsStaticBlocked(fpsVehicleCollisionProbe,1.05,1.85)||fpsDoorBlocked(fpsVehicleCollisionProbe)){
+        if(
+          fpsStaticBlocked(
+            fpsVehicleCollisionProbe,
+            shape.probeY,
+            shape.height
+          )||
+          fpsDoorBlocked(fpsVehicleCollisionProbe)
+        ){
           return true;
         }
       }
@@ -3323,11 +3336,37 @@ function ensurePlayerVehicleControllerV145(){
   return fpsVehicleController;
 }
 
-function fpsNearestDrivableVehicle(maxDistance=4.6){
+function fpsNearestDrivableVehicle(maxDistance=4.2){
   const ctl=ensurePlayerVehicleControllerV145();
   const feet=fpsVehicleExitProbe.copy(camera.position);
   feet.y=0;
   return ctl.nearest(feet,maxDistance);
+}
+
+function fpsVehicleTypeLabel(type){
+  if(type==='supercar')return 'siêu xe';
+  if(type==='cargo')return 'xe tải thùng';
+  if(type==='container')return 'xe container';
+  if(type==='motorcycle')return 'xe máy';
+  return 'ô tô con';
+}
+
+function fpsVehicleCameraProfile(type){
+  if(type==='container')return {
+    firstForward:5.05,firstHeight:1.85,targetHeight:1.95,distance:15.5,cameraHeight:5.0
+  };
+  if(type==='cargo')return {
+    firstForward:2.70,firstHeight:1.72,targetHeight:1.72,distance:11.5,cameraHeight:4.1
+  };
+  if(type==='motorcycle')return {
+    firstForward:.18,firstHeight:1.50,targetHeight:1.15,distance:6.3,cameraHeight:2.55
+  };
+  if(type==='supercar')return {
+    firstForward:.28,firstHeight:.92,targetHeight:.92,distance:8.2,cameraHeight:2.65
+  };
+  return {
+    firstForward:.42,firstHeight:1.12,targetHeight:1.12,distance:8.4,cameraHeight:2.9
+  };
 }
 
 function fpsSetVehicleVisibility(){
@@ -3383,8 +3422,12 @@ function fpsExitVehicle(){
         break;
       }
     }
-    if(!placed&&vehicle){
-      camera.position.set(vehicle.position.x,FPS_EYE_HEIGHT,vehicle.position.z);
+    if(!placed){
+      camera.position.set(
+        parked.position.x,
+        FPS_EYE_HEIGHT,
+        parked.position.z
+      );
     }
   }
   fpsGroundLevel=0;
@@ -3411,25 +3454,28 @@ function fpsUpdateVehicleCamera(dt,{snap=false}={}){
   if(!vehicle)return;
 
   const yaw=vehicle.rotation.y;
+  const type=ctl.agent?.type||'car';
+  const profile=fpsVehicleCameraProfile(type);
   fpsVehicleCamForward.set(Math.sin(yaw),0,Math.cos(yaw)).normalize();
   fpsVehicleCamRight.set(Math.cos(yaw),0,-Math.sin(yaw)).normalize();
 
   if(fpsVehicleViewMode==='first'){
     camera.position.copy(vehicle.position)
-      .addScaledVector(fpsVehicleCamForward,.38);
-    camera.position.y=1.55;
+      .addScaledVector(fpsVehicleCamForward,profile.firstForward);
+    camera.position.y=vehicle.position.y+profile.firstHeight;
     camera.rotation.set(fpsPitch,yaw,0,'YXZ');
     return;
   }
 
   const orbitYaw=fpsYaw;
   const orbitForward=fpsVehicleCamForward.set(Math.sin(orbitYaw),0,Math.cos(orbitYaw)).normalize();
-  const distance=8.4;
+  const distance=profile.distance;
   fpsVehicleCamTarget.copy(vehicle.position);
-  fpsVehicleCamTarget.y=1.25;
+  fpsVehicleCamTarget.y=vehicle.position.y+profile.targetHeight;
   fpsVehicleCamDesired.copy(fpsVehicleCamTarget)
     .addScaledVector(orbitForward,-distance);
-  fpsVehicleCamDesired.y+=3.15+THREE.MathUtils.clamp(-fpsPitch*1.8,-1.0,1.8);
+  fpsVehicleCamDesired.y+=profile.cameraHeight+
+    THREE.MathUtils.clamp(-fpsPitch*1.8,-1.0,1.8);
 
   const ray=fpsThirdRayDir.copy(fpsVehicleCamDesired).sub(fpsVehicleCamTarget);
   const rayDistance=ray.length();
@@ -3484,10 +3530,16 @@ function fpsFindNearestInteraction(){
   let bestDist=FPS_INTERACT_DISTANCE;
 
   if(!fpsVehicleMode&&!fpsClimbState&&!fpsRoofState){
-    const drive=fpsNearestDrivableVehicle(4.6);
-    if(drive&&drive.distance<bestDist){
+    const drive=fpsNearestDrivableVehicle(4.2);
+    if(drive&&drive.distance<4.2){
       bestDist=drive.distance;
-      best={type:'vehicle',agent:drive.agent,vehicle:drive.vehicle,dist:drive.distance};
+      best={
+        type:'vehicle',
+        agent:drive.agent,
+        vehicle:drive.vehicle,
+        point:drive.entryPoint,
+        dist:drive.distance
+      };
     }
   }
 
@@ -3541,7 +3593,8 @@ function fpsUpdateInteractionPrompt(){
   if(fpsVehicleMode){
     fpsInteractPrompt.textContent='E · Xuống xe · V đổi camera · W/S ga-lùi · A/D lái · Space handbrake';
   }else if(fpsCurrentInteraction.type==='vehicle'){
-    fpsInteractPrompt.textContent='E · Lái / cướp '+(fpsCurrentInteraction.agent?.type==='supercar'?'siêu xe':'ô tô');
+    fpsInteractPrompt.textContent='E · Lái / cướp '+
+      fpsVehicleTypeLabel(fpsCurrentInteraction.agent?.type);
   }else if(fpsCurrentInteraction.type==='door'){
     const d=fpsCurrentInteraction.door;
     const profile=factoryInteriorsV84?.factoryProfiles?.find?.(p=>p.index===d.factoryIndex);
@@ -4321,7 +4374,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:144,
+  version:145.1,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
