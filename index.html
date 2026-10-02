@@ -26,7 +26,7 @@ body.fps-mode #fpsInteractPrompt.active{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V139.5 OPAQUE FACTORY WALLS</small>
+  <small>GitHub → Netlify · BUILD V139.6 CLEAN FACTORY FACADE</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1070,12 +1070,17 @@ function addFactoryScaleDetail(g,idx){
   const walk=new THREE.Mesh(new THREE.BoxGeometry(L*.92,.10,2.2),concreteYardMat);
   walk.position.set(0,.06,-D/2-1.3);g.add(walk);
 
-  // facade panel rhythm
+  // V139.6: facade panel rhythm is now a flush seam, not a projecting column.
   const panelCount=Math.max(6,Math.min(16,Math.round(L/8)));
   for(let i=0;i<panelCount;i++){
     const x=(-.46+i/(panelCount-1)*.92)*L;
-    const joint=new THREE.Mesh(new THREE.BoxGeometry(.09,H*.78,.06),facadePanelMat);
-    joint.position.set(x,H*.49,D/2+.04);g.add(joint);
+    const joint=new THREE.Mesh(new THREE.BoxGeometry(.035,H*.72,.014),facadePanelMat);
+    joint.position.set(x,H*.51,D/2+.007);
+    joint.castShadow=false;
+    joint.receiveShadow=false;
+    joint.name='V1396_FACTORY_FRONT_SEAM_'+idx+'_'+i;
+    joint.userData.fpsNonSolid=true;
+    g.add(joint);
   }
 
   // office window band on one corner of the rear facade
@@ -1174,14 +1179,17 @@ function addFactoryRichDetail(g,idx){
   skirtFront.position.set(0,.48,D/2+.065);g.add(skirtFront);
   const skirtBack=skirtFront.clone();skirtBack.position.z=-D/2-.065;g.add(skirtBack);
 
-  // Repeating facade ribs make scale readable at walking distance.
+  // V139.6: remove projecting ribs from the FRONT facade. They became free-standing
+  // poles after the opaque visual-shell upgrade. Rear ribs are retained for scale.
   const ribN=Math.max(8,Math.min(24,Math.round(L/6)));
   for(let i=0;i<ribN;i++){
     const x=(-.48+i/(ribN-1)*.96)*L;
-    for(const z of [D/2+.085,-D/2-.085]){
-      const rib=new THREE.Mesh(new THREE.BoxGeometry(.16,H*.86,.16),ribMat);
-      rib.position.set(x,H*.50,z);rib.castShadow=true;g.add(rib);
-    }
+    const rib=new THREE.Mesh(new THREE.BoxGeometry(.10,H*.80,.055),ribMat);
+    rib.position.set(x,H*.50,-D/2-.028);
+    rib.castShadow=false;
+    rib.name='V1396_FACTORY_REAR_RIB_'+idx+'_'+i;
+    rib.userData.fpsNonSolid=true;
+    g.add(rib);
   }
 
   // Continuous clerestory windows.
@@ -1191,16 +1199,29 @@ function addFactoryRichDetail(g,idx){
     band.position.set(0,H*.73,z);g.add(band);
   }
 
-  // Gutters and downpipes on both long sides.
-  for(const z of [D/2+.18,-D/2-.18]){
-    const gutter=new THREE.Mesh(new THREE.BoxGeometry(L*.98,.20,.22),gutterMat);
-    gutter.position.set(0,H+.12,z);g.add(gutter);
-    const downN=Math.max(3,Math.min(8,Math.round(L/22)));
-    for(let i=0;i<downN;i++){
-      const x=(-.45+i/(downN-1)*.90)*L;
-      const dp=new THREE.Mesh(new THREE.CylinderGeometry(.10,.10,H*.90,8),pipeMat);
-      dp.position.set(x,H*.45,z);g.add(dp);
-    }
+  // V139.6 gutters remain, but the front facade gets only two corner downpipes.
+  // This avoids a row of pole-like pipes in front of doors/loading bays.
+  for(const side of ['front','rear']){
+    const z=side==='front'?D/2+.055:-D/2-.10;
+    const gutter=new THREE.Mesh(new THREE.BoxGeometry(L*.98,.16,.14),gutterMat);
+    gutter.position.set(0,H+.10,z);
+    gutter.name='V1396_FACTORY_GUTTER_'+side+'_'+idx;
+    gutter.userData.fpsNonSolid=true;
+    g.add(gutter);
+
+    const xs=side==='front'
+      ?[-L*.46,L*.46]
+      :Array.from({length:Math.max(3,Math.min(6,Math.round(L/26)))},(_,i)=>{
+          const n=Math.max(3,Math.min(6,Math.round(L/26)));
+          return (-.45+i/(n-1)*.90)*L;
+        });
+    xs.forEach((x,i)=>{
+      const dp=new THREE.Mesh(new THREE.CylinderGeometry(.065,.065,H*.86,8),pipeMat);
+      dp.position.set(x,H*.43,z);
+      dp.name='V1396_FACTORY_DOWNPIPE_'+side+'_'+idx+'_'+i;
+      dp.userData.fpsNonSolid=true;
+      g.add(dp);
+    });
   }
 
   // Skylights aligned along the roof, not coplanar with roof.
@@ -1523,7 +1544,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V139.5 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V139.6 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
