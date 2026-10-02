@@ -18,15 +18,27 @@
 #fpsCrosshair:before{left:8px;top:1px;width:2px;height:16px}#fpsCrosshair:after{left:1px;top:8px;width:16px;height:2px}
 #fpsHud{display:none;position:fixed;z-index:29;left:50%;bottom:54px;transform:translateX(-50%);padding:8px 12px;border-radius:10px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.12);font:700 11px Arial;color:#dff7e8;pointer-events:none}
 #fpsInteractPrompt{display:none;position:fixed;z-index:31;left:50%;bottom:92px;transform:translateX(-50%);padding:9px 14px;border-radius:10px;background:rgba(8,28,18,.90);border:1px solid rgba(130,237,178,.42);font:800 12px Arial;color:#effff5;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+#fpsScopeOverlay{display:none;position:fixed;inset:0;z-index:36;pointer-events:none;overflow:hidden}
+#fpsScopeLens{position:absolute;left:50%;top:50%;width:min(76vw,76vh);height:min(76vw,76vh);transform:translate(-50%,-50%);border-radius:50%;box-shadow:0 0 0 100vmax rgba(0,0,0,.985),inset 0 0 0 3px rgba(15,18,16,.96),inset 0 0 48px rgba(0,0,0,.50);background:radial-gradient(circle at center,rgba(255,255,255,.018) 0 58%,rgba(0,0,0,.10) 77%,rgba(0,0,0,.48) 100%)}
+#fpsScopeLens:before,#fpsScopeLens:after{content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(13,18,15,.92);box-shadow:0 0 1px rgba(255,255,255,.22)}
+#fpsScopeLens:before{width:100%;height:1px}#fpsScopeLens:after{width:1px;height:100%}
+#fpsScopeDot{position:absolute;left:50%;top:50%;width:5px;height:5px;transform:translate(-50%,-50%);border:1px solid rgba(10,16,13,.95);border-radius:50%;background:rgba(235,250,238,.38)}
+#fpsScopeStatus{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);font:700 10px Arial;letter-spacing:.08em;color:rgba(225,240,230,.72);text-shadow:0 1px 2px #000}
+#fpsHitMarker{display:none;position:fixed;z-index:38;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%) rotate(45deg);pointer-events:none}
+#fpsHitMarker:before,#fpsHitMarker:after{content:'';position:absolute;background:rgba(255,255,255,.96);box-shadow:0 0 5px rgba(0,0,0,.8)}
+#fpsHitMarker:before{left:9px;top:1px;width:2px;height:18px}#fpsHitMarker:after{left:1px;top:9px;width:18px;height:2px}
+#fpsHitMarker.active{display:block}
 body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 body.fps-mode #fpsInteractPrompt.active{display:block}
+body.fps-aiming #fpsCrosshair{display:none}
+body.fps-aiming #fpsScopeOverlay{display:block}
 @media(max-width:850px){.brand{left:10px;top:10px;width:calc(100vw - 20px)}.controls{left:10px;right:auto;top:128px;max-width:calc(100vw - 20px);overflow:auto}.info{right:10px;bottom:10px;width:285px}}
 </style>
 </head>
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V140 SNIPER + CROUCH</small>
+  <small>GitHub → Netlify · BUILD V141 SCOPE + PROJECTILE FIRE</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -49,7 +61,7 @@ body.fps-mode #fpsInteractPrompt.active{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · WASD di chuyển · Shift chạy · Ctrl crouch · Space nhảy · E tương tác · Chuột nhìn · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · WASD · Shift chạy · Ctrl crouch · RMB ngắm scope · LMB bắn · Space nhảy · E tương tác · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1548,7 +1560,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V140 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V141 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1682,6 +1694,8 @@ const fpsButton=document.getElementById('fps');
 const fpsCrosshair=document.getElementById('fpsCrosshair');
 const fpsHud=document.getElementById('fpsHud');
 const fpsInteractPrompt=document.getElementById('fpsInteractPrompt');
+const fpsScopeOverlay=document.getElementById('fpsScopeOverlay');
+const fpsHitMarker=document.getElementById('fpsHitMarker');
 const fpsKeys=new Set();
 let fpsMode=false;
 let fpsYaw=0;
@@ -1741,6 +1755,36 @@ let fpsRoofState=null;
 let fpsCurrentInteraction=null;
 let fpsCrouchAmount=0;
 let fpsCrouching=false;
+let fpsAimHeld=false;
+let fpsAiming=false;
+let fpsAimAmount=0;
+let fpsBaseFov=42;
+let fpsWeaponKick=0;
+let fpsShotCooldown=0;
+let fpsShotsFired=0;
+let fpsLastImpactObject='none';
+let fpsHitMarkerTimer=0;
+
+const FPS_SCOPE_FOV=13.5;
+const FPS_AIM_SPEED=9.5;
+const FPS_FIRE_INTERVAL=.82;
+const FPS_PROJECTILE_SPEED=220;
+const FPS_PROJECTILE_GRAVITY=4.2;
+const FPS_PROJECTILE_TTL=3.0;
+
+const fpsProjectiles=[];
+const fpsProjectileGroup=new THREE.Group();
+fpsProjectileGroup.name='FPS_PROJECTILES_V141';
+fpsProjectileGroup.userData.ignoreFpsCollision=true;
+scene.add(fpsProjectileGroup);
+const fpsBulletRaycaster=new THREE.Raycaster();
+const fpsBulletDir=new THREE.Vector3();
+const fpsBulletNext=new THREE.Vector3();
+const fpsBulletRight=new THREE.Vector3();
+const fpsBulletUp=new THREE.Vector3();
+const fpsBulletMat=new THREE.MeshBasicMaterial({color:0xffe9a6});
+const fpsTracerMat=new THREE.LineBasicMaterial({color:0xffefbd,transparent:true,opacity:.72,depthWrite:false});
+const fpsImpactMat=new THREE.MeshBasicMaterial({color:0xfff0c2,transparent:true,opacity:.92,depthWrite:false});
 const fpsInteractionTmp=new THREE.Vector3();
 const fpsInteractionTmp2=new THREE.Vector3();
 const FPS_INTERACT_DISTANCE=3.4;
@@ -2101,11 +2145,11 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
     // One coherent skinned-derived mesh: sway the whole arm pair together.
     fpsRealArmsRig.position.set(
       Math.sin(phase)*.0030*blend,
-      -.12-fpsCrouchAmount*.050-Math.abs(Math.sin(phase*2))*.0048*blend+(airborne?.006:0),
-      -1.08+fpsCrouchAmount*.018
+      -.12-fpsCrouchAmount*.050-fpsAimAmount*.030-fpsWeaponKick*.010-Math.abs(Math.sin(phase*2))*.0048*blend+(airborne?.006:0),
+      -1.08+fpsCrouchAmount*.018+fpsAimAmount*.045+fpsWeaponKick*.030
     );
     fpsRealArmsRig.rotation.set(
-      -.01+(airborne?.008:0),
+      -.01-fpsAimAmount*.012+fpsWeaponKick*.035+(airborne?.008:0),
       0,
       Math.sin(phase)*.0048*runMul*blend
     );
@@ -3048,8 +3092,10 @@ function enterFirstPerson(){
   fpsSavedView={
     position:camera.position.clone(),
     target:controls.target.clone(),
-    near:camera.near
+    near:camera.near,
+    fov:camera.fov
   };
+  fpsBaseFov=camera.fov;
   fpsMode=true;
   fpsKeys.clear();
   fpsVerticalVelocity=0;
@@ -3063,6 +3109,12 @@ function enterFirstPerson(){
   fpsCurrentInteraction=null;
   fpsCrouchAmount=0;
   fpsCrouching=false;
+  fpsAimHeld=false;
+  fpsAiming=false;
+  fpsAimAmount=0;
+  fpsWeaponKick=0;
+  fpsShotCooldown=0;
+  document.body.classList.remove('fps-aiming');
   if(fpsInteractPrompt){
     fpsInteractPrompt.classList.remove('active');
     fpsInteractPrompt.textContent='';
@@ -3117,6 +3169,11 @@ function exitFirstPerson(restore=true){
   fpsCurrentInteraction=null;
   fpsCrouchAmount=0;
   fpsCrouching=false;
+  fpsAimHeld=false;
+  fpsAiming=false;
+  fpsAimAmount=0;
+  fpsWeaponKick=0;
+  document.body.classList.remove('fps-aiming');
   fpsHasSafePosition=false;
   fpsLocomotionBlend=0;
   if(fpsInteractPrompt){
@@ -3138,8 +3195,11 @@ function exitFirstPerson(restore=true){
     document.exitPointerLock?.();
   }
 
+  fpsClearProjectiles();
+
   if(fpsSavedView){
     camera.near=fpsSavedView.near;
+    camera.fov=fpsSavedView.fov??42;
     camera.updateProjectionMatrix();
     if(restore){
       camera.position.copy(fpsSavedView.position);
@@ -3157,6 +3217,32 @@ renderer.domElement.addEventListener('click',()=>{
     renderer.domElement.requestPointerLock?.();
   }
 });
+renderer.domElement.addEventListener('contextmenu',e=>{
+  if(fpsMode)e.preventDefault();
+});
+renderer.domElement.addEventListener('mousedown',e=>{
+  if(!fpsMode)return;
+  if(e.button===2){
+    e.preventDefault();
+    if(document.pointerLockElement!==renderer.domElement){
+      renderer.domElement.requestPointerLock?.();
+      return;
+    }
+    fpsAimHeld=true;
+    return;
+  }
+  if(e.button===0){
+    if(document.pointerLockElement!==renderer.domElement){
+      renderer.domElement.requestPointerLock?.();
+      return;
+    }
+    e.preventDefault();
+    fpsFireSniper();
+  }
+});
+document.addEventListener('mouseup',e=>{
+  if(e.button===2)fpsAimHeld=false;
+});
 document.addEventListener('pointerlockchange',()=>{
   if(!fpsMode)return;
 
@@ -3166,6 +3252,9 @@ document.addEventListener('pointerlockchange',()=>{
   // to leave FPS mode. A later canvas click re-acquires pointer lock.
   if(document.pointerLockElement!==renderer.domElement){
     fpsKeys.clear();
+    fpsAimHeld=false;
+    fpsAiming=false;
+    document.body.classList.remove('fps-aiming');
   }
 });
 document.addEventListener('mousemove',e=>{
@@ -3226,10 +3315,199 @@ window.addEventListener('keyup',e=>{
   }
   fpsKeys.delete(e.code);
 },true);
-window.addEventListener('blur',()=>fpsKeys.clear());
+window.addEventListener('blur',()=>{
+  fpsKeys.clear();
+  fpsAimHeld=false;
+  fpsAiming=false;
+  document.body.classList.remove('fps-aiming');
+});
+
+function fpsBulletObjectName(object){
+  for(let o=object;o;o=o.parent){
+    if(o.name)return o.name;
+  }
+  return 'world';
+}
+
+function fpsBulletHitAllowed(hit){
+  const object=hit?.object;
+  if(!object||object.visible===false)return false;
+  for(let o=object;o;o=o.parent){
+    if(o.userData?.fpsProjectile===true||o.userData?.ignoreFpsBullet===true)return false;
+    if(o===fpsProjectileGroup)return false;
+  }
+  const materials=Array.isArray(object.material)?object.material:[object.material];
+  if(materials.length&&materials.every(m=>m&&m.visible===false))return false;
+  return true;
+}
+
+function fpsSpawnImpact(point){
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),fpsImpactMat.clone());
+  mesh.position.copy(point);
+  mesh.userData={fpsProjectile:true,ignoreFpsCollision:true,life:.22,maxLife:.22};
+  fpsProjectileGroup.add(mesh);
+  return mesh;
+}
+
+function fpsShowHitMarker(){
+  fpsHitMarkerTimer=.12;
+  fpsHitMarker?.classList.add('active');
+}
+
+function fpsFireSniper(){
+  if(!fpsMode||document.pointerLockElement!==renderer.domElement)return false;
+  if(fpsShotCooldown>0||fpsClimbState)return false;
+
+  fpsShotCooldown=FPS_FIRE_INTERVAL;
+  fpsWeaponKick=1;
+  fpsShotsFired++;
+
+  const origin=camera.position.clone();
+  camera.getWorldDirection(fpsBulletDir);
+  fpsBulletDir.normalize();
+
+  // Start a short distance in front of the camera to avoid spawning inside the player.
+  origin.addScaledVector(fpsBulletDir,.62);
+
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(.030,8,6),fpsBulletMat);
+  mesh.position.copy(origin);
+  mesh.name='FPS_PROJECTILE_'+fpsShotsFired;
+  mesh.userData={fpsProjectile:true,ignoreFpsCollision:true};
+  fpsProjectileGroup.add(mesh);
+
+  const tracerGeo=new THREE.BufferGeometry().setFromPoints([origin,origin]);
+  const tracer=new THREE.Line(tracerGeo,fpsTracerMat.clone());
+  tracer.name='FPS_TRACER_'+fpsShotsFired;
+  tracer.userData={fpsProjectile:true,ignoreFpsCollision:true};
+  fpsProjectileGroup.add(tracer);
+
+  fpsProjectiles.push({
+    mesh,tracer,
+    position:origin.clone(),
+    previous:origin.clone(),
+    velocity:fpsBulletDir.clone().multiplyScalar(FPS_PROJECTILE_SPEED),
+    life:FPS_PROJECTILE_TTL
+  });
+
+  // Small visual recoil only; no real-world ballistic parameters are modeled.
+  fpsPitch=THREE.MathUtils.clamp(fpsPitch+.018,-1.38,1.38);
+  fpsYaw+=(Math.random()-.5)*.004;
+  camera.rotation.set(fpsPitch,fpsYaw,0,'YXZ');
+  return true;
+}
+
+function fpsRemoveProjectile(p){
+  fpsProjectileGroup.remove(p.mesh);
+  fpsProjectileGroup.remove(p.tracer);
+  p.mesh.geometry?.dispose?.();
+  p.tracer.geometry?.dispose?.();
+  p.tracer.material?.dispose?.();
+}
+
+function fpsClearProjectiles(){
+  while(fpsProjectiles.length){
+    fpsRemoveProjectile(fpsProjectiles.pop());
+  }
+  for(const child of [...fpsProjectileGroup.children]){
+    fpsProjectileGroup.remove(child);
+    child.geometry?.dispose?.();
+    if(child.material!==fpsBulletMat&&child.material!==fpsImpactMat)child.material?.dispose?.();
+  }
+}
+
+function fpsUpdateProjectiles(dt){
+  for(let i=fpsProjectiles.length-1;i>=0;i--){
+    const p=fpsProjectiles[i];
+    p.life-=dt;
+    p.previous.copy(p.position);
+    p.velocity.y-=FPS_PROJECTILE_GRAVITY*dt;
+    fpsBulletNext.copy(p.position).addScaledVector(p.velocity,dt);
+
+    fpsBulletDir.copy(fpsBulletNext).sub(p.position);
+    const distance=fpsBulletDir.length();
+    let impact=null;
+    if(distance>.0001){
+      fpsBulletDir.multiplyScalar(1/distance);
+      fpsBulletRaycaster.set(p.position,fpsBulletDir);
+      fpsBulletRaycaster.near=.001;
+      fpsBulletRaycaster.far=distance;
+      const hits=fpsBulletRaycaster.intersectObject(world,true);
+      impact=hits.find(fpsBulletHitAllowed)||null;
+    }
+
+    if(impact){
+      p.position.copy(impact.point);
+      p.mesh.position.copy(impact.point);
+      fpsLastImpactObject=fpsBulletObjectName(impact.object);
+      fpsSpawnImpact(impact.point);
+      fpsShowHitMarker();
+      fpsRemoveProjectile(p);
+      fpsProjectiles.splice(i,1);
+      continue;
+    }
+
+    p.position.copy(fpsBulletNext);
+    p.mesh.position.copy(p.position);
+    const attr=p.tracer.geometry.attributes.position;
+    const tail=p.velocity.clone().normalize().multiplyScalar(-1.4).add(p.position);
+    attr.setXYZ(0,tail.x,tail.y,tail.z);
+    attr.setXYZ(1,p.position.x,p.position.y,p.position.z);
+    attr.needsUpdate=true;
+
+    if(p.life<=0){
+      fpsRemoveProjectile(p);
+      fpsProjectiles.splice(i,1);
+    }
+  }
+
+  // Fade short-lived impact sparks.
+  for(const child of [...fpsProjectileGroup.children]){
+    if(!Number.isFinite(child.userData?.life))continue;
+    child.userData.life-=dt;
+    const t=Math.max(0,child.userData.life/(child.userData.maxLife||.22));
+    if(child.material)child.material.opacity=t;
+    child.scale.setScalar(1+(1-t)*2.6);
+    if(child.userData.life<=0){
+      fpsProjectileGroup.remove(child);
+      child.geometry?.dispose?.();
+      child.material?.dispose?.();
+    }
+  }
+}
+
+function fpsUpdateScope(dt){
+  const canAim=fpsMode&&fpsAimHeld&&!fpsClimbState&&document.pointerLockElement===renderer.domElement;
+  fpsAiming=!!canAim;
+  const target=fpsAiming?1:0;
+  fpsAimAmount+=(target-fpsAimAmount)*Math.min(1,dt*FPS_AIM_SPEED);
+  if(Math.abs(fpsAimAmount-target)<.001)fpsAimAmount=target;
+
+  const ease=fpsAimAmount*fpsAimAmount*(3-2*fpsAimAmount);
+  const targetFov=THREE.MathUtils.lerp(fpsBaseFov,FPS_SCOPE_FOV,ease);
+  if(Math.abs(camera.fov-targetFov)>.001){
+    camera.fov=targetFov;
+    camera.updateProjectionMatrix();
+  }
+
+  document.body.classList.toggle('fps-aiming',fpsAimAmount>.08);
+  if(fpsRealArmsRig){
+    // At full scope the optic fills the view; hide the hip-fire weapon silhouette.
+    fpsRealArmsRig.visible=fpsMode&&fpsAimAmount<.88;
+  }
+
+  fpsShotCooldown=Math.max(0,fpsShotCooldown-dt);
+  fpsWeaponKick=Math.max(0,fpsWeaponKick-dt*6.8);
+
+  if(fpsHitMarkerTimer>0){
+    fpsHitMarkerTimer-=dt;
+    if(fpsHitMarkerTimer<=0)fpsHitMarker?.classList.remove('active');
+  }
+}
 
 function updateFirstPerson(dt){
   if(!fpsMode)return;
+
+  fpsUpdateScope(dt);
 
   // V138.3: the red DXF site-boundary guide is useful in overview/top view,
   // but must never be visible inside the first-person walkthrough.
@@ -3297,10 +3575,12 @@ function updateFirstPerson(dt){
   if(fpsKeys.has('KeyA'))move.sub(right);
 
   const moving=move.lengthSq()>0;
-  const running=moving&&!fpsCrouching&&(fpsKeys.has('ShiftLeft')||fpsKeys.has('ShiftRight'));
+  const running=moving&&!fpsCrouching&&!fpsAiming&&(fpsKeys.has('ShiftLeft')||fpsKeys.has('ShiftRight'));
   if(moving){
     move.normalize();
-    const moveSpeed=fpsCrouching?FPS_CROUCH_SPEED:(running?FPS_RUN_SPEED:FPS_WALK_SPEED);
+    const moveSpeed=fpsCrouching
+      ?FPS_CROUCH_SPEED
+      :(fpsAiming?FPS_WALK_SPEED*.62:(running?FPS_RUN_SPEED:FPS_WALK_SPEED));
     move.multiplyScalar(moveSpeed*dt);
     fpsMoveWithCollision(move);
   }
@@ -3332,6 +3612,12 @@ const fpsApiV139={
   get doorCount(){return factoryInteriorsV84?.doors?.length||0;},
   get factoryArchetypes(){return factoryInteriorsV84?.factoryProfiles?.map?.(p=>({index:p.index,archetype:p.archetype}))||[];},
   get weapon(){return fpsRealArmsRig?.userData?.weapon||'none';},
+  get aiming(){return fpsAiming;},
+  get aimAmount(){return Number(fpsAimAmount.toFixed(3));},
+  get scopeFov(){return Number(camera.fov.toFixed(2));},
+  get shotsFired(){return fpsShotsFired;},
+  get activeProjectiles(){return fpsProjectiles.length;},
+  get lastImpactObject(){return fpsLastImpactObject;},
   get verticalVelocity(){return fpsVerticalVelocity;},
   get keys(){return [...fpsKeys];},
   get lastBlockReason(){return fpsLastBlockReason;},
@@ -3439,6 +3725,7 @@ let lastFrameTime=performance.now();
   factoryInteriorsV84?.update?.(dt);
   atmosphereV106?.update?.(dt);
   if(fpsMode)updateFirstPerson(dt);else controls.update();
+  fpsUpdateProjectiles(dt);
   visualQualityV102.update();
   const d=camera.position.distanceTo(controls.target);
   world.traverse(o=>{
