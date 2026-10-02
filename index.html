@@ -1776,6 +1776,13 @@ const fpsHud=document.getElementById('fpsHud');
 const fpsInteractPrompt=document.getElementById('fpsInteractPrompt');
 const fpsScopeOverlay=document.getElementById('fpsScopeOverlay');
 const fpsHitMarker=document.getElementById('fpsHitMarker');
+const fpsLocalHpText=document.getElementById('fpsLocalHpText');
+const fpsLocalHpFill=document.getElementById('fpsLocalHpFill');
+const fpsRemoteHealthRow=document.getElementById('fpsRemoteHealthRow');
+const fpsRemoteHpText=document.getElementById('fpsRemoteHpText');
+const fpsRemoteHpFill=document.getElementById('fpsRemoteHpFill');
+const fpsDamageFlash=document.getElementById('fpsDamageFlash');
+const fpsRespawnText=document.getElementById('fpsRespawnText');
 const fpsKeys=new Set();
 let fpsMode=false;
 let fpsYaw=0;
@@ -1844,7 +1851,17 @@ let fpsShotCooldown=0;
 let fpsShotsFired=0;
 let fpsLastImpactObject='none';
 let fpsHitMarkerTimer=0;
+let fpsHealth=100;
+let fpsAlive=true;
+let fpsRespawnTimer=0;
+let fpsDamageFlashTimer=0;
+let fpsLastDamageFrom='none';
+let fpsDeaths=0;
+let fpsKills=0;
 
+const FPS_MAX_HP=100;
+const FPS_DAMAGE_PER_PLAYER_HIT=50;
+const FPS_RESPAWN_DELAY=3.0;
 const FPS_SCOPE_FOV=13.5;
 const FPS_AIM_SPEED=9.5;
 const FPS_FIRE_INTERVAL=.82;
@@ -1875,6 +1892,118 @@ function fpsCurrentEyeHeight(){
 }
 function fpsCurrentPlayerHeight(){
   return THREE.MathUtils.lerp(FPS_PLAYER_HEIGHT,FPS_CROUCH_PLAYER_HEIGHT,fpsCrouchAmount);
+}
+
+function fpsUpdateHealthHud(){
+  const localHp=Math.max(0,Math.min(FPS_MAX_HP,fpsHealth));
+  if(fpsLocalHpText)fpsLocalHpText.textContent=Math.round(localHp)+' HP';
+  if(fpsLocalHpFill)fpsLocalHpFill.style.width=(localHp/FPS_MAX_HP*100)+'%';
+
+  const remote=multiplayerV142?.remoteStatus;
+  if(remote){
+    const hp=Math.max(0,Math.min(FPS_MAX_HP,Number(remote.hp)||0));
+    if(fpsRemoteHealthRow)fpsRemoteHealthRow.style.opacity='1';
+    if(fpsRemoteHpText)fpsRemoteHpText.textContent=(remote.alive===false?'DEAD · ':'')+Math.round(hp)+' HP';
+    if(fpsRemoteHpFill)fpsRemoteHpFill.style.width=(hp/FPS_MAX_HP*100)+'%';
+  }else{
+    if(fpsRemoteHealthRow)fpsRemoteHealthRow.style.opacity='.48';
+    if(fpsRemoteHpText)fpsRemoteHpText.textContent='-- HP';
+    if(fpsRemoteHpFill)fpsRemoteHpFill.style.width='0%';
+  }
+}
+
+function fpsResetCombatState(){
+  fpsHealth=FPS_MAX_HP;
+  fpsAlive=true;
+  fpsRespawnTimer=0;
+  fpsDamageFlashTimer=0;
+  fpsLastDamageFrom='none';
+  document.body.classList.remove('fps-dead');
+  if(fpsDamageFlash)fpsDamageFlash.style.opacity='0';
+  fpsUpdateHealthHud();
+}
+
+function fpsDie(sourcePeerId='unknown'){
+  if(!fpsAlive)return;
+  fpsAlive=false;
+  fpsHealth=0;
+  fpsDeaths++;
+  fpsRespawnTimer=FPS_RESPAWN_DELAY;
+  fpsLastDamageFrom=sourcePeerId||'unknown';
+  fpsKeys.clear();
+  fpsAimHeld=false;
+  fpsAiming=false;
+  fpsAimAmount=0;
+  fpsShotCooldown=FPS_FIRE_INTERVAL;
+  fpsVerticalVelocity=0;
+  fpsGrounded=true;
+  document.body.classList.remove('fps-aiming');
+  document.body.classList.add('fps-dead');
+  if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
+  fpsUpdateHealthHud();
+}
+
+function fpsApplyIncomingDamage({amount=0,sourcePeerId='unknown'}={}){
+  if(!fpsMode||!fpsAlive)return false;
+  const damage=Math.max(0,Math.min(FPS_MAX_HP,Number(amount)||0));
+  if(damage<=0)return false;
+  fpsHealth=Math.max(0,fpsHealth-damage);
+  fpsDamageFlashTimer=.28;
+  fpsLastDamageFrom=sourcePeerId||'unknown';
+  if(fpsDamageFlash)fpsDamageFlash.style.opacity='.82';
+  fpsUpdateHealthHud();
+  if(fpsHealth<=0)fpsDie(sourcePeerId);
+  return true;
+}
+
+function fpsRespawnPlayer(){
+  if(!fpsMode)return;
+  const authoredSpawn=fpsSpawn();
+  const spawn=fpsFindSafeSpawn(authoredSpawn);
+  fpsHealth=FPS_MAX_HP;
+  fpsAlive=true;
+  fpsRespawnTimer=0;
+  fpsGroundLevel=0;
+  fpsVerticalVelocity=0;
+  fpsGrounded=true;
+  fpsClimbState=null;
+  fpsRoofState=null;
+  fpsCrouchAmount=0;
+  fpsCrouching=false;
+  fpsAimHeld=false;
+  fpsAiming=false;
+  fpsAimAmount=0;
+  fpsWeaponKick=0;
+  fpsShotCooldown=0;
+  fpsKeys.clear();
+  camera.position.copy(spawn.position);
+  camera.lookAt(spawn.look);
+  fpsSetLookFromCamera();
+  controls.target.copy(spawn.look);
+  fpsLastSafePosition.copy(spawn.position);
+  fpsHasSafePosition=true;
+  document.body.classList.remove('fps-dead','fps-aiming');
+  setFpsRigVisible(true);
+  updateFpsCharacterRig(0,{moving:false,running:false});
+  fpsUpdateHealthHud();
+}
+
+function fpsUpdateCombatState(dt){
+  fpsUpdateHealthHud();
+
+  if(fpsDamageFlashTimer>0){
+    fpsDamageFlashTimer-=dt;
+    const alpha=Math.max(0,fpsDamageFlashTimer/.28)*.82;
+    if(fpsDamageFlash)fpsDamageFlash.style.opacity=String(alpha);
+  }else if(fpsDamageFlash){
+    fpsDamageFlash.style.opacity='0';
+  }
+
+  if(!fpsAlive){
+    fpsRespawnTimer=Math.max(0,fpsRespawnTimer-dt);
+    if(fpsRespawnText)fpsRespawnText.textContent='Respawn in '+fpsRespawnTimer.toFixed(1)+'s';
+    if(fpsRespawnTimer<=0)fpsRespawnPlayer();
+  }
 }
 
 // V124 corrected FPS first-person body/viewmodel.
