@@ -166,7 +166,7 @@ export function installSolarRoofZoneV94({
     const root=new THREE.Group();
     root.name='V1471_SOLAR_TWO_STOREY_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     root.userData={
-      version:150,
+      version:151,
       factoryIndex,
       role:'actual-two-storey-solar-industrial-building',
       floors:2,
@@ -217,8 +217,21 @@ export function installSolarRoofZoneV94({
     // The lower part stays naturally below the slab.
     const holeX0=stairCenterX-stairWidth*.68;
     const holeX1=stairCenterX+stairWidth*.68;
-    const holeZ0=Math.max(backEdge+.20,stairTopZ-topLandingDepth-.35);
-    const holeZ1=Math.min(frontEdge-.20,stairTopZ+stairRun*.46);
+
+    // V151: the V150 opening extended 0.35 m BEYOND the rear edge of the
+    // top landing, creating a support-less slot between landing and level 2.
+    // Deliberately overlap the level-2 slab INTO the top landing instead.
+    const level2Overlap=.72;
+    const topLandingRearZ=stairTopZ-topLandingDepth+.04;
+    const topLandingFrontZ=stairTopZ+.04;
+    const holeZ0=Math.max(
+      backEdge+.20,
+      topLandingRearZ+level2Overlap
+    );
+    const holeZ1=Math.min(
+      frontEdge-.20,
+      stairTopZ+stairRun*.46
+    );
 
     const slabParts=[
       {
@@ -323,7 +336,7 @@ export function installSolarRoofZoneV94({
     const stairRoot=new THREE.Group();
     stairRoot.name='V150_STRAIGHT_STAIR_'+factoryIndex;
     stairRoot.userData={
-      version:150,
+      version:151,
       fpsNonSolid:true,
       solarTwoStoreyV147:true,
       factoryIndex,
@@ -461,6 +474,9 @@ export function installSolarRoofZoneV94({
       stairTopZ,
       entryDepth,
       topLandingDepth,
+      level2Overlap,
+      topLandingRearZ,
+      topLandingFrontZ,
       leftEdge,
       rightEdge,
       backEdge,
@@ -537,7 +553,7 @@ export function installSolarRoofZoneV94({
     const solarRoot=new THREE.Group();
     solarRoot.name='V94_SOLAR_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     solarRoot.userData={
-      version:150,
+      version:151,
       factoryIndex,
       role:'solar-roof-pilot-two-storey',
       tableCount:placements.length
@@ -638,7 +654,9 @@ export function installSolarRoofZoneV94({
       const z=walkLocalPoint.z;
       const captureX=stair.stairWidth*.5+.58;
       const entryFront=stair.stairBottomZ+stair.entryDepth;
-      const topRear=stair.stairTopZ-stair.topLandingDepth-.30;
+      const topRear=
+        stair.topLandingRearZ-
+        Math.max(.25,(stair.level2Overlap||.72)*.35);
 
       const candidates=[];
       const addCandidate=(localHeight,surface,priority=0)=>{
@@ -683,6 +701,30 @@ export function installSolarRoofZoneV94({
             -.015
           );
         }
+      }
+
+      // V151 LEVEL-2 BRIDGE:
+      // This overlap zone exists both visually (top landing + slab overlap)
+      // and logically, so one walking step can never land in an unsupported
+      // strip when leaving the staircase.
+      const bridgeRear=
+        stair.topLandingRearZ+
+        Math.max(.10,(stair.level2Overlap||.72)*.20);
+      const bridgeFront=
+        stair.topLandingFrontZ+
+        Math.max(.35,(stair.level2Overlap||.72)*.85);
+
+      if(
+        Math.abs(lx)<=stair.stairWidth*.62 &&
+        z>=bridgeRear &&
+        z<=bridgeFront &&
+        currentLocalY>=stair.splitY-1.15
+      ){
+        addCandidate(
+          stair.splitY+.14,
+          'level-2-bridge',
+          -.025
+        );
       }
 
       // Level 2 outside the stair opening.
@@ -742,7 +784,7 @@ export function installSolarRoofZoneV94({
 
   const controller={
     ready:true,
-    version:150,
+    version:151,
     selectedIndices:selectedIndices.slice(),
     factoryCount:panelRoots.length,
     twoStoreyFactoryCount:twoStoreyRoots.length,
@@ -757,7 +799,7 @@ export function installSolarRoofZoneV94({
   };
 
   window.__DALOC_SOLAR_ROOFS_V94=controller;
-  console.info('[DaLoc] V150 brand-new straight stair installed',{
+  console.info('[DaLoc] V151 level-2 landing bridge installed',{
     factories:controller.factoryCount,
     tables:tableCount,
     moduleEquivalent
