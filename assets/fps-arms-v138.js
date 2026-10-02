@@ -377,7 +377,6 @@ function makeAxeGripArm(side,materials,gripZ){
 }
 
 function makeAxe(materials){
-function makeAxe(materials){
   const axe=new THREE.Group();
   axe.name='FPS_AXE_V154';
   axe.visible=false;
