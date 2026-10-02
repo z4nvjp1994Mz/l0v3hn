@@ -3288,6 +3288,13 @@ function fpsSetShadowMapSize(size){
 }
 
 function fpsBuildV120TreeBatch(){
+  // applyFpsRenderProfile() can run again if an async asset finishes loading
+  // after FPS was entered. Never overwrite the original overview visibility.
+  if(fpsV120TreeVisibility){
+    if(fpsV120TreeBatchRoot)fpsV120TreeBatchRoot.visible=true;
+    return;
+  }
+
   const source=world.children.filter(o=>o.userData?.lushTreeV120===true);
   if(!source.length)return;
 
