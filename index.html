@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V135 CLEAN CONTINUOUS FPS GLOVES</small>
+  <small>GitHub → Netlify · BUILD V136 LOW-PROFILE FPS GLOVES</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -53,7 +53,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createCleanFpsArmsV135 } from './assets/fps-arms-v135.js?v=135';
+import { createLowProfileFpsArmsV136 } from './assets/fps-arms-v136.js?v=136';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1516,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V135 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V136 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1732,19 +1732,19 @@ function fpsMesh(geometry,material,renderOrder=0){
   return mesh;
 }
 
-function prepareFpsRealArmsV135(){
+function prepareFpsRealArmsV136(){
   if(fpsRealArmsReady&&fpsRealArmsRig)return fpsRealArmsRig;
 
   try{
-    const rig=createCleanFpsArmsV135();
-    rig.name='FPS_CLEAN_OVERLAY_RIG_V135';
+    const rig=createLowProfileFpsArmsV136();
+    rig.name='FPS_LOW_PROFILE_OVERLAY_RIG_V136';
     rig.userData.ignoreFpsCollision=true;
     rig.visible=false;
 
-    // Preserve compact V134 framing; V135 changes hand silhouette only.
+    // Authored to sit low/outward. Keep 1:1 proportions.
     rig.scale.setScalar(1.00);
-    rig.rotation.set(-.015,0,0);
-    rig.position.set(0,-.095,-1.06);
+    rig.rotation.set(-.01,0,0);
+    rig.position.set(0,-.12,-1.08);
 
     fpsArmOverlayRoot.add(rig);
 
@@ -1754,14 +1754,14 @@ function prepareFpsRealArmsV135(){
     fpsRealArmsAction=null;
     fpsRealArmsReady=true;
     fpsRealArmsError=null;
-    fpsArmAssetMode='clean-continuous-fists-v135';
+    fpsArmAssetMode='low-profile-mitten-v136';
     fpsRealArmsPromise=Promise.resolve(rig);
 
     if(fpsLeftArmPivot)fpsLeftArmPivot.visible=false;
     if(fpsRightArmPivot)fpsRightArmPivot.visible=false;
     if(fpsMode)fpsRealArmsRig.visible=true;
 
-    console.info('[DaLoc] V135 clean FPS gloves ready',{
+    console.info('[DaLoc] V136 low-profile FPS gloves ready',{
       triangles:rig.userData.triangles||0,
       children:rig.children.length,
       mode:fpsArmAssetMode
@@ -1770,8 +1770,8 @@ function prepareFpsRealArmsV135(){
   }catch(error){
     fpsRealArmsError=error;
     fpsRealArmsReady=false;
-    fpsArmAssetMode='v135-clean-glove-error';
-    console.error('[DaLoc] V135 FPS glove setup failed',error);
+    fpsArmAssetMode='v136-low-profile-error';
+    console.error('[DaLoc] V136 FPS glove setup failed',error);
     return null;
   }
 }
@@ -1809,7 +1809,7 @@ function buildFpsCharacterRig(){
   // Arms are a camera-relative first-person viewmodel: always readable at the
   // bottom of frame, independent from pitch/yaw and without entering collision.
   fpsViewModel=new THREE.Group();
-  fpsViewModel.name='FPS_VIEWMODEL_V135';
+  fpsViewModel.name='FPS_VIEWMODEL_V136';
   fpsViewModel.userData.ignoreFpsCollision=true;
   fpsViewModel.visible=false;
   scene.add(fpsViewModel);
@@ -1836,7 +1836,7 @@ function buildFpsCharacterRig(){
     // (-Z), slightly higher and closer to the center. This makes the forearm
     // visually point INTO the scene like an FPS viewmodel instead of toward camera.
     const root=new THREE.Group();
-    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V135':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V135';
+    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V136':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V136';
     root.userData.ignoreFpsCollision=true;
 
     const shoulder=[side*.33,-.41,-.52];
@@ -1993,7 +1993,7 @@ function setFpsRigVisible(visible){
   fpsLeftArmPivot.visible=false;
   fpsRightArmPivot.visible=false;
 
-  if(!fpsRealArmsRig)prepareFpsRealArmsV135();
+  if(!fpsRealArmsRig)prepareFpsRealArmsV136();
   if(fpsRealArmsRig)fpsRealArmsRig.visible=visible;
 }
 
@@ -2027,14 +2027,14 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
   if(fpsRealArmsReady&&fpsRealArmsRig){
     // One coherent skinned-derived mesh: sway the whole arm pair together.
     fpsRealArmsRig.position.set(
-      Math.sin(phase)*.0035*blend,
-      -.095-Math.abs(Math.sin(phase*2))*.0055*blend+(airborne?.007:0),
-      -1.06
+      Math.sin(phase)*.0030*blend,
+      -.12-Math.abs(Math.sin(phase*2))*.0048*blend+(airborne?.006:0),
+      -1.08
     );
     fpsRealArmsRig.rotation.set(
-      -.015+(airborne?.010:0),
+      -.01+(airborne?.008:0),
       0,
-      Math.sin(phase)*.0055*runMul*blend
+      Math.sin(phase)*.0048*runMul*blend
     );
   }else{
     const swing=.018*runMul*blend;
@@ -2486,8 +2486,8 @@ function restoreFpsRenderProfile(){
   }
 }
 
-// V135: build clean continuous FPS gloves synchronously during startup.
-prepareFpsRealArmsV135();
+// V136: build low-profile FPS gloves synchronously during startup.
+prepareFpsRealArmsV136();
 
 function enterFirstPerson(){
   if(fpsMode){
@@ -2632,8 +2632,8 @@ window.addEventListener('blur',()=>fpsKeys.clear());
 function updateFirstPerson(dt){
   if(!fpsMode)return;
 
-  // V135 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
-  if(!fpsRealArmsRig)prepareFpsRealArmsV135();
+  // V136 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
+  if(!fpsRealArmsRig)prepareFpsRealArmsV136();
   if(fpsRealArmsRig)fpsRealArmsRig.visible=true;
 
   // Ground-level shadows are the expensive pass in FPS. Update them every
@@ -2688,8 +2688,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V135={
-  version:135,
+window.__DALOC_FPS_V136={
+  version:136,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -2708,7 +2708,7 @@ window.__DALOC_FPS_V135={
   get approvedLookPx(){return {x:343.50,y:1492.90};},
   get bodyRigVisible(){return !!fpsBodyRig?.visible;},
   get armAssetMode(){return fpsArmAssetMode;},
-  get armAssetPath(){return 'module:assets/fps-arms-v135.js';},
+  get armAssetPath(){return 'module:assets/fps-arms-v136.js';},
   get realArmsReady(){return fpsRealArmsReady;},
   get overlayVisible(){return !!(fpsMode&&fpsRealArmsReady&&fpsRealArmsRig?.visible);},
   get overlayChildren(){return fpsArmOverlayRoot.children.length;},
