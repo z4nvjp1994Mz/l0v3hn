@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V130 BAKED FPS ARM MESH</small>
+  <small>GitHub → Netlify · BUILD V131 SELF-CONTAINED FPS ARM OVERLAY</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -53,7 +53,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { loadKenneyFpsArmsBakedV130 } from './assets/real-assets-v105.js?v=130';
+import { loadKenneyFpsArmsSelfContainedV131 } from './assets/real-assets-v105.js?v=131';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1516,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V130 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V131 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1704,6 +1704,25 @@ let fpsRealArmsReady=false;
 let fpsRealArmsError=null;
 let fpsArmAssetMode='loading-real-arms';
 
+// V131: dedicated first-person overlay renderer. Arms are no longer part of the
+// world scene, so world fog/depth/camera transforms cannot hide them.
+const fpsArmOverlayScene=new THREE.Scene();
+const fpsArmOverlayCamera=new THREE.PerspectiveCamera(
+  55,
+  innerWidth/innerHeight,
+  .01,
+  10
+);
+fpsArmOverlayCamera.position.set(0,0,0);
+fpsArmOverlayCamera.lookAt(0,0,-1);
+const fpsArmOverlayRoot=new THREE.Group();
+fpsArmOverlayRoot.name='FPS_ARM_OVERLAY_ROOT_V131';
+fpsArmOverlayScene.add(fpsArmOverlayRoot);
+const fpsArmOverlayHemi=new THREE.HemisphereLight(0xffffff,0x31463a,1.55);
+const fpsArmOverlayKey=new THREE.DirectionalLight(0xffffff,1.65);
+fpsArmOverlayKey.position.set(-1.4,2.2,2.6);
+fpsArmOverlayScene.add(fpsArmOverlayHemi,fpsArmOverlayKey);
+
 function fpsMesh(geometry,material,renderOrder=0){
   const mesh=new THREE.Mesh(geometry,material);
   mesh.frustumCulled=false;
@@ -1713,13 +1732,13 @@ function fpsMesh(geometry,material,renderOrder=0){
   return mesh;
 }
 
-async function prepareFpsRealArmsV130(){
+async function prepareFpsRealArmsV131(){
   if(fpsRealArmsPromise)return fpsRealArmsPromise;
 
-  fpsRealArmsPromise=loadKenneyFpsArmsBakedV130()
+  fpsRealArmsPromise=loadKenneyFpsArmsSelfContainedV131()
     .then(gltf=>{
       const model=gltf?.scene?.clone?.(true);
-      if(!model)throw new Error('Baked FPS arm GLB unavailable');
+      if(!model)throw new Error('Self-contained FPS arm GLB unavailable');
 
       let meshCount=0;
       let triCount=0;
@@ -1733,35 +1752,35 @@ async function prepareFpsRealArmsV130(){
         const mats=Array.isArray(o.material)?o.material:[o.material];
         const cloned=mats.map(mat=>{
           const m=mat?.clone?.()||new THREE.MeshStandardMaterial({
-            color:0xd7a07a,roughness:.86
+            color:0x435c4b,roughness:.9,metalness:0
           });
-          m.depthTest=false;
-          m.depthWrite=false;
+          m.depthTest=true;
+          m.depthWrite=true;
           m.transparent=false;
+          m.fog=false;
           return m;
         });
         o.material=Array.isArray(o.material)?cloned:cloned[0];
         o.frustumCulled=false;
         o.castShadow=false;
         o.receiveShadow=false;
-        o.renderOrder=1010;
+        o.renderOrder=10;
       });
-      if(meshCount<1||triCount<20)throw new Error('Baked FPS arm mesh empty');
+      if(meshCount<1||triCount<20)throw new Error('Self-contained FPS arm mesh empty');
 
       const rig=new THREE.Group();
-      rig.name='FPS_BAKED_ARMS_V130';
+      rig.name='FPS_ARM_OVERLAY_RIG_V131';
       rig.userData.ignoreFpsCollision=true;
       rig.visible=false;
       rig.add(model);
 
-      // Asset is already centered around the exact posed arm bounds:
-      // 0.461 x 0.161 x 0.302 model units. Scale it once into FPS view-space.
-      rig.scale.setScalar(2.35);
-      rig.rotation.set(-.04,Math.PI,0);
-      rig.position.set(0,-.30,-1.18);
+      // Asset bounds are centered and fixed. These values are now overlay-camera
+      // coordinates, not world coordinates, so they cannot drift with the player.
+      rig.scale.setScalar(2.15);
+      rig.rotation.set(-.055,Math.PI,0);
+      rig.position.set(0,-.37,-1.25);
 
-      buildFpsCharacterRig();
-      fpsViewModel.add(rig);
+      fpsArmOverlayRoot.add(rig);
 
       fpsRealArmsRig=rig;
       fpsRealArmsMesh=model;
@@ -1769,13 +1788,13 @@ async function prepareFpsRealArmsV130(){
       fpsRealArmsAction=null;
       fpsRealArmsReady=true;
       fpsRealArmsError=null;
-      fpsArmAssetMode='baked-static-arm-mesh-v130';
+      fpsArmAssetMode='self-contained-overlay-v131';
 
       fpsLeftArmPivot.visible=false;
       fpsRightArmPivot.visible=false;
       if(fpsMode)fpsRealArmsRig.visible=true;
 
-      console.info('[DaLoc] V130 baked FPS arms ready',{
+      console.info('[DaLoc] V131 self-contained FPS arm overlay ready',{
         meshes:meshCount,
         triangles:triCount,
         mode:fpsArmAssetMode
@@ -1785,11 +1804,11 @@ async function prepareFpsRealArmsV130(){
     .catch(error=>{
       fpsRealArmsError=error;
       fpsRealArmsReady=false;
-      fpsArmAssetMode='baked-arm-error-hidden';
+      fpsArmAssetMode='v131-arm-overlay-error';
       if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
       if(fpsLeftArmPivot)fpsLeftArmPivot.visible=false;
       if(fpsRightArmPivot)fpsRightArmPivot.visible=false;
-      console.error('[DaLoc] V130 baked FPS arm asset failed',error);
+      console.error('[DaLoc] V131 FPS arm overlay failed',error);
       return false;
     });
 
@@ -1829,7 +1848,7 @@ function buildFpsCharacterRig(){
   // Arms are a camera-relative first-person viewmodel: always readable at the
   // bottom of frame, independent from pitch/yaw and without entering collision.
   fpsViewModel=new THREE.Group();
-  fpsViewModel.name='FPS_VIEWMODEL_V130';
+  fpsViewModel.name='FPS_VIEWMODEL_V131';
   fpsViewModel.userData.ignoreFpsCollision=true;
   fpsViewModel.visible=false;
   scene.add(fpsViewModel);
@@ -1856,7 +1875,7 @@ function buildFpsCharacterRig(){
     // (-Z), slightly higher and closer to the center. This makes the forearm
     // visually point INTO the scene like an FPS viewmodel instead of toward camera.
     const root=new THREE.Group();
-    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V130':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V130';
+    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V131':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V131';
     root.userData.ignoreFpsCollision=true;
 
     const shoulder=[side*.33,-.41,-.52];
@@ -2010,7 +2029,7 @@ function setFpsRigVisible(visible){
   fpsViewModel.visible=visible;
   fpsBodyRig.visible=visible;
 
-  // V130 never renders the old procedural glove.
+  // V131 never renders the old procedural glove.
   fpsLeftArmPivot.visible=false;
   fpsRightArmPivot.visible=false;
 
@@ -2020,7 +2039,7 @@ function setFpsRigVisible(visible){
   }
 
   if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
-  prepareFpsRealArmsV130();
+  prepareFpsRealArmsV131();
 }
 
 function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
@@ -2053,14 +2072,14 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
   if(fpsRealArmsReady&&fpsRealArmsRig){
     // One coherent skinned-derived mesh: sway the whole arm pair together.
     fpsRealArmsRig.position.set(
-      Math.sin(phase)*.0040*blend,
-      -.30-Math.abs(Math.sin(phase*2))*.0060*blend+(airborne?.008:0),
-      -1.18
+      Math.sin(phase)*.0060*blend,
+      -.37-Math.abs(Math.sin(phase*2))*.0080*blend+(airborne?.010:0),
+      -1.25
     );
     fpsRealArmsRig.rotation.set(
-      -.04+(airborne?.014:0),
+      -.055+(airborne?.018:0),
       Math.PI,
-      Math.sin(phase)*.0060*runMul*blend
+      Math.sin(phase)*.0080*runMul*blend
     );
   }else{
     const swing=.018*runMul*blend;
@@ -2514,7 +2533,7 @@ function restoreFpsRenderProfile(){
 
 // Start loading the real skinned arm asset during normal overview mode so FPS
 // usually enters with the final arm mesh already prepared.
-prepareFpsRealArmsV130();
+prepareFpsRealArmsV131();
 
 function enterFirstPerson(){
   if(fpsMode){
@@ -2711,8 +2730,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V130={
-  version:130,
+window.__DALOC_FPS_V131={
+  version:131,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -2731,8 +2750,10 @@ window.__DALOC_FPS_V130={
   get approvedLookPx(){return {x:343.50,y:1492.90};},
   get bodyRigVisible(){return !!fpsBodyRig?.visible;},
   get armAssetMode(){return fpsArmAssetMode;},
-  get armAssetPath(){return './assets/models/kenney/fps-arms-baked-v130.glb';},
+  get armAssetPath(){return './assets/models/kenney/fps-arms-selfcontained-v131.glb';},
   get realArmsReady(){return fpsRealArmsReady;},
+  get overlayVisible(){return !!(fpsMode&&fpsRealArmsReady&&fpsRealArmsRig?.visible);},
+  get overlayChildren(){return fpsArmOverlayRoot.children.length;},
   get realArmsError(){return fpsRealArmsError?.message||null;},
   get realArmsTriangles(){
     let n=0;
@@ -2815,11 +2836,28 @@ let lastFrameTime=performance.now();
     if(o.isSprite) o.visible=d<520;
   });
   visualQualityV102.render();
+
+  // V131 dedicated FPS arm pass. Preserve world color, clear only depth, then
+  // draw the first-person arms with their own camera and lighting.
+  if(fpsMode&&fpsRealArmsReady&&fpsRealArmsRig?.visible){
+    const previousAutoClear=renderer.autoClear;
+    renderer.autoClear=false;
+    renderer.clearDepth();
+    renderer.render(fpsArmOverlayScene,fpsArmOverlayCamera);
+    renderer.autoClear=previousAutoClear;
+  }
 })(performance.now());
 setTimeout(()=>{
   console.info('[DaLoc] Coordinate lock active:',SITE_FRAME_SIGNATURE);
 },0);
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);visualQualityV102.resize(innerWidth,innerHeight)});
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  fpsArmOverlayCamera.aspect=innerWidth/innerHeight;
+  fpsArmOverlayCamera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+  visualQualityV102.resize(innerWidth,innerHeight);
+});
 </script>
 </body>
 </html>
