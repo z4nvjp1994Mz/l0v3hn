@@ -168,13 +168,88 @@ export function installFactoryInteriorsV84({world,buildings}){
     }
     columns.instanceMatrix.needsUpdate=true;interior.add(columns);
 
-    const lightN=Math.max(6,Math.min(18,Math.round(L/9)));
-    for(let i=0;i<lightN;i++){
-      const x=THREE.MathUtils.lerp(-L*.42,L*.42,(i+.5)/lightN);
-      for(const z of [-D*.22,0,D*.22]){
-        addBox(interior,[2.4,.08,.28],[x,H*.78,z],mats.light,'V139_OVERHEAD_LIGHT',{solid:false});
+    // V148: proper suspended industrial lighting system.
+    // The old V139 fixtures were emissive bars placed at H*.78 with nothing
+    // connecting them to the roof, which made them look like floating objects.
+    // Build three visible ceiling rails, short hangers and fixtures close to
+    // the roof underside so every light has a believable structural support.
+    const lightRows=[-D*.22,0,D*.22];
+    const railY=H*.885;
+    const fixtureY=H*.825;
+    const hangerH=Math.max(.28,railY-fixtureY);
+    const lightN=Math.max(5,Math.min(14,Math.round(L/11)));
+
+    for(const z of lightRows){
+      // Longitudinal rail / cable support attached to the roof structure.
+      addBox(
+        interior,
+        [L*.88,.10,.16],
+        [0,railY,z],
+        mats.column,
+        'V148_LIGHTING_CEILING_RAIL',
+        {solid:false}
+      );
+
+      for(let i=0;i<lightN;i++){
+        const x=THREE.MathUtils.lerp(
+          -L*.40,
+          L*.40,
+          (i+.5)/lightN
+        );
+
+        // Two short suspension rods make the fixture visually attached to rail.
+        for(const dx of [-.82,.82]){
+          addCylinder(
+            interior,
+            .035,
+            .035,
+            hangerH,
+            [x+dx,(railY+fixtureY)*.5,z],
+            mats.column,
+            'V148_LIGHT_HANGER',
+            {solid:false,radial:8}
+          );
+        }
+
+        // Slightly deeper housing + emissive underside.
+        addBox(
+          interior,
+          [2.15,.16,.34],
+          [x,fixtureY,z],
+          mats.dark,
+          'V148_LIGHT_HOUSING',
+          {solid:false}
+        );
+        addBox(
+          interior,
+          [1.92,.045,.26],
+          [x,fixtureY-.105,z],
+          mats.light,
+          'V148_LED_FIXTURE',
+          {solid:false}
+        );
       }
     }
+
+    // Cross-roof secondary beams stop the rails from reading as free-floating
+    // lines when viewed along the length of a factory.
+    const beamN=Math.max(3,Math.min(8,Math.round(L/22)));
+    for(let i=0;i<beamN;i++){
+      const x=THREE.MathUtils.lerp(
+        -L*.38,
+        L*.38,
+        (i+.5)/beamN
+      );
+      addBox(
+        interior,
+        [.18,.16,D*.58],
+        [x,H*.91,0],
+        mats.column,
+        'V148_ROOF_SECONDARY_BEAM',
+        {solid:false}
+      );
+    }
+
     addOverheadUtility(interior,L,D,H,idx);
 
     const officeW=Math.min(9,L*.16),officeD=Math.min(6,D*.20);
