@@ -3674,7 +3674,11 @@ function fpsUpdateProjectiles(dt){
       fpsBulletRaycaster.set(p.position,fpsBulletDir);
       fpsBulletRaycaster.near=.001;
       fpsBulletRaycaster.far=distance;
-      const hits=fpsBulletRaycaster.intersectObject(world,true);
+      const raycastRoots=world.children.filter(child=>
+        child?.userData?.multiplayerRoot!==true &&
+        child?.name!=='MULTIPLAYER_V142'
+      );
+      const hits=fpsBulletRaycaster.intersectObjects(raycastRoots,true);
       worldImpact=hits.find(fpsBulletHitAllowed)||null;
 
       // V143.2: remote players use matrix-free mathematical hitboxes.
