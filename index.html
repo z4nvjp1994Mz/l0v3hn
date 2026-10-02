@@ -1521,7 +1521,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V138.5 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V139 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -2869,7 +2869,7 @@ function fpsUpdateClimb(dt){
   camera.position.z=THREE.MathUtils.lerp(camera.position.z,state.baseWorld.z,Math.min(1,dt*10));
   camera.position.y+=dir*FPS_LADDER_SPEED*dt;
 
-  if(camera.position.y>=state.maxY-.03){
+  if(camera.position.y>=state.maxY-.03&&dir>0){
     fpsFinishLadderTop();
     return true;
   }
@@ -3156,12 +3156,19 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V138={
-  version:138,
+const fpsApiV139={
+  version:139,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
   get grounded(){return fpsGrounded;},
+  get groundLevel(){return Number(fpsGroundLevel.toFixed(2));},
+  get climbing(){return !!fpsClimbState;},
+  get roofFactory(){return fpsRoofState?.factoryIndex??null;},
+  get interaction(){return fpsCurrentInteraction?.type||null;},
+  get ladderCount(){return (v54DetailResult?.ladders||window.__DALOC_V54?.ladders||[]).length;},
+  get doorCount(){return factoryInteriorsV84?.doors?.length||0;},
+  get factoryArchetypes(){return factoryInteriorsV84?.factoryProfiles?.map?.(p=>({index:p.index,archetype:p.archetype}))||[];},
   get verticalVelocity(){return fpsVerticalVelocity;},
   get keys(){return [...fpsKeys];},
   get lastBlockReason(){return fpsLastBlockReason;},
@@ -3204,6 +3211,9 @@ window.__DALOC_FPS_V138={
     lines:renderer.info.render.lines
   };}
 };
+window.__DALOC_FPS_V139=fpsApiV139;
+// Compatibility alias for earlier debugging snippets.
+window.__DALOC_FPS_V138=fpsApiV139;
 
 // Views
 function tween(pos,tgt){
