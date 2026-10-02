@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V151-level2-stair-bridge-support">
+<meta name="daloc-build" content="V152-gatling-gun-p2p">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V151 LEVEL-2 STAIR BRIDGE SUPPORT</small>
+  <small>GitHub → Netlify · BUILD V152 GATLING GUN + P2P 10 DAMAGE</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -76,16 +76,16 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · V đổi camera · WASD · Shift chạy · Ctrl crouch · RMB aim · LMB bắn · Space nhảy/handbrake · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V147.1: actual two-storey solar buildings + internal stairs + unique factories</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · V camera · WASD · Shift · Ctrl · RMB aim sniper · LMB bắn · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V147.1: actual two-storey solar buildings + internal stairs + unique factories</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=140';
-import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=144';
+import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=152';
+import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=152';
 import { createPlayerVehicleControllerV145 } from './assets/player-vehicle-v145.js?v=1451';
-import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=1433';
+import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=152';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=1392';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1925,6 +1925,13 @@ let fpsBaseFov=42;
 let fpsWeaponKick=0;
 let fpsShotCooldown=0;
 let fpsShotsFired=0;
+let fpsActiveWeapon='sniper';
+let fpsTriggerHeld=false;
+let fpsGatlingSpinSpeed=0;
+let fpsGatlingBarrelPhase=0;
+let fpsSniperViewModel=null;
+let fpsGatlingViewModel=null;
+let fpsGatlingBarrelCluster=null;
 let fpsLastImpactObject='none';
 let fpsHitMarkerTimer=0;
 let fpsHealth=100;
@@ -1936,12 +1943,18 @@ let fpsDeaths=0;
 let fpsKills=0;
 
 const FPS_MAX_HP=100;
-const FPS_DAMAGE_PER_PLAYER_HIT=50;
+const FPS_SNIPER_DAMAGE=50;
+const FPS_GATLING_DAMAGE=10;
+const FPS_DAMAGE_PER_PLAYER_HIT=FPS_SNIPER_DAMAGE;
 const FPS_RESPAWN_DELAY=3.0;
 const FPS_SCOPE_FOV=13.5;
 const FPS_AIM_SPEED=9.5;
-const FPS_FIRE_INTERVAL=.82;
+const FPS_SNIPER_FIRE_INTERVAL=.82;
+const FPS_GATLING_FIRE_INTERVAL=.085;
+const FPS_FIRE_INTERVAL=FPS_SNIPER_FIRE_INTERVAL;
 const FPS_PROJECTILE_SPEED=220;
+const FPS_GATLING_PROJECTILE_SPEED=205;
+const FPS_GATLING_SPREAD=.0105;
 const FPS_PROJECTILE_GRAVITY=4.2;
 const FPS_PROJECTILE_TTL=3.0;
 
@@ -2007,6 +2020,7 @@ function fpsDie(sourcePeerId='unknown'){
   fpsRespawnTimer=FPS_RESPAWN_DELAY;
   fpsLastDamageFrom=sourcePeerId||'unknown';
   fpsKeys.clear();
+  fpsTriggerHeld=false;
   fpsAimHeld=false;
   fpsAiming=false;
   fpsAimAmount=0;
@@ -2046,12 +2060,14 @@ function fpsRespawnPlayer(){
   fpsRoofState=null;
   fpsCrouchAmount=0;
   fpsCrouching=false;
+  fpsTriggerHeld=false;
   fpsAimHeld=false;
   fpsAiming=false;
   fpsAimAmount=0;
   fpsWeaponKick=0;
   fpsShotCooldown=0;
   fpsKeys.clear();
+  fpsSetWeapon(fpsActiveWeapon);
   camera.position.copy(spawn.position);
   camera.lookAt(spawn.look);
   fpsSetLookFromCamera();
@@ -2156,7 +2172,10 @@ function prepareFpsRealArmsV138(){
     fpsRealArmsAction=null;
     fpsRealArmsReady=true;
     fpsRealArmsError=null;
-    fpsArmAssetMode='v140-sniper-viewmodel';
+    fpsArmAssetMode='v152-sniper-gatling-viewmodels';
+    fpsSniperViewModel=rig.userData?.sniper||rig.getObjectByName('FPS_SNIPER_V140');
+    fpsGatlingViewModel=rig.userData?.gatling||rig.getObjectByName('FPS_GATLING_V152');
+    fpsGatlingBarrelCluster=rig.userData?.gatlingBarrel||rig.getObjectByName('FPS_GATLING_BARREL_CLUSTER_V152');
     fpsRealArmsPromise=Promise.resolve(rig);
 
     if(fpsLeftArmPivot)fpsLeftArmPivot.visible=false;
@@ -2395,6 +2414,44 @@ function ensureFpsThirdPersonAvatar(){
   return fpsThirdPersonAvatar;
 }
 
+function fpsApplyWeaponModelVisibility(){
+  if(fpsSniperViewModel)fpsSniperViewModel.visible=fpsActiveWeapon==='sniper';
+  if(fpsGatlingViewModel)fpsGatlingViewModel.visible=fpsActiveWeapon==='gatling';
+  if(fpsRealArmsRig)fpsRealArmsRig.userData.weapon=fpsActiveWeapon;
+}
+
+function fpsSetWeapon(next){
+  const weapon=next==='gatling'?'gatling':'sniper';
+  if(fpsActiveWeapon===weapon){
+    fpsApplyWeaponModelVisibility();
+    return weapon;
+  }
+
+  fpsActiveWeapon=weapon;
+  fpsTriggerHeld=false;
+  fpsShotCooldown=0;
+  fpsWeaponKick=0;
+
+  if(weapon!=='sniper'){
+    fpsAimHeld=false;
+    fpsAiming=false;
+    fpsAimAmount=0;
+    document.body.classList.remove('fps-aiming');
+    if(Math.abs(camera.fov-fpsBaseFov)>.001){
+      camera.fov=fpsBaseFov;
+      camera.updateProjectionMatrix();
+    }
+  }
+
+  fpsApplyWeaponModelVisibility();
+  if(fpsHud){
+    fpsHud.textContent=
+      'FPS WALK · 1 Sniper · 2 Gatling · '+(weapon==='gatling'?'GATLING 10 DMG/viên · giữ LMB':'SNIPER 50 DMG/viên · RMB scope')+
+      ' · V camera · WASD · E tương tác/xe · ESC thoát';
+  }
+  return weapon;
+}
+
 function fpsApplyViewModeVisibility(){
   buildFpsCharacterRig();
   ensureFpsThirdPersonAvatar();
@@ -2411,7 +2468,10 @@ function fpsApplyViewModeVisibility(){
 
   if(!fpsRealArmsRig)prepareFpsRealArmsV138();
   if(fpsRealArmsRig){
-    fpsRealArmsRig.visible=first&&fpsAimAmount<.88;
+    fpsApplyWeaponModelVisibility();
+    fpsRealArmsRig.visible=first&&(
+      fpsActiveWeapon!=='sniper'||fpsAimAmount<.88
+    );
   }
   if(fpsThirdPersonAvatar?.root){
     fpsThirdPersonAvatar.root.visible=third;
@@ -2543,7 +2603,9 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
     aim:fpsAimAmount,
     moving,
     running,
-    alive:fpsAlive
+    alive:fpsAlive,
+    weapon:fpsActiveWeapon,
+    firing:fpsTriggerHeld
   });
 }
 
@@ -4209,11 +4271,13 @@ function enterFirstPerson(){
   fpsCurrentInteraction=null;
   fpsCrouchAmount=0;
   fpsCrouching=false;
+  fpsTriggerHeld=false;
   fpsAimHeld=false;
   fpsAiming=false;
   fpsAimAmount=0;
   fpsWeaponKick=0;
   fpsShotCooldown=0;
+  fpsSetWeapon('sniper');
   fpsResetCombatState();
   document.body.classList.remove('fps-aiming');
   if(fpsInteractPrompt){
@@ -4278,6 +4342,7 @@ function exitFirstPerson(restore=true){
   fpsCurrentInteraction=null;
   fpsCrouchAmount=0;
   fpsCrouching=false;
+  fpsTriggerHeld=false;
   fpsAimHeld=false;
   fpsAiming=false;
   fpsAimAmount=0;
@@ -4339,7 +4404,7 @@ renderer.domElement.addEventListener('mousedown',e=>{
       renderer.domElement.requestPointerLock?.();
       return;
     }
-    fpsAimHeld=true;
+    if(fpsActiveWeapon==='sniper')fpsAimHeld=true;
     return;
   }
   if(e.button===0){
@@ -4348,11 +4413,13 @@ renderer.domElement.addEventListener('mousedown',e=>{
       return;
     }
     e.preventDefault();
-    fpsFireSniper();
+    fpsTriggerHeld=true;
+    fpsFireActiveWeapon();
   }
 });
 document.addEventListener('mouseup',e=>{
   if(e.button===2)fpsAimHeld=false;
+  if(e.button===0)fpsTriggerHeld=false;
 });
 document.addEventListener('pointerlockchange',()=>{
   if(!fpsMode)return;
@@ -4363,6 +4430,7 @@ document.addEventListener('pointerlockchange',()=>{
   // to leave FPS mode. A later canvas click re-acquires pointer lock.
   if(document.pointerLockElement!==renderer.domElement){
     fpsKeys.clear();
+    fpsTriggerHeld=false;
     fpsAimHeld=false;
     fpsAiming=false;
     document.body.classList.remove('fps-aiming');
@@ -4423,6 +4491,20 @@ window.addEventListener('keydown',e=>{
     return;
   }
 
+  if(e.code==='Digit1'){
+    e.preventDefault();
+    e.stopPropagation();
+    if(!e.repeat&&!fpsVehicleMode)fpsSetWeapon('sniper');
+    return;
+  }
+
+  if(e.code==='Digit2'){
+    e.preventDefault();
+    e.stopPropagation();
+    if(!e.repeat&&!fpsVehicleMode)fpsSetWeapon('gatling');
+    return;
+  }
+
   if(e.code==='KeyE'){
     e.preventDefault();
     e.stopPropagation();
@@ -4469,6 +4551,7 @@ window.addEventListener('keyup',e=>{
 },true);
 window.addEventListener('blur',()=>{
   fpsKeys.clear();
+  fpsTriggerHeld=false;
   fpsAimHeld=false;
   fpsAiming=false;
   document.body.classList.remove('fps-aiming');
