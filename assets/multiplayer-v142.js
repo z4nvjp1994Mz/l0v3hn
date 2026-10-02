@@ -270,6 +270,13 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
   let localStateCache=null;
   let lastError=null;
   const receivedDamageIds=new Set();
+  const hitRay=new THREE.Ray();
+  const hitStart=new THREE.Vector3();
+  const hitEnd=new THREE.Vector3();
+  const hitDir=new THREE.Vector3();
+  const hitCenter=new THREE.Vector3();
+  const hitPoint=new THREE.Vector3();
+  const hitSphere=new THREE.Sphere();
 
   const status=(message,kind='info')=>{
     onStatus?.({
@@ -664,6 +671,72 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     remote.rifle.visible=alive;
   }
 
+  function raycastRemoteSegment(start,end){
+    if(!start||!end)return null;
+    hitStart.fromArray(start);
+    hitEnd.fromArray(end);
+    hitDir.copy(hitEnd).sub(hitStart);
+    const segmentLength=hitDir.length();
+    if(segmentLength<=.0001)return null;
+    hitDir.multiplyScalar(1/segmentLength);
+    hitRay.set(hitStart,hitDir);
+
+    let best=null;
+
+    for(const remote of remotes.values()){
+      if(!remote?.root?.visible||remote.targetAlive===false||!remote.active)continue;
+
+      const crouch=clamp(remote.targetCrouch||0,0,1);
+      const base=remote.root.position;
+
+      // Head sphere.
+      hitCenter.set(
+        base.x,
+        base.y+1.82-.52*crouch,
+        base.z
+      );
+      hitSphere.center.copy(hitCenter);
+      hitSphere.radius=.24;
+      const headHit=hitRay.intersectSphere(hitSphere,hitPoint);
+      if(headHit){
+        const distance=hitStart.distanceTo(headHit);
+        if(distance<=segmentLength&&(!best||distance<best.distance)){
+          best={
+            peerId:remote.peerId,
+            distance,
+            point:[headHit.x,headHit.y,headHit.z],
+            zone:'head'
+          };
+        }
+      }
+
+      // Torso/body approximated as overlapping spheres, avoiding any mesh matrix access.
+      const torsoY=base.y+1.22-.34*crouch;
+      for(const [dy,radius,zone] of [
+        [.20,.34,'upper-torso'],
+        [-.16,.36,'torso'],
+        [-.48,.30,'lower-body']
+      ]){
+        hitCenter.set(base.x,torsoY+dy,base.z);
+        hitSphere.center.copy(hitCenter);
+        hitSphere.radius=radius;
+        const bodyHit=hitRay.intersectSphere(hitSphere,hitPoint);
+        if(!bodyHit)continue;
+        const distance=hitStart.distanceTo(bodyHit);
+        if(distance<=segmentLength&&(!best||distance<best.distance)){
+          best={
+            peerId:remote.peerId,
+            distance,
+            point:[bodyHit.x,bodyHit.y,bodyHit.z],
+            zone
+          };
+        }
+      }
+    }
+
+    return best;
+  }
+
   function update(dt){
     for(const remote of remotes.values())updateRemote(remote,dt);
 
@@ -683,7 +756,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:143.1,
+    version:143.2,
     get selfId(){return localSelfId;},
     join,
     leave,
@@ -691,6 +764,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     updateLocal,
     sendShot,
     sendDamage,
+    raycastRemoteSegment,
     get connected(){return connected;},
     get roomId(){return roomId;},
     get peerCount(){return remotes.size;},
