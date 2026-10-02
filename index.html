@@ -17,14 +17,16 @@
 #fpsCrosshair:before,#fpsCrosshair:after{content:'';position:absolute;background:rgba(255,255,255,.92);box-shadow:0 0 4px rgba(0,0,0,.65)}
 #fpsCrosshair:before{left:8px;top:1px;width:2px;height:16px}#fpsCrosshair:after{left:1px;top:8px;width:16px;height:2px}
 #fpsHud{display:none;position:fixed;z-index:29;left:50%;bottom:54px;transform:translateX(-50%);padding:8px 12px;border-radius:10px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.12);font:700 11px Arial;color:#dff7e8;pointer-events:none}
+#fpsInteractPrompt{display:none;position:fixed;z-index:31;left:50%;bottom:92px;transform:translateX(-50%);padding:9px 14px;border-radius:10px;background:rgba(8,28,18,.90);border:1px solid rgba(130,237,178,.42);font:800 12px Arial;color:#effff5;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.22)}
 body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
+body.fps-mode #fpsInteractPrompt.active{display:block}
 @media(max-width:850px){.brand{left:10px;top:10px;width:calc(100vw - 20px)}.controls{left:10px;right:auto;top:128px;max-width:calc(100vw - 20px);overflow:auto}.info{right:10px;bottom:10px;width:285px}}
 </style>
 </head>
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V138.5 FPS ROAD COLLISION FIX</small>
+  <small>GitHub → Netlify · BUILD V139 FPS FACTORY INTERACTION</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -47,7 +49,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · Spawn trước cổng chính · WASD di chuyển · Shift chạy · Space nhảy · Chuột nhìn · ESC thoát</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · WASD di chuyển · Shift chạy · Space nhảy · E tương tác · Chuột nhìn · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -55,7 +57,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=1384';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
-import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
+import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=1051';
@@ -66,7 +68,7 @@ import { installLandscapeV95 } from './assets/landscape-v95.js?v=1051';
 import { installSiteSafetyV98 } from './assets/site-safety-v98.js?v=98';
 import { installFactoryAccessV99 } from './assets/factory-access-v99.js?v=100';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=1051';
-import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=84';
+import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=139';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=1041';
 import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=94';
 import { installVisualQualityV102 } from './assets/visual-quality-v102.js?v=103';
@@ -1312,6 +1314,7 @@ document.querySelector('.controls')?.appendChild(factoryCutawayButton);
 // V74: restore previously-built 3D detail without replacing authoritative CAD asphalt.
 let v53DetailGroup=null;
 let v54DetailGroup=null;
+let v54DetailResult=null;
 let v78ExteriorGroup=null;
 let v78TreeCount=0;
 let v78HouseCount=0;
@@ -1357,6 +1360,7 @@ installCirculationV53({
    return installSiteDetailV54({
      world,buildings,mapPx,frameSignature:SITE_FRAME_SIGNATURE,renderer,camera,controls
    }).then(detailResult=>{
+     v54DetailResult=detailResult;
      v54DetailGroup=detailResult?.group||null;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
