@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V138.2 FOREARM RECESS</small>
+  <small>GitHub → Netlify · BUILD V138.3 FPS HIDE RED BOUNDARY</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1516,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V138.2 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V138.3 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1656,6 +1656,24 @@ let fpsPitch=0;
 let fpsSavedView=null;
 let fpsVerticalVelocity=0;
 let fpsGrounded=true;
+let fpsSavedCadBoundaryVisibility=null;
+
+function hideCadBoundaryForFps(){
+  const boundary=window.__DALOC_V72?.boundaryGroup;
+  if(!boundary)return;
+  if(fpsSavedCadBoundaryVisibility===null){
+    fpsSavedCadBoundaryVisibility=boundary.visible;
+  }
+  boundary.visible=false;
+}
+
+function restoreCadBoundaryAfterFps(){
+  const boundary=window.__DALOC_V72?.boundaryGroup;
+  if(boundary&&fpsSavedCadBoundaryVisibility!==null){
+    boundary.visible=fpsSavedCadBoundaryVisibility;
+  }
+  fpsSavedCadBoundaryVisibility=null;
+}
 
 const FPS_EYE_HEIGHT=1.72;
 const FPS_PLAYER_HEIGHT=1.78;
@@ -2509,6 +2527,7 @@ function enterFirstPerson(){
   fpsGrounded=true;
   controls.enabled=false;
   document.body.classList.add('fps-mode');
+  hideCadBoundaryForFps();
   fpsButton?.classList.add('active');
   if(fpsButton)fpsButton.textContent='FPS Walk: On';
   fpsButton?.blur(); // Space must never reactivate the focused UI button.
@@ -2560,6 +2579,7 @@ function exitFirstPerson(restore=true){
   if(fpsButton)fpsButton.textContent='FPS Walk';
   fpsButton?.blur();
   controls.enabled=true;
+  restoreCadBoundaryAfterFps();
   restoreFpsRenderProfile();
 
   if(document.pointerLockElement===renderer.domElement){
@@ -2631,6 +2651,10 @@ window.addEventListener('blur',()=>fpsKeys.clear());
 
 function updateFirstPerson(dt){
   if(!fpsMode)return;
+
+  // V138.3: the red DXF site-boundary guide is useful in overview/top view,
+  // but must never be visible inside the first-person walkthrough.
+  hideCadBoundaryForFps();
 
   // V138 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
   if(!fpsRealArmsRig)prepareFpsRealArmsV138();
