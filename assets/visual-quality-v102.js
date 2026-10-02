@@ -75,6 +75,7 @@ export function installVisualQualityV102({
   }
 
   let mode='perspective';
+  let renderCamera=camera;
   let tick=0;
   function fitShadow(){
     const target=controls.target;
@@ -98,7 +99,10 @@ export function installVisualQualityV102({
   function setMode(next){mode=next||'perspective';}
   function setEnabled(){/* retained for API compatibility; direct render is always used */ }
   function resize(){/* renderer size is managed by index.html */ }
-  function render(){renderer.render(scene,camera);}
+  function render(){renderer.render(scene,renderCamera||camera);}
+  function setRenderCamera(nextCamera){
+    renderCamera=nextCamera?.isCamera?nextCamera:camera;
+  }
   function refreshMaterials(){/* asset modules own their materials in V103 */ }
 
   fitShadow();
@@ -111,9 +115,11 @@ export function installVisualQualityV102({
     setMode,
     setEnabled,
     resize,
+    setRenderCamera,
     refreshMaterials,
     get enabled(){return true;},
-    get mode(){return mode;}
+    get mode(){return mode;},
+    get renderCamera(){return renderCamera;}
   };
   window.__DALOC_VISUAL_V102=controller;
   console.info('[DaLoc] V103 lightweight direct-render visual baseline installed');
