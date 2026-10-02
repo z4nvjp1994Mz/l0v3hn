@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V115 SIDEWALK SIGNALS + FPS WALK</small>
+  <small>GitHub → Netlify · BUILD V116 FPS JUMP + COLLISION</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -47,7 +47,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · WASD di chuyển · Shift chạy · Chuột nhìn · ESC thoát</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · WASD di chuyển · Shift chạy · Space nhảy · Chuột nhìn · ESC thoát</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1576,9 +1576,9 @@ installCirculationV53({
    coordBadge.style.color='#ffcf86';
  });
 
-// V115 FIRST-PERSON ROLEPLAY DEMO -----------------------------------------
-// Camera/input only. Traffic, logistics, pedestrians and scene modules continue
-// updating exactly as before. This demo intentionally adds no collision system yet.
+// V116 FIRST-PERSON ROLEPLAY: JUMP + COLLISION ----------------------------
+// Camera/input remains isolated from traffic AI. Static collision is built once
+// into a light spatial grid; moving vehicles are checked from their live transforms.
 const fpsButton=document.getElementById('fps');
 const fpsCrosshair=document.getElementById('fpsCrosshair');
 const fpsHud=document.getElementById('fpsHud');
@@ -1587,9 +1587,21 @@ let fpsMode=false;
 let fpsYaw=0;
 let fpsPitch=0;
 let fpsSavedView=null;
+let fpsVerticalVelocity=0;
+let fpsGrounded=true;
+
 const FPS_EYE_HEIGHT=1.72;
+const FPS_PLAYER_HEIGHT=1.78;
+const FPS_PLAYER_RADIUS=.42;
 const FPS_WALK_SPEED=8.0;
 const FPS_RUN_SPEED=15.0;
+const FPS_JUMP_SPEED=8.6;
+const FPS_GRAVITY=24.0;
+const FPS_COLLIDER_CELL=18;
+
+let fpsStaticColliders=[];
+let fpsColliderGrid=new Map();
+let fpsColliderRevision=0;
 
 function fpsSetLookFromCamera(){
   camera.rotation.order='YXZ';
@@ -1609,8 +1621,180 @@ function fpsSpawn(){
   return {position:p,look:p.clone().addScaledVector(travel,24)};
 }
 
+function fpsObjectVisible(object){
+  for(let o=object;o;o=o.parent)if(o.visible===false)return false;
+  return true;
+}
+
+function fpsIsDynamicObject(object){
+  for(let o=object;o;o=o.parent){
+    const n=o.name||'';
+    if(
+      /^(V103_CAR_|V103_CARGO_TRUCK_|V103_CONTAINER_TRUCK_|V103_SUPERCAR_|V91_MOTORCYCLE_|V91_RIDER_)/.test(n) ||
+      /PEDESTRIAN|POND_FISH|ATMOSPHERE|CLOUD|BIRD/i.test(n)
+    )return true;
+  }
+  return false;
+}
+
+function fpsGridKey(ix,iz){return ix+','+iz;}
+
+function refreshFpsStaticColliders(){
+  scene.updateMatrixWorld(true);
+  fpsStaticColliders=[];
+  fpsColliderGrid=new Map();
+
+  const worldBox=new THREE.Box3();
+  const localBox=new THREE.Box3();
+  const worldSize=new THREE.Vector3();
+  const scale=new THREE.Vector3();
+  const q=new THREE.Quaternion();
+  const p=new THREE.Vector3();
+
+  scene.traverse(object=>{
+    if(!object.isMesh||object.isInstancedMesh||!object.geometry)return;
+    if(!fpsObjectVisible(object)||fpsIsDynamicObject(object))return;
+
+    if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();
+    if(!object.geometry.boundingBox||object.geometry.boundingBox.isEmpty())return;
+
+    localBox.copy(object.geometry.boundingBox);
+    worldBox.copy(localBox).applyMatrix4(object.matrixWorld);
+    worldBox.getSize(worldSize);
+
+    // Ignore roads, ground sheets, paint and other floor-like geometry.
+    // Keep walls, factory bodies, trunks, lamp/signal poles, gate pylons,
+    // benches/bollards and other physical props that intersect a player body.
+    if(worldBox.max.y<.34)return;
+    if(worldBox.min.y>FPS_PLAYER_HEIGHT+2.4)return;
+    if(worldSize.y<.28&&worldBox.max.y<.85)return;
+    if(worldSize.x>1500||worldSize.z>1500)return;
+
+    object.matrixWorld.decompose(p,q,scale);
+    const planarScale=Math.max(.001,Math.min(Math.abs(scale.x)||1,Math.abs(scale.z)||1));
+    const collider={
+      object,
+      localBox:localBox.clone(),
+      inverse:object.matrixWorld.clone().invert(),
+      worldBox:worldBox.clone(),
+      localRadius:FPS_PLAYER_RADIUS/planarScale
+    };
+    const id=fpsStaticColliders.length;
+    fpsStaticColliders.push(collider);
+
+    const expanded=worldBox.clone();
+    expanded.min.x-=FPS_PLAYER_RADIUS;expanded.max.x+=FPS_PLAYER_RADIUS;
+    expanded.min.z-=FPS_PLAYER_RADIUS;expanded.max.z+=FPS_PLAYER_RADIUS;
+    const ix0=Math.floor(expanded.min.x/FPS_COLLIDER_CELL);
+    const ix1=Math.floor(expanded.max.x/FPS_COLLIDER_CELL);
+    const iz0=Math.floor(expanded.min.z/FPS_COLLIDER_CELL);
+    const iz1=Math.floor(expanded.max.z/FPS_COLLIDER_CELL);
+    for(let ix=ix0;ix<=ix1;ix++)for(let iz=iz0;iz<=iz1;iz++){
+      const key=fpsGridKey(ix,iz);
+      if(!fpsColliderGrid.has(key))fpsColliderGrid.set(key,[]);
+      fpsColliderGrid.get(key).push(id);
+    }
+  });
+
+  fpsColliderRevision++;
+  console.info('[DaLoc] V116 FPS static collision grid ready',{
+    colliders:fpsStaticColliders.length,
+    cells:fpsColliderGrid.size,
+    revision:fpsColliderRevision
+  });
+}
+
+function fpsNearbyColliderIds(position){
+  const ix=Math.floor(position.x/FPS_COLLIDER_CELL);
+  const iz=Math.floor(position.z/FPS_COLLIDER_CELL);
+  const ids=new Set();
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+    const list=fpsColliderGrid.get(fpsGridKey(ix+dx,iz+dz));
+    if(list)for(const id of list)ids.add(id);
+  }
+  return ids;
+}
+
+function fpsStaticBlocked(position){
+  const feetY=position.y-FPS_EYE_HEIGHT;
+  const headY=feetY+FPS_PLAYER_HEIGHT;
+  const midY=feetY+FPS_PLAYER_HEIGHT*.5;
+  const wp=new THREE.Vector3(position.x,midY,position.z);
+
+  for(const id of fpsNearbyColliderIds(position)){
+    const c=fpsStaticColliders[id];
+    if(!c||!fpsObjectVisible(c.object))continue;
+    const b=c.worldBox;
+    if(headY<=b.min.y+.03||feetY>=b.max.y-.03)continue;
+    if(
+      position.x<b.min.x-FPS_PLAYER_RADIUS||position.x>b.max.x+FPS_PLAYER_RADIUS||
+      position.z<b.min.z-FPS_PLAYER_RADIUS||position.z>b.max.z+FPS_PLAYER_RADIUS
+    )continue;
+
+    const lp=wp.clone().applyMatrix4(c.inverse);
+    if(
+      lp.x>=c.localBox.min.x-c.localRadius&&lp.x<=c.localBox.max.x+c.localRadius&&
+      lp.z>=c.localBox.min.z-c.localRadius&&lp.z<=c.localBox.max.z+c.localRadius
+    )return true;
+  }
+  return false;
+}
+
+function fpsVehicleBlocked(position){
+  const controller=trafficController?.agents?trafficController:window.__DALOC_TRAFFIC_V91;
+  const agents=controller?.agents||[];
+  const feetY=position.y-FPS_EYE_HEIGHT;
+  const headY=feetY+FPS_PLAYER_HEIGHT;
+  if(headY<.05||feetY>4.0)return false;
+
+  for(const agent of agents){
+    const v=agent?.vehicle;
+    if(!v||v.visible===false)continue;
+    const dx=position.x-v.position.x;
+    const dz=position.z-v.position.z;
+    const c=Math.cos(-v.rotation.y),sn=Math.sin(-v.rotation.y);
+    const lx=dx*c-dz*sn;
+    const lz=dx*sn+dz*c;
+    const halfW=
+      agent.type==='container'?1.48:
+      agent.type==='cargo'?1.36:
+      agent.type==='motorcycle'?.50:
+      agent.type==='supercar'?1.12:1.04;
+    const halfL=Math.max(.7,(agent.length||4)*.5);
+    if(
+      Math.abs(lx)<halfW+FPS_PLAYER_RADIUS&&
+      Math.abs(lz)<halfL+FPS_PLAYER_RADIUS
+    )return true;
+  }
+  return false;
+}
+
+function fpsPositionBlocked(position){
+  return fpsStaticBlocked(position)||fpsVehicleBlocked(position);
+}
+
+function fpsMoveWithCollision(delta){
+  const len=Math.hypot(delta.x,delta.z);
+  if(len<1e-6)return;
+  // Substeps prevent tunnelling through thin poles/walls while running.
+  const steps=Math.max(1,Math.ceil(len/.22));
+  const sx=delta.x/steps,sz=delta.z/steps;
+  const trial=camera.position.clone();
+
+  for(let i=0;i<steps;i++){
+    trial.copy(camera.position);
+    trial.x+=sx;
+    if(!fpsPositionBlocked(trial))camera.position.x=trial.x;
+
+    trial.copy(camera.position);
+    trial.z+=sz;
+    if(!fpsPositionBlocked(trial))camera.position.z=trial.z;
+  }
+}
+
 function enterFirstPerson(){
   if(fpsMode){
+    fpsButton?.blur();
     renderer.domElement.requestPointerLock?.();
     return;
   }
@@ -1621,13 +1805,18 @@ function enterFirstPerson(){
   };
   fpsMode=true;
   fpsKeys.clear();
+  fpsVerticalVelocity=0;
+  fpsGrounded=true;
   controls.enabled=false;
   document.body.classList.add('fps-mode');
   fpsButton?.classList.add('active');
   if(fpsButton)fpsButton.textContent='FPS Walk: On';
+  fpsButton?.blur(); // Space must never reactivate the focused UI button.
   document.getElementById('v3')?.classList.remove('active');
   document.getElementById('vt')?.classList.remove('active');
   document.getElementById('vd')?.classList.remove('active');
+
+  refreshFpsStaticColliders();
 
   const spawn=fpsSpawn();
   camera.position.copy(spawn.position);
@@ -1643,9 +1832,12 @@ function exitFirstPerson(restore=true){
   if(!fpsMode)return;
   fpsMode=false;
   fpsKeys.clear();
+  fpsVerticalVelocity=0;
+  fpsGrounded=true;
   document.body.classList.remove('fps-mode');
   fpsButton?.classList.remove('active');
   if(fpsButton)fpsButton.textContent='FPS Walk';
+  fpsButton?.blur();
   controls.enabled=true;
 
   if(document.pointerLockElement===renderer.domElement){
@@ -1683,18 +1875,54 @@ document.addEventListener('mousemove',e=>{
   fpsPitch=THREE.MathUtils.clamp(fpsPitch,-1.38,1.38);
   camera.rotation.set(fpsPitch,fpsYaw,0,'YXZ');
 });
+
 window.addEventListener('keydown',e=>{
   if(!fpsMode)return;
+
+  // Capture Space before the browser can translate it into a focused-button click.
+  if(e.code==='Space'){
+    e.preventDefault();
+    e.stopPropagation();
+    fpsButton?.blur();
+    if(!e.repeat&&fpsGrounded){
+      fpsVerticalVelocity=FPS_JUMP_SPEED;
+      fpsGrounded=false;
+    }
+    return;
+  }
+
   if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight'].includes(e.code)){
     fpsKeys.add(e.code);
     e.preventDefault();
   }
-});
-window.addEventListener('keyup',e=>fpsKeys.delete(e.code));
+},true);
+
+window.addEventListener('keyup',e=>{
+  if(fpsMode&&e.code==='Space'){
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+  fpsKeys.delete(e.code);
+},true);
 window.addEventListener('blur',()=>fpsKeys.clear());
 
 function updateFirstPerson(dt){
   if(!fpsMode)return;
+
+  // Jump/gravity is independent from horizontal collision.
+  if(!fpsGrounded){
+    fpsVerticalVelocity-=FPS_GRAVITY*dt;
+    camera.position.y+=fpsVerticalVelocity*dt;
+    if(camera.position.y<=FPS_EYE_HEIGHT){
+      camera.position.y=FPS_EYE_HEIGHT;
+      fpsVerticalVelocity=0;
+      fpsGrounded=true;
+    }
+  }else{
+    camera.position.y=FPS_EYE_HEIGHT;
+  }
+
   const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
   forward.y=0;
   if(forward.lengthSq()<1e-6)forward.set(0,0,-1);
@@ -1712,15 +1940,24 @@ function updateFirstPerson(dt){
   if(move.lengthSq()>0){
     move.normalize();
     const running=fpsKeys.has('ShiftLeft')||fpsKeys.has('ShiftRight');
-    camera.position.addScaledVector(move,(running?FPS_RUN_SPEED:FPS_WALK_SPEED)*dt);
+    move.multiplyScalar((running?FPS_RUN_SPEED:FPS_WALK_SPEED)*dt);
+    fpsMoveWithCollision(move);
   }
-  camera.position.y=FPS_EYE_HEIGHT;
 
   // Keep shadow/light tracking compatible with the existing lightweight renderer.
   const lookDir=new THREE.Vector3();
   camera.getWorldDirection(lookDir);
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
+
+window.__DALOC_FPS_V116={
+  version:116,
+  refreshColliders:refreshFpsStaticColliders,
+  get colliderCount(){return fpsStaticColliders.length;},
+  get gridCells(){return fpsColliderGrid.size;},
+  get grounded(){return fpsGrounded;},
+  get verticalVelocity(){return fpsVerticalVelocity;}
+};
 
 // Views
 function tween(pos,tgt){
