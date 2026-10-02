@@ -38,7 +38,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V141 SCOPE + PROJECTILE FIRE</small>
+  <small>GitHub → Netlify · BUILD V142 2P P2P MULTIPLAYER</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -46,6 +46,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   <button id="v3" class="active">3D Perspective</button>
   <button id="vt">Top View</button><button id="vd">Detail View</button>
   <button id="fps">FPS Walk</button>
+  <button id="multiplayer">2P Multiplayer: Off</button>
   <button id="bp">Blueprint Off</button>
   <button id="reset">Reset</button>
 </div>
@@ -68,6 +69,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=140';
+import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=142';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=1392';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -122,6 +124,63 @@ sun.shadow.normalBias=0.035;
 scene.add(sun);
 
 const world=new THREE.Group();scene.add(world);
+
+const multiplayerButton=document.getElementById('multiplayer');
+let multiplayerV142=null;
+
+function updateMultiplayerButton({message='',kind='off',roomId='',peerCount=0}={}){
+  if(!multiplayerButton)return;
+  multiplayerButton.classList.toggle('active',kind==='connected'||kind==='waiting'||kind==='connecting');
+  if(kind==='connected'){
+    multiplayerButton.textContent='2P · '+roomId+' · 2/2';
+  }else if(kind==='waiting'){
+    multiplayerButton.textContent='2P · '+roomId+' · 1/2';
+  }else if(kind==='connecting'){
+    multiplayerButton.textContent='2P · Connecting...';
+  }else if(kind==='error'){
+    multiplayerButton.textContent='2P · Error';
+    console.warn('[DaLoc] V142 multiplayer:',message);
+  }else{
+    multiplayerButton.textContent='2P Multiplayer: Off';
+  }
+}
+
+multiplayerV142=installMultiplayerV142({
+  scene,
+  world,
+  onStatus:updateMultiplayerButton
+});
+window.__DALOC_MULTIPLAYER_V142=multiplayerV142;
+
+function setRoomInUrl(roomId){
+  const url=new URL(location.href);
+  if(roomId)url.searchParams.set('room',roomId);
+  else url.searchParams.delete('room');
+  history.replaceState(null,'',url);
+}
+
+multiplayerButton?.addEventListener('click',()=>{
+  if(multiplayerV142?.connected){
+    multiplayerV142.leave();
+    setRoomInUrl('');
+    return;
+  }
+  const current=new URL(location.href).searchParams.get('room')||'daloc';
+  const roomCode=prompt('Nhập room code giống nhau trên 2 máy:',current);
+  if(roomCode===null)return;
+  const clean=roomCode.trim().replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40);
+  if(!clean)return;
+  if(multiplayerV142.join(clean))setRoomInUrl(clean);
+});
+
+const autoRoom=new URL(location.href).searchParams.get('room');
+if(autoRoom){
+  const clean=autoRoom.trim().replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40);
+  if(clean)queueMicrotask(()=>multiplayerV142?.join(clean));
+}
+
+addEventListener('beforeunload',()=>multiplayerV142?.leave?.());
+
 const SOURCE_LOCK_V72=true;
 const FULL_3D_V74=true;
 
@@ -1560,7 +1619,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V141 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V142 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -3389,6 +3448,12 @@ function fpsFireSniper(){
     life:FPS_PROJECTILE_TTL
   });
 
+  multiplayerV142?.sendShot?.({
+    origin:[origin.x,origin.y,origin.z],
+    dir:[fpsBulletDir.x,fpsBulletDir.y,fpsBulletDir.z],
+    aim:fpsAimAmount
+  });
+
   // Small visual recoil only; no real-world ballistic parameters are modeled.
   fpsPitch=THREE.MathUtils.clamp(fpsPitch+.018,-1.38,1.38);
   fpsYaw+=(Math.random()-.5)*.004;
@@ -3618,6 +3683,12 @@ const fpsApiV139={
   get shotsFired(){return fpsShotsFired;},
   get activeProjectiles(){return fpsProjectiles.length;},
   get lastImpactObject(){return fpsLastImpactObject;},
+  get multiplayer(){return {
+    connected:!!multiplayerV142?.connected,
+    roomId:multiplayerV142?.roomId||'',
+    peerCount:multiplayerV142?.peerCount||0,
+    remoteIds:multiplayerV142?.remoteIds||[]
+  };},
   get verticalVelocity(){return fpsVerticalVelocity;},
   get keys(){return [...fpsKeys];},
   get lastBlockReason(){return fpsLastBlockReason;},
@@ -3725,6 +3796,19 @@ let lastFrameTime=performance.now();
   factoryInteriorsV84?.update?.(dt);
   atmosphereV106?.update?.(dt);
   if(fpsMode)updateFirstPerson(dt);else controls.update();
+
+  multiplayerV142?.updateLocal?.({
+    active:fpsMode,
+    x:camera.position.x,
+    y:camera.position.y-(fpsMode?fpsCurrentEyeHeight():0),
+    z:camera.position.z,
+    yaw:fpsYaw,
+    pitch:fpsPitch,
+    crouch:fpsCrouchAmount,
+    aim:fpsAimAmount
+  });
+  multiplayerV142?.update?.(dt);
+
   fpsUpdateProjectiles(dt);
   visualQualityV102.update();
   const d=camera.position.distanceTo(controls.target);
