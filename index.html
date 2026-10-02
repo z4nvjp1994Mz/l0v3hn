@@ -159,7 +159,7 @@ function setRoomInUrl(roomId){
   history.replaceState(null,'',url);
 }
 
-multiplayerButton?.addEventListener('click',()=>{
+multiplayerButton?.addEventListener('click',async()=>{
   if(multiplayerV142?.connected){
     multiplayerV142.leave();
     setRoomInUrl('');
@@ -170,13 +170,17 @@ multiplayerButton?.addEventListener('click',()=>{
   if(roomCode===null)return;
   const clean=roomCode.trim().replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40);
   if(!clean)return;
-  if(multiplayerV142.join(clean))setRoomInUrl(clean);
+  const ok=await multiplayerV142.join(clean);
+  if(ok)setRoomInUrl(clean);
 });
 
 const autoRoom=new URL(location.href).searchParams.get('room');
 if(autoRoom){
   const clean=autoRoom.trim().replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40);
-  if(clean)queueMicrotask(()=>multiplayerV142?.join(clean));
+  if(clean)queueMicrotask(async()=>{
+    const ok=await multiplayerV142?.join(clean);
+    if(!ok)setRoomInUrl('');
+  });
 }
 
 addEventListener('beforeunload',()=>multiplayerV142?.leave?.());
