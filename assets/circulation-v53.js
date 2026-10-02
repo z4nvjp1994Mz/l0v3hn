@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
-import { loadLushKenneyTreeAssets, createStaticInstancedAsset, createPrototypeGroup } from './real-assets-v105.js?v=119';
+import { loadLushKenneyTreeAssets, createLushStreetTreePrototypeV121, createStaticInstancedAsset, createPrototypeGroup } from './real-assets-v105.js?v=121';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls,showUI=true}) {
@@ -231,31 +231,20 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     }
   }
   if(planting.length){
-    if(realTreeAssets){
-      const oak=[],pine=[];
-      planting.forEach((p,i)=>{
-        const item={
-          position:new THREE.Vector3(p.x,.05,p.z),
-          rotationY:(i*.61803398875%1)*Math.PI*2,
-          scale:i%6===0?.64:.80
-        };
-        (i%6===0?pine:oak).push(item);
-      });
-      createStaticInstancedAsset(group,realTreeAssets.oak,oak,{
-        name:'V119_GREENBELT_LUSH_OAKS',castShadow:true,receiveShadow:true
-      });
-      createStaticInstancedAsset(group,realTreeAssets.pine,pine,{
-        name:'V119_GREENBELT_PINES',castShadow:true,receiveShadow:true
-      });
-    }else{
-      const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.13,.20,2.8,8),new THREE.MeshStandardMaterial({color:0x79533b,roughness:1}),planting.length);
-      const crown=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1.25,1),new THREE.MeshStandardMaterial({color:0x4c8147,roughness:1}),planting.length);
-      const dummy=new THREE.Object3D();planting.forEach((p,i)=>{
-        dummy.position.set(p.x,1.54,p.z);dummy.updateMatrix();trunk.setMatrixAt(i,dummy.matrix);
-        dummy.position.y=3.3;dummy.updateMatrix();crown.setMatrixAt(i,dummy.matrix);
-      });
-      for(const mesh of [trunk,crown]){mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();group.add(mesh);}
-    }
+    // V121: boulevard trees use a guaranteed direct lush prototype.
+    // No GLB dependency and no round Dodecahedron fallback, so the main-road
+    // planting always matches the upgraded V120 internal tree language.
+    const streetTree=createLushStreetTreePrototypeV121();
+    const boulevard=planting.map((p,i)=>({
+      position:new THREE.Vector3(p.x,.05,p.z),
+      rotationY:(i*.61803398875%1)*Math.PI*2,
+      scale:.94+(i%5)*.045
+    }));
+    createStaticInstancedAsset(group,streetTree,boulevard,{
+      name:'V121_MAIN_ROAD_LUSH_TREES',
+      castShadow:true,
+      receiveShadow:true
+    });
   }
   // Clip legacy approximate park fills where they used to overhang the measured roads.
   // Trees, benches, materials and park areas away from the corridor remain unchanged.
@@ -279,7 +268,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:119,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,treeAssetMode:realTreeAssets?'direct-v120-roadside + kenney-lush-greenbelt':'direct-v120-roadside',
+  window.__DALOC_V53={ready:true,version:121,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,treeAssetMode:'direct-v120-masterplan + direct-v121-boulevard',
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
