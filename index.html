@@ -1411,6 +1411,7 @@ installCirculationV53({
        .then(()=>installFactoryInteriorsV84({world,buildings}))
        .then(interiorResult=>{
          factoryInteriorsV84=interiorResult;
+         if(fpsMode)refreshFpsStaticColliders();
          factoryCutawayButton.disabled=false;
          factoryCutawayButton.textContent='Factory Cutaway: Off';
          return interiorResult;
@@ -2647,14 +2648,14 @@ function fpsMoveWithCollision(delta){
 
     trial.copy(camera.position);
     trial.x+=sx;
-    if(!fpsPositionBlocked(trial)){
+    if(fpsRoofPositionAllowed(trial)&&!fpsPositionBlocked(trial)){
       camera.position.x=trial.x;
       moved=true;
     }
 
     trial.copy(camera.position);
     trial.z+=sz;
-    if(!fpsPositionBlocked(trial)){
+    if(fpsRoofPositionAllowed(trial)&&!fpsPositionBlocked(trial)){
       camera.position.z=trial.z;
       moved=true;
     }
@@ -3043,12 +3044,19 @@ document.addEventListener('mousemove',e=>{
 window.addEventListener('keydown',e=>{
   if(!fpsMode)return;
 
+  if(e.code==='KeyE'){
+    e.preventDefault();
+    e.stopPropagation();
+    if(!e.repeat)fpsActivateInteraction();
+    return;
+  }
+
   // Capture Space before the browser can translate it into a focused-button click.
   if(e.code==='Space'){
     e.preventDefault();
     e.stopPropagation();
     fpsButton?.blur();
-    if(!e.repeat&&fpsGrounded){
+    if(!e.repeat&&fpsGrounded&&!fpsClimbState){
       fpsVerticalVelocity=FPS_JUMP_SPEED;
       fpsGrounded=false;
     }
@@ -3090,17 +3098,30 @@ function updateFirstPerson(dt){
   // same tree-batch optimization as soon as it becomes available.
   if(v78ExteriorGroup&&!fpsExteriorTreeVisibility)applyFpsRenderProfile();
 
-  // Jump/gravity is independent from horizontal collision.
+  // Ladder mode owns vertical movement and temporarily disables gravity/horizontal walk.
+  if(fpsClimbState){
+    const climbingMoving=fpsKeys.has('KeyW')||fpsKeys.has('KeyS');
+    fpsUpdateClimb(dt);
+    fpsUpdateInteractionPrompt();
+    updateFpsCharacterRig(dt,{moving:climbingMoving,running:false});
+    const climbLookDir=new THREE.Vector3();
+    camera.getWorldDirection(climbLookDir);
+    controls.target.copy(camera.position).addScaledVector(climbLookDir,12);
+    return;
+  }
+
+  // Jump/gravity works on either ground level or the current factory roof level.
+  const standingEyeY=fpsGroundLevel+FPS_EYE_HEIGHT;
   if(!fpsGrounded){
     fpsVerticalVelocity-=FPS_GRAVITY*dt;
     camera.position.y+=fpsVerticalVelocity*dt;
-    if(camera.position.y<=FPS_EYE_HEIGHT){
-      camera.position.y=FPS_EYE_HEIGHT;
+    if(camera.position.y<=standingEyeY){
+      camera.position.y=standingEyeY;
       fpsVerticalVelocity=0;
       fpsGrounded=true;
     }
   }else{
-    camera.position.y=FPS_EYE_HEIGHT;
+    camera.position.y=standingEyeY;
   }
 
   const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
@@ -3127,6 +3148,7 @@ function updateFirstPerson(dt){
   }
 
   updateFpsCharacterRig(dt,{moving,running});
+  fpsUpdateInteractionPrompt();
 
   // Keep shadow/light tracking compatible with the existing lightweight renderer.
   const lookDir=new THREE.Vector3();
@@ -3235,6 +3257,7 @@ let lastFrameTime=performance.now();
   trafficController?.update?.(dt);
   pondFishV82?.update?.(dt);
   pedestrianController?.update?.(dt);
+  factoryInteriorsV84?.update?.(dt);
   atmosphereV106?.update?.(dt);
   if(fpsMode)updateFirstPerson(dt);else controls.update();
   visualQualityV102.update();
