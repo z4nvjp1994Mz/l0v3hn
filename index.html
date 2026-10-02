@@ -1827,7 +1827,7 @@ function prepareFpsRealArmsV138(){
     fpsRealArmsAction=null;
     fpsRealArmsReady=true;
     fpsRealArmsError=null;
-    fpsArmAssetMode='thicker-shorter-arms-v138';
+    fpsArmAssetMode='v140-sniper-viewmodel';
     fpsRealArmsPromise=Promise.resolve(rig);
 
     if(fpsLeftArmPivot)fpsLeftArmPivot.visible=false;
@@ -2964,6 +2964,10 @@ function fpsStartLadder(ladder,fromTop=false){
     maxY:roofWorld.y+FPS_EYE_HEIGHT
   };
   fpsRoofState=null;
+  fpsCrouchAmount=0;
+  fpsCrouching=false;
+  fpsKeys.delete('ControlLeft');
+  fpsKeys.delete('ControlRight');
   fpsGrounded=false;
   fpsVerticalVelocity=0;
 
@@ -3327,6 +3331,7 @@ const fpsApiV139={
   get ladderCount(){return (v54DetailResult?.ladders||window.__DALOC_V54?.ladders||[]).length;},
   get doorCount(){return factoryInteriorsV84?.doors?.length||0;},
   get factoryArchetypes(){return factoryInteriorsV84?.factoryProfiles?.map?.(p=>({index:p.index,archetype:p.archetype}))||[];},
+  get weapon(){return fpsRealArmsRig?.userData?.weapon||'none';},
   get verticalVelocity(){return fpsVerticalVelocity;},
   get keys(){return [...fpsKeys];},
   get lastBlockReason(){return fpsLastBlockReason;},
