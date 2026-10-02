@@ -342,6 +342,41 @@ export async function installFactoryAccessV99({
            drivewayCorridors.some(c=>insideRectCorridor(x,z,c,pad));
   }
 
+  // V139.3: expose the exact same authored access corridors to FPS collision.
+  // These are already the source used to clear vegetation/props from real
+  // factory approaches, so FPS and visible access geometry now share one truth.
+  const fpsAccessCorridors=[
+    ...accessCorridors.map((c,i)=>({...c,type:'cad-access',index:i})),
+    ...drivewayCorridors.map((c,i)=>({...c,type:'factory-driveway',index:i}))
+  ];
+
+  function fpsAccessSafeInfo(x,z,pad=.35){
+    let best=null;
+    for(const c of fpsAccessCorridors){
+      const dx=x-c.cx,dz=z-c.cz;
+      const along=dx*c.ux+dz*c.uz;
+      const across=dx*c.nx+dz*c.nz;
+      const alongOver=Math.max(0,Math.abs(along)-(c.halfLen+pad));
+      const acrossOver=Math.max(0,Math.abs(across)-(c.halfW+pad));
+      if(alongOver>0||acrossOver>0)continue;
+      const centerDistance=Math.abs(across);
+      if(!best||centerDistance<best.centerDistance){
+        best={
+          type:c.type,
+          index:c.index,
+          centerDistance,
+          halfWidth:c.halfW,
+          halfLength:c.halfLen
+        };
+      }
+    }
+    return best;
+  }
+
+  function isInFpsSafeAccess(x,z,pad=.35){
+    return !!fpsAccessSafeInfo(x,z,pad);
+  }
+
   // Vegetation and small roadside props must not survive on the newly paved links.
   let hiddenTrees=0,hiddenSemantic=0,clearedInstances=0;
   const tmp=new THREE.Vector3();
@@ -405,7 +440,7 @@ export async function installFactoryAccessV99({
 
   const result={
     ready:true,
-    version:100,
+    version:139.3,
     group:root,
     cadAccessPads:(accessData.accesses||[]).length,
     drivewayCount:driveways.length,
@@ -414,9 +449,12 @@ export async function installFactoryAccessV99({
     hiddenTrees,
     hiddenSemantic,
     clearedInstances,
+    fpsAccessCorridors,
+    fpsAccessSafeInfo,
+    isInFpsSafeAccess,
     setVisible(v){root.visible=!!v;}
   };
   window.__DALOC_FACTORY_ACCESS_V99=result;
-  console.info('[DaLoc] V100 logistics-ready factory access roads installed',result);
+  console.info('[DaLoc] V139.3 factory access roads + FPS safe corridors installed',result);
   return result;
 }
