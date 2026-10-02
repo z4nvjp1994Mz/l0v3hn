@@ -19,7 +19,9 @@ export function createThirdPersonPlayerV144(){
     glove:new THREE.MeshStandardMaterial({color:0x242b29,roughness:.86}),
     weapon:new THREE.MeshStandardMaterial({color:0x26302e,roughness:.55,metalness:.22}),
     metal:new THREE.MeshStandardMaterial({color:0x48504f,roughness:.44,metalness:.42}),
-    lens:new THREE.MeshStandardMaterial({color:0x274c57,roughness:.20,metalness:.18})
+    lens:new THREE.MeshStandardMaterial({color:0x274c57,roughness:.20,metalness:.18}),
+    axeYellow:new THREE.MeshStandardMaterial({color:0xe0a91b,roughness:.48,metalness:.18}),
+    axeHandle:new THREE.MeshStandardMaterial({color:0x5a4026,roughness:.78,metalness:.02})
   };
 
   function mark(obj){
@@ -167,6 +169,46 @@ export function createThirdPersonPlayerV144(){
   gatlingMuzzle.position.set(0,.015,-1.05);
   gatling.add(gatlingMuzzle);
 
+  const axe=new THREE.Group();
+  axe.name='FPS_LOCAL_AXE_V154';
+  axe.position.set(.12,1.16,-.22);
+  axe.rotation.set(.10,-.10,-.28);
+  axe.visible=false;
+  root.add(axe);
+
+  const axeHandle=mark(new THREE.Mesh(
+    new THREE.CylinderGeometry(.032,.040,.92,10),
+    mats.axeHandle
+  ));
+  axeHandle.rotation.x=Math.PI/2;
+  axeHandle.position.set(0,0,-.36);
+  axe.add(axeHandle);
+
+  const axeHeadRoot=new THREE.Group();
+  axeHeadRoot.position.set(0,.015,-.82);
+  axe.add(axeHeadRoot);
+
+  const axeHead=mark(new THREE.Mesh(
+    new THREE.BoxGeometry(.20,.17,.25),
+    mats.axeYellow
+  ));
+  axeHeadRoot.add(axeHead);
+
+  const axeBlade=mark(new THREE.Mesh(
+    new THREE.BoxGeometry(.36,.22,.075),
+    mats.metal
+  ));
+  axeBlade.position.set(-.22,-.015,-.01);
+  axeBlade.rotation.z=.12;
+  axeHeadRoot.add(axeBlade);
+
+  const axeWedge=mark(new THREE.Mesh(
+    new THREE.BoxGeometry(.20,.12,.11),
+    mats.axeYellow
+  ));
+  axeWedge.position.set(.17,.015,.015);
+  axeHeadRoot.add(axeWedge);
+
   let phase=0;
   let locomotion=0;
   let gatlingSpin=0;
@@ -178,7 +220,9 @@ export function createThirdPersonPlayerV144(){
     moving=false,running=false,
     alive=true,
     weapon='sniper',
-    firing=false
+    firing=false,
+    meleeType='none',
+    meleeProgress=0
   }={}){
     root.position.set(x,y,z);
     root.rotation.y=yaw;
@@ -216,13 +260,64 @@ export function createThirdPersonPlayerV144(){
     gatling.rotation.x=-.07;
 
     const gatlingActive=weapon==='gatling';
+    const axeActive=weapon==='axe';
     gatlingSpin+=(firing&&gatlingActive?18:3)*dt;
     gatlingCluster.rotation.z=gatlingSpin;
 
+    // V154 melee animation: normal slash sweeps right-to-left; strong slash
+    // winds overhead and chops downward with a longer follow-through.
+    const mp=THREE.MathUtils.clamp(meleeProgress||0,0,1);
+    axe.position.set(.12,1.16-crouchY,-.22);
+    axe.rotation.set(.10,-.10,-.28);
+
+    if(axeActive&&mp>0){
+      if(meleeType==='strong'){
+        let rx=.10,rz=-.28,ry=-.10;
+        if(mp<.28){
+          const t=mp/.28;
+          rx=THREE.MathUtils.lerp(.10,-1.18,t);
+          rz=THREE.MathUtils.lerp(-.28,-.06,t);
+          ry=THREE.MathUtils.lerp(-.10,.08,t);
+        }else if(mp<.68){
+          const t=(mp-.28)/.40;
+          rx=THREE.MathUtils.lerp(-1.18,.82,t);
+          rz=THREE.MathUtils.lerp(-.06,-.40,t);
+          ry=THREE.MathUtils.lerp(.08,-.10,t);
+        }else{
+          const t=(mp-.68)/.32;
+          rx=THREE.MathUtils.lerp(.82,.10,t);
+          rz=THREE.MathUtils.lerp(-.40,-.28,t);
+        }
+        axe.rotation.set(rx,ry,rz);
+      }else{
+        let ry=-.10,rz=-.28;
+        if(mp<.22){
+          const t=mp/.22;
+          ry=THREE.MathUtils.lerp(-.10,-.82,t);
+          rz=THREE.MathUtils.lerp(-.28,-.42,t);
+        }else if(mp<.62){
+          const t=(mp-.22)/.40;
+          ry=THREE.MathUtils.lerp(-.82,.92,t);
+          rz=THREE.MathUtils.lerp(-.42,-.16,t);
+        }else{
+          const t=(mp-.62)/.38;
+          ry=THREE.MathUtils.lerp(.92,-.10,t);
+          rz=THREE.MathUtils.lerp(-.16,-.28,t);
+        }
+        axe.rotation.y=ry;
+        axe.rotation.z=rz;
+      }
+
+      const armDrive=Math.sin(Math.PI*mp);
+      leftArm.rotation.x-=armDrive*(meleeType==='strong'?.46:.26);
+      rightArm.rotation.x-=armDrive*(meleeType==='strong'?.62:.38);
+    }
+
     const deathTarget=alive?0:-Math.PI*.48;
     root.rotation.z+=(deathTarget-root.rotation.z)*Math.min(1,dt*7);
-    rifle.visible=alive&&!gatlingActive;
+    rifle.visible=alive&&!gatlingActive&&!axeActive;
     gatling.visible=alive&&gatlingActive;
+    axe.visible=alive&&axeActive;
   }
 
   function dispose(){
@@ -236,6 +331,6 @@ export function createThirdPersonPlayerV144(){
     root,
     update,
     dispose,
-    parts:{torso,headPivot,leftArm,rightArm,leftLeg,rightLeg,rifle,gatling,gatlingCluster}
+    parts:{torso,headPivot,leftArm,rightArm,leftLeg,rightLeg,rifle,gatling,gatlingCluster,axe,axeHeadRoot}
   };
 }
