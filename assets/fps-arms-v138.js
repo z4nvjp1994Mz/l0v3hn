@@ -271,6 +271,78 @@ function makeGatling(materials){
   return gun;
 }
 
+function makeAxe(materials){
+  const axe=new THREE.Group();
+  axe.name='FPS_AXE_V154';
+  axe.visible=false;
+  axe.position.set(.12,-.16,-.20);
+  axe.rotation.set(.18,-.12,-.24);
+  axe.userData={
+    fpsWeapon:true,
+    ignoreFpsCollision:true,
+    type:'axe-viewmodel'
+  };
+
+  const handle=mesh(
+    new THREE.CylinderGeometry(.032,.040,.88,10),
+    materials.axeHandle,
+    'FPS_AXE_HANDLE_V154'
+  );
+  handle.rotation.x=Math.PI/2;
+  handle.position.set(.02,-.01,-.34);
+  axe.add(handle);
+
+  const grip=mesh(
+    new THREE.CylinderGeometry(.044,.048,.28,10),
+    materials.weaponDark,
+    'FPS_AXE_GRIP_V154'
+  );
+  grip.rotation.x=Math.PI/2;
+  grip.position.set(.02,-.01,.10);
+  axe.add(grip);
+
+  const headRoot=new THREE.Group();
+  headRoot.name='FPS_AXE_HEAD_ROOT_V154';
+  headRoot.position.set(.02,.015,-.80);
+  axe.add(headRoot);
+
+  const headBody=mesh(
+    new THREE.BoxGeometry(.18,.16,.24),
+    materials.axeYellow,
+    'FPS_AXE_HEAD_BODY_V154'
+  );
+  headBody.position.set(0,0,0);
+  headRoot.add(headBody);
+
+  const blade=mesh(
+    new THREE.BoxGeometry(.34,.20,.075),
+    materials.axeBlade,
+    'FPS_AXE_BLADE_V154'
+  );
+  blade.position.set(-.20,-.015,-.015);
+  blade.rotation.z=.12;
+  headRoot.add(blade);
+
+  const wedge=mesh(
+    new THREE.BoxGeometry(.20,.12,.11),
+    materials.axeYellow,
+    'FPS_AXE_WEDGE_V154'
+  );
+  wedge.position.set(.17,.015,.015);
+  headRoot.add(wedge);
+
+  const bolt=mesh(
+    new THREE.CylinderGeometry(.025,.025,.20,10),
+    materials.weaponMetal,
+    'FPS_AXE_HEAD_BOLT_V154'
+  );
+  bolt.rotation.z=Math.PI/2;
+  headRoot.add(bolt);
+
+  axe.userData.head=headRoot;
+  return axe;
+}
+
 function makeArm(side,materials){
   const arm=new THREE.Group();
   arm.name=side<0?'FPS_LEFT_ARM_V138':'FPS_RIGHT_ARM_V138';
@@ -392,12 +464,34 @@ export function createThickerFpsArmsV138(){
       metalness:.12,
       side:THREE.DoubleSide,
       fog:false
+    }),
+    axeYellow:new THREE.MeshStandardMaterial({
+      color:0xe0a91b,
+      roughness:.48,
+      metalness:.18,
+      side:THREE.DoubleSide,
+      fog:false
+    }),
+    axeBlade:new THREE.MeshStandardMaterial({
+      color:0x4b514e,
+      roughness:.34,
+      metalness:.62,
+      side:THREE.DoubleSide,
+      fog:false
+    }),
+    axeHandle:new THREE.MeshStandardMaterial({
+      color:0x5a4026,
+      roughness:.78,
+      metalness:.02,
+      side:THREE.DoubleSide,
+      fog:false
     })
   };
 
   const sniper=makeSniper(materials);
   const gatling=makeGatling(materials);
-  root.add(makeArm(-1,materials),makeArm(1,materials),sniper,gatling);
+  const axe=makeAxe(materials);
+  root.add(makeArm(-1,materials),makeArm(1,materials),sniper,gatling,axe);
 
   let triangles=0;
   root.traverse(o=>{
@@ -411,10 +505,11 @@ export function createThickerFpsArmsV138(){
 
   root.userData.ignoreFpsCollision=true;
   root.userData.triangles=triangles;
-  root.userData.source='v152-sniper+gatling-viewmodels + shaped-glove-shell-v137';
+  root.userData.source='v154-sniper+gatling+axe-viewmodels + shaped-glove-shell-v137';
   root.userData.weapon='sniper';
   root.userData.sniper=sniper;
   root.userData.gatling=gatling;
   root.userData.gatlingBarrel=gatling.userData.barrelCluster;
+  root.userData.axe=axe;
   return root;
 }
