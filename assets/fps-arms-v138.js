@@ -198,6 +198,79 @@ function makeSniper(materials){
   return rifle;
 }
 
+function makeGatling(materials){
+  const gun=new THREE.Group();
+  gun.name='FPS_GATLING_V152';
+  gun.position.set(.045,-.245,.025);
+  gun.rotation.set(-.020,.010,.008);
+  gun.visible=false;
+  gun.userData={
+    fpsWeapon:true,
+    ignoreFpsCollision:true,
+    type:'gatling-viewmodel'
+  };
+
+  const addBox=(size,pos,mat,name,rot=[0,0,0])=>{
+    const m=mesh(new THREE.BoxGeometry(...size),mat,name);
+    m.position.set(...pos);
+    m.rotation.set(...rot);
+    gun.add(m);
+    return m;
+  };
+  const addTube=(rTop,rBottom,len,pos,mat,name,rot=[Math.PI/2,0,0],radial=14,parent=gun)=>{
+    const m=mesh(new THREE.CylinderGeometry(rTop,rBottom,len,radial),mat,name);
+    m.position.set(...pos);
+    m.rotation.set(...rot);
+    parent.add(m);
+    return m;
+  };
+
+  // Receiver / rear housing.
+  addBox([.205,.145,.330],[.020,.000,.115],materials.weaponBody,'FPS_GATLING_RECEIVER_V152');
+  addBox([.230,.175,.115],[.020,-.010,.305],materials.weaponDark,'FPS_GATLING_REAR_HOUSING_V152');
+  addBox([.135,.185,.100],[.105,-.110,.090],materials.weaponDark,'FPS_GATLING_GRIP_V152',[-.18,0,-.05]);
+  addBox([.110,.070,.245],[-.055,-.055,-.150],materials.weaponMetal,'FPS_GATLING_MOTOR_HOUSING_V152');
+
+  // Barrel cluster rotates around local Z.
+  const cluster=new THREE.Group();
+  cluster.name='FPS_GATLING_BARREL_CLUSTER_V152';
+  cluster.position.set(.020,.022,-.340);
+  cluster.userData.ignoreFpsCollision=true;
+  gun.add(cluster);
+
+  const barrelRadius=.052;
+  const barrelLength=.640;
+  for(let i=0;i<6;i++){
+    const a=i*Math.PI*2/6;
+    const x=Math.cos(a)*barrelRadius;
+    const y=Math.sin(a)*barrelRadius;
+    addTube(
+      .010,.012,barrelLength,
+      [x,y,-barrelLength*.50],
+      materials.weaponMetal,
+      'FPS_GATLING_BARREL_V152_'+i,
+      [Math.PI/2,0,0],
+      10,
+      cluster
+    );
+  }
+
+  // Front/rear barrel cages.
+  addTube(.078,.078,.050,[.020,.022,-.385],materials.weaponDark,'FPS_GATLING_CAGE_REAR_V152',[Math.PI/2,0,0],16);
+  addTube(.074,.074,.060,[.020,.022,-.995],materials.weaponDark,'FPS_GATLING_CAGE_FRONT_V152',[Math.PI/2,0,0],16);
+
+  // Central axle + compact muzzle.
+  addTube(.012,.012,.690,[.020,.022,-.665],materials.weaponDark,'FPS_GATLING_AXLE_V152',[Math.PI/2,0,0],10);
+  addTube(.042,.036,.085,[.020,.022,-1.065],materials.weaponDark,'FPS_GATLING_MUZZLE_V152',[Math.PI/2,0,0],14);
+
+  // Top carry rail and ammo drum suggest a heavier automatic weapon.
+  addBox([.120,.030,.300],[.020,.118,-.180],materials.weaponMetal,'FPS_GATLING_TOP_RAIL_V152');
+  addTube(.105,.105,.115,[-.120,-.055,-.105],materials.weaponDark,'FPS_GATLING_AMMO_DRUM_V152',[0,0,Math.PI/2],18);
+
+  gun.userData.barrelCluster=cluster;
+  return gun;
+}
+
 function makeArm(side,materials){
   const arm=new THREE.Group();
   arm.name=side<0?'FPS_LEFT_ARM_V138':'FPS_RIGHT_ARM_V138';
@@ -322,7 +395,9 @@ export function createThickerFpsArmsV138(){
     })
   };
 
-  root.add(makeArm(-1,materials),makeArm(1,materials),makeSniper(materials));
+  const sniper=makeSniper(materials);
+  const gatling=makeGatling(materials);
+  root.add(makeArm(-1,materials),makeArm(1,materials),sniper,gatling);
 
   let triangles=0;
   root.traverse(o=>{
@@ -336,7 +411,10 @@ export function createThickerFpsArmsV138(){
 
   root.userData.ignoreFpsCollision=true;
   root.userData.triangles=triangles;
-  root.userData.source='v140-sniper-viewmodel + shaped-glove-shell-v137';
-  root.userData.weapon='sniper-viewmodel';
+  root.userData.source='v152-sniper+gatling-viewmodels + shaped-glove-shell-v137';
+  root.userData.weapon='sniper';
+  root.userData.sniper=sniper;
+  root.userData.gatling=gatling;
+  root.userData.gatlingBarrel=gatling.userData.barrelCluster;
   return root;
 }
