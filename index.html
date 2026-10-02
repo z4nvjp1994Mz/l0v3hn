@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V119 LUSH REALISTIC INTERNAL TREES</small>
+  <small>GitHub → Netlify · BUILD V120 DIRECT LUSH TREE SOURCE</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -52,7 +52,8 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { installCirculationV53 } from './assets/circulation-v53.js?v=119';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { installCirculationV53 } from './assets/circulation-v53.js?v=120';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
@@ -314,42 +315,105 @@ for(const [cx,cy,Lpx,Spx,a] of roofs){
 }
 
 // Landscape — tree positions sampled directly from green vegetation pixels on the 2D masterplan
-const treeLeafMat = new THREE.MeshStandardMaterial({ color: 0x3d7447, roughness: 1 });
-const treeLeafMat2 = new THREE.MeshStandardMaterial({ color: 0x568f57, roughness: 1 });
-const treeLeafMat3 = new THREE.MeshStandardMaterial({ color: 0x6aa05f, roughness: 1 });
-const flowerLeafMat = new THREE.MeshStandardMaterial({ color: 0xb77a8b, roughness: 1 });
-const treeTrunkMat = new THREE.MeshStandardMaterial({ color: 0x765237, roughness: 1 });
+const treeLeafMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .96, vertexColors:true });
+const flowerLeafMat = new THREE.MeshStandardMaterial({ color: 0xc77f95, roughness: .94 });
+const treeTrunkMat = new THREE.MeshStandardMaterial({ color: 0x765237, roughness: .97 });
 const waterMat=new THREE.MeshStandardMaterial({color:0x66b6cc,roughness:.25,metalness:.04});
 const lawnMat=new THREE.MeshStandardMaterial({color:0x74a267,roughness:1});
+
+// V120: shared lush roadside-tree geometry.
+// These two geometries are built ONCE and reused by every masterplan tree.
+// Each tree therefore uses only 2 meshes (wood + foliage), fewer than the old
+// trunk + 3 separate crown meshes while looking far denser at eye level.
+function v120TransformGeometry(geometry,pos,scale,rotationY=0){
+  const g=geometry.clone();
+  g.applyMatrix4(new THREE.Matrix4().compose(
+    new THREE.Vector3(pos[0],pos[1],pos[2]),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0,rotationY,0)),
+    new THREE.Vector3(scale[0],scale[1],scale[2])
+  ));
+  return g;
+}
+
+function v120BranchGeometry(start,end,r0=.13,r1=.065){
+  const a=new THREE.Vector3(...start),b=new THREE.Vector3(...end);
+  const dir=b.clone().sub(a),len=Math.max(.01,dir.length());
+  dir.normalize();
+  const geo=new THREE.CylinderGeometry(r1,r0,len,8,1,false);
+  geo.applyMatrix4(new THREE.Matrix4().compose(
+    a.clone().lerp(b,.5),
+    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),dir),
+    new THREE.Vector3(1,1,1)
+  ));
+  return geo;
+}
+
+function v120Colorize(geometry,hex){
+  const c=new THREE.Color(hex);
+  const count=geometry.attributes.position.count;
+  const arr=new Float32Array(count*3);
+  for(let i=0;i<count;i++){
+    // Slight deterministic variation across vertices makes the canopy read less flat.
+    const k=.88+.12*((i*17)%11)/10;
+    arr[i*3]=c.r*k;arr[i*3+1]=c.g*k;arr[i*3+2]=c.b*k;
+  }
+  geometry.setAttribute('color',new THREE.BufferAttribute(arr,3));
+  return geometry;
+}
+
+const V120_TREE_WOOD_GEOMETRY=mergeGeometries([
+  v120BranchGeometry([0,0,0],[0,4.25,0],.34,.22),
+  v120BranchGeometry([0,2.55,0],[-.95,4.78,.26],.18,.075),
+  v120BranchGeometry([0,2.72,0],[1.06,4.72,-.22],.18,.075),
+  v120BranchGeometry([.02,2.92,0],[.28,4.95,1.04],.15,.060),
+  v120BranchGeometry([-.03,3.04,0],[-.34,4.92,-1.02],.15,.060),
+  v120BranchGeometry([-.45,3.68,.12],[-1.42,4.82,.48],.10,.040),
+  v120BranchGeometry([.50,3.72,-.10],[1.48,4.80,-.44],.10,.040)
+],false);
+
+const v120FoliageSpecs=[
+  [[ 0.00,5.58, 0.00],[1.90,1.38,1.72],0x4f8a43,.05],
+  [[-1.48,5.16, 0.22],[1.48,1.24,1.40],0x5d9949,-.30],
+  [[ 1.48,5.10,-0.25],[1.55,1.26,1.38],0x477c3c,.36],
+  [[ 0.20,5.12, 1.42],[1.34,1.12,1.46],0x679f50,-.18],
+  [[-0.30,5.20,-1.40],[1.38,1.13,1.44],0x3f7437,.26],
+  [[-0.92,6.25,-0.36],[1.18,1.00,1.12],0x75aa58,.55],
+  [[ 0.98,6.18, 0.42],[1.20,.98,1.15],0x558c43,-.48],
+  [[ 0.02,6.55,-0.10],[1.14,.91,1.08],0x6ca352,.14],
+  [[-1.55,5.82,-.62],[.96,.84,.92],0x4c843e,.32],
+  [[ 1.58,5.76, .64],[.98,.84,.96],0x60984a,-.22]
+];
+const V120_TREE_FOLIAGE_GEOMETRY=mergeGeometries(
+  v120FoliageSpecs.map(([pos,sc,color,rot])=>
+    v120Colorize(
+      v120TransformGeometry(new THREE.IcosahedronGeometry(1,2),pos,sc,rot),
+      color
+    )
+  ),
+  false
+);
+V120_TREE_WOOD_GEOMETRY.computeVertexNormals();
+V120_TREE_FOLIAGE_GEOMETRY.computeVertexNormals();
 
 function addTree(px, py, scale = 1, flowering = false) {
   const p = mapPx(px, py);
   const g = new THREE.Group();
 
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22 * scale, 0.34 * scale, 4.2 * scale, 8),
-    treeTrunkMat
+  const wood=new THREE.Mesh(V120_TREE_WOOD_GEOMETRY,treeTrunkMat);
+  wood.castShadow=true;wood.receiveShadow=true;
+
+  const foliage=new THREE.Mesh(
+    V120_TREE_FOLIAGE_GEOMETRY,
+    flowering ? flowerLeafMat : treeLeafMat
   );
-  trunk.position.y = 2.10 * scale;
-  trunk.castShadow = true;
+  foliage.castShadow=true;foliage.receiveShadow=true;
 
-  const m1 = flowering ? flowerLeafMat : treeLeafMat;
-  const m2 = flowering ? flowerLeafMat : treeLeafMat2;
-  const crown1 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.55 * scale, 1), m1);
-  crown1.position.set(-0.20*scale, 5.10 * scale, 0.10*scale);
-  crown1.castShadow = true;
-
-  const crown2 = new THREE.Mesh(new THREE.IcosahedronGeometry(1.20 * scale, 1), m2);
-  crown2.position.set(0.48 * scale, 6.20 * scale, -0.20 * scale);
-  crown2.castShadow = true;
-
-  const crown3 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95 * scale, 1), flowering ? flowerLeafMat : treeLeafMat3);
-  crown3.position.set(-0.58 * scale, 5.85 * scale, 0.28 * scale);
-  crown3.castShadow = true;
-
-  g.add(trunk, crown1, crown2, crown3);
+  g.add(wood,foliage);
+  g.scale.setScalar(scale);
+  g.rotation.y=((px*0.017+py*0.013)%1)*Math.PI*2;
   g.position.set(p.x, 0.05, p.z);
   g.userData.isTreeGroup = true;
+  g.userData.lushTreeV120 = true;
   g.userData.masterplanPx = {x:px,y:py};
   world.add(g);
   return g;
@@ -1449,7 +1513,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent=(trafficResult?.ready===false?'V115 traffic fallback · ':'V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V120 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
