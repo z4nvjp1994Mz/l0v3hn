@@ -17,7 +17,7 @@ export function installRoadNameSignsV169({
   const root=new THREE.Group();
   root.name='ROAD_NAME_SIGNS_V169';
   root.userData={
-    version:169.1,
+    version:169.2,
     frameSignature,
     source:'user-annotated-masterplan-1616x2048'
   };
@@ -56,7 +56,7 @@ export function installRoadNameSignsV169({
   const routeById=new Map(routes.map(r=>[r.id,r]));
 
   // Two verified junctions derived from the converging colored route endpoints.
-  // V169.1: the old manual postPx values are kept only as side hints. Final pole
+  // V169.2: the old manual postPx values are kept only as side hints. Final pole
   // positions are solved after CAD warp from road tangent/normal + road width and
   // validated against the live FPS road-safe corridors.
   const posts=[
@@ -126,8 +126,10 @@ export function installRoadNameSignsV169({
 
     // Preserve only the intended corner/side from V169; never reuse its final position.
     const hintPx=post.sideHintPx||post.junctionPx;
-    const hint=worldAt(hintPx[0],hintPx[1]);
-    let hx=hint.x-junction.x,hz=hint.z-junction.z;
+    // Important: do NOT corridor-warp the side hint. V169 proved that a manually
+    // offset point can be dragged back into carriageway. Use only its source-space
+    // direction to identify the intended junction corner.
+    let hx=hintPx[0]-post.junctionPx[0],hz=hintPx[1]-post.junctionPx[1];
     const hLen=Math.hypot(hx,hz);
     if(hLen>.001){hx/=hLen;hz/=hLen;}
     if(hLen>.001 && hx*nx+hz*nz<0){nx=-nx;nz=-nz;}
@@ -162,32 +164,57 @@ export function installRoadNameSignsV169({
     const halfRoadM=Math.max(roadWidthPx*localWorldPerPx*.5,roadInfo?.halfSafe||0);
     const baseOffset=Math.max(6,halfRoadM+2.4,(roadInfo?.halfSafe||0)+2.0);
 
-    const dirs=[{x:nx,z:nz,mode:'road-normal'}];
+    const dirs=[];
+    function addDirection(x,z,mode,penalty){
+      const len=Math.hypot(x,z)||1;x/=len;z/=len;
+      if(dirs.some(d=>d.x*x+d.z*z>.999))return;
+      dirs.push({x,z,mode,penalty});
+    }
+
+    addDirection(nx,nz,'road-normal',0);
     if(hLen>.001){
-      let bx=nx*.72+hx*.28,bz=nz*.72+hz*.28;
-      const bLen=Math.hypot(bx,bz)||1;bx/=bLen;bz/=bLen;
-      if(Math.abs(bx*nx+bz*nz)>.45)dirs.push({x:bx,z:bz,mode:'normal-corner-bias'});
-      dirs.push({x:hx,z:hz,mode:'side-hint-fallback'});
+      addDirection(nx*.70+hx*.30,nz*.70+hz*.30,'normal-corner-bias',.8);
+      addDirection(hx,hz,'source-corner',1.1);
+
+      // Junction-aware fallback: scan the full circle around the intended corner.
+      // This handles cases where one road's normal is almost parallel to another
+      // crossing road (the exact V169 west-junction failure mode).
+      const baseAngle=Math.atan2(hz,hx);
+      for(let k=1;k<12;k++){
+        const delta=k*Math.PI/12;
+        addDirection(Math.cos(baseAngle+delta),Math.sin(baseAngle+delta),'corner-radial+'+(k*15),1.4+k/12);
+        addDirection(Math.cos(baseAngle-delta),Math.sin(baseAngle-delta),'corner-radial-'+(k*15),1.4+k/12);
+      }
+      addDirection(-hx,-hz,'corner-radial-180',2.6);
     }
 
     let best=null;
-    dirs.forEach((dir,dirIndex)=>{
-      for(let step=0;step<=36;step++){
+    for(const dir of dirs){
+      for(let step=0;step<=60;step++){
         const offset=baseOffset+step*.75;
         const x=junction.x+dir.x*offset,z=junction.z+dir.z*offset;
         if(!roadFreeAt(x,z,.85))continue;
-        const score=offset+dirIndex*1.35;
+        const score=offset+dir.penalty*1.5;
         if(!best||score<best.score)best={x,z,offset,score,mode:dir.mode};
         break;
       }
-    });
+    }
 
+    // Hard fail-safe: an unresolved sign is hidden, never placed inside a road.
     if(!best){
-      best={x:junction.x+nx*(baseOffset+30),z:junction.z+nz*(baseOffset+30),offset:baseOffset+30,mode:'forced-road-normal'};
+      console.warn('[DaLoc] V169.2 no validated roadside position for',post.id);
+      return {
+        position:{x:junction.x,y:.04,z:junction.z},valid:false,offsetM:0,
+        directionMode:'hidden-no-safe-position',roadWidthPx,
+        localWorldPerPx:Number(localWorldPerPx.toFixed(4)),halfRoadM:Number(halfRoadM.toFixed(2)),
+        roadSafeBefore:typeof roadSafeInfo==='function'?!!roadSafeInfo(junction.x,junction.z):null,
+        roadSafeAfter:typeof roadSafeInfo==='function'?roadSafeInfo(junction.x,junction.z):null
+      };
     }
 
     return {
       position:{x:best.x,y:.04,z:best.z},
+      valid:true,
       offsetM:Number(best.offset.toFixed(2)),
       directionMode:best.mode,
       roadWidthPx,
@@ -301,6 +328,7 @@ export function installRoadNameSignsV169({
       sourcePx:{junction:[...post.junctionPx],sideHint:[...(post.sideHintPx||post.junctionPx)]},
       resolvedWorld:{x:Number(p.x.toFixed(2)),z:Number(p.z.toFixed(2))},
       roadsidePlacement:{
+        valid:placement.valid!==false,
         offsetM:placement.offsetM,
         directionMode:placement.directionMode,
         roadWidthPx:placement.roadWidthPx,
@@ -310,6 +338,7 @@ export function installRoadNameSignsV169({
         roadSafeAfter:placement.roadSafeAfter
       }
     };
+    g.visible=placement.valid!==false;
     root.add(g);
 
     const base=new THREE.Mesh(new THREE.CylinderGeometry(.30,.36,.18,12),mats.base);
@@ -343,7 +372,7 @@ export function installRoadNameSignsV169({
 
   const api={
     ready:true,
-    version:169.1,
+    version:169.2,
     group:root,
     routes,
     posts,
@@ -354,7 +383,7 @@ export function installRoadNameSignsV169({
   };
 
   window.__DALOC_ROAD_SIGNS_V169=api;
-  console.info('[DaLoc] V169.1 road-safe named-road wayfinding signs installed',{
+  console.info('[DaLoc] V169.2 road-safe named-road wayfinding signs installed',{
     routes:routes.map(r=>r.name),
     posts:postGroups.length,
     placements,
