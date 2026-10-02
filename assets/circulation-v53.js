@@ -185,6 +185,14 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   if(realTreeAssets){
     const legacyTreeGroups=world.children.filter(o=>o.userData?.isTreeGroup);
     legacyTreeGroups.forEach((g,i)=>{
+      // V120 roadside trees are now authored directly in index.html with the
+      // lush shared canopy/branch geometry. Never clear/replace them here.
+      if(g.userData?.lushTreeV120){
+        g.userData.realTreeAssetV105='direct-lush-v120';
+        upgradedLegacyTrees++;
+        return;
+      }
+
       let inferredScale=1;
       const oldTrunk=g.children.find(c=>c.geometry?.type==='CylinderGeometry'&&c.geometry?.parameters?.height);
       if(oldTrunk)inferredScale=Math.max(.72,Math.min(1.45,oldTrunk.geometry.parameters.height/4.2));
@@ -271,7 +279,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:119,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,treeAssetMode:realTreeAssets?'kenney-glb-lush-v119':'fallback',
+  window.__DALOC_V53={ready:true,version:119,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,treeAssetMode:realTreeAssets?'direct-v120-roadside + kenney-lush-greenbelt':'direct-v120-roadside',
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
