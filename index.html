@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V145.4-vehicle-first-person-free-look">
+<meta name="daloc-build" content="V145.5-roof-edge-jump-fall-fix">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V145.4 VEHICLE 1P FREE LOOK</small>
+  <small>GitHub → Netlify · BUILD V145.5 ROOF EDGE JUMP + FALL FIX</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1644,7 +1644,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V145.4 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V145.5 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -3229,6 +3229,7 @@ function fpsMoveWithCollision(delta){
     if(fpsRoofPositionAllowed(trial)&&!fpsPositionBlocked(trial)){
       camera.position.x=trial.x;
       moved=true;
+      fpsDetachRoofIfOutside(camera.position);
     }
 
     trial.copy(camera.position);
@@ -3236,6 +3237,7 @@ function fpsMoveWithCollision(delta){
     if(fpsRoofPositionAllowed(trial)&&!fpsPositionBlocked(trial)){
       camera.position.z=trial.z;
       moved=true;
+      fpsDetachRoofIfOutside(camera.position);
     }
 
     // Keep a known-good recovery point. A moving vehicle or late-loaded prop can
@@ -3816,14 +3818,37 @@ function fpsUpdateClimb(dt){
   return true;
 }
 
-function fpsRoofPositionAllowed(position){
+function fpsRoofContainsPosition(position,margin=.18){
   if(!fpsRoofState?.building)return true;
   fpsInteractionTmp.copy(position);
   fpsRoofState.building.worldToLocal(fpsInteractionTmp);
   return (
-    Math.abs(fpsInteractionTmp.x)<=fpsRoofState.L*.5-.72 &&
-    Math.abs(fpsInteractionTmp.z)<=fpsRoofState.D*.5-.72
+    Math.abs(fpsInteractionTmp.x)<=Math.max(.1,fpsRoofState.L*.5-margin) &&
+    Math.abs(fpsInteractionTmp.z)<=Math.max(.1,fpsRoofState.D*.5-margin)
   );
+}
+
+function fpsRoofPositionAllowed(position){
+  if(!fpsRoofState?.building)return true;
+
+  // V145.5: while grounded, keep the player on the roof surface and let real
+  // parapet/structure colliders handle the physical edge. Once airborne,
+  // horizontal movement may cross the roof footprint so jumping off a roof is
+  // possible instead of hitting the old invisible footprint wall.
+  if(fpsRoofContainsPosition(position,.18))return true;
+  return !fpsGrounded;
+}
+
+function fpsDetachRoofIfOutside(position){
+  if(!fpsRoofState?.building)return false;
+  if(fpsRoofContainsPosition(position,.18))return false;
+
+  // The player has crossed the roof footprint while airborne. From this point
+  // gravity must target ground level, not the old roof elevation.
+  fpsRoofState=null;
+  fpsGroundLevel=0;
+  fpsGrounded=false;
+  return true;
 }
 
 function fpsActivateInteraction(){
@@ -4490,7 +4515,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:145.4,
+  version:145.5,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
