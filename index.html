@@ -1856,8 +1856,10 @@ function fpsMoveWithCollision(delta){
 }
 
 function applyFpsRenderProfile(){
-  if(fpsSavedPixelRatio===null)fpsSavedPixelRatio=renderer.getPixelRatio();
-  fpsSavedShadowAutoUpdate=renderer.shadowMap.autoUpdate;
+  if(fpsSavedPixelRatio===null){
+    fpsSavedPixelRatio=renderer.getPixelRatio();
+    fpsSavedShadowAutoUpdate=renderer.shadowMap.autoUpdate;
+  }
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));
   renderer.setSize(innerWidth,innerHeight,false);
 
