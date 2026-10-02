@@ -280,6 +280,84 @@ export function installFactoryInteriorsV84({world,buildings}){
     buildQcPacking
   ];
 
+  function setMaterialAlpha(material,alpha){
+    const list=Array.isArray(material)?material:[material];
+    for(const m of list){
+      if(!m)continue;
+      m.visible=true;
+      m.transparent=alpha<.999;
+      m.opacity=alpha;
+      m.depthWrite=alpha>=.999;
+      m.needsUpdate=true;
+    }
+  }
+
+  function hideSourceBodyMaterial(material){
+    const list=Array.isArray(material)?material:[material];
+    for(const m of list){
+      if(!m)continue;
+      m.visible=false;
+      m.depthWrite=false;
+      m.needsUpdate=true;
+    }
+  }
+
+  function makeVisualFactoryShell(g,body,idx,L,D,H){
+    const shell=new THREE.Group();
+    shell.name='V1395_FACTORY_VISUAL_SHELL_'+idx;
+    shell.position.copy(body.position);
+    shell.quaternion.copy(body.quaternion);
+    shell.scale.copy(body.scale);
+    shell.userData={
+      factoryVisualShell:true,
+      factoryIndex:idx,
+      fpsNonSolid:true
+    };
+
+    const wallMaterial=cloneMaterialSafe(body.material);
+    const t=.28;
+    const doorWidth=2.8;
+    const doorHalf=doorWidth*.5;
+    const doorOpeningH=3.62;
+    const halfL=L*.5;
+    const halfD=D*.5;
+
+    const addWall=(size,pos,name)=>{
+      const m=new THREE.Mesh(new THREE.BoxGeometry(...size),wallMaterial);
+      m.position.set(...pos);
+      m.name=name;
+      m.castShadow=true;
+      m.receiveShadow=true;
+      m.userData={fpsNonSolid:true,factoryVisualShell:true,factoryIndex:idx};
+      shell.add(m);
+      return m;
+    };
+
+    // Side and rear walls.
+    addWall([t,H,D],[-halfL+t*.5,0,0],'V1395_SHELL_LEFT_'+idx);
+    addWall([t,H,D],[halfL-t*.5,0,0],'V1395_SHELL_RIGHT_'+idx);
+    addWall([Math.max(.2,L-2*t),H,t],[0,0,-halfD+t*.5],'V1395_SHELL_REAR_'+idx);
+
+    // Front facade split around the real personnel doorway.
+    const sideWidth=Math.max(.2,halfL-doorHalf-t);
+    if(sideWidth>.21){
+      const leftCenter=-(doorHalf+sideWidth*.5);
+      const rightCenter=(doorHalf+sideWidth*.5);
+      addWall([sideWidth,H,t],[leftCenter,0,halfD-t*.5],'V1395_SHELL_FRONT_L_'+idx);
+      addWall([sideWidth,H,t],[rightCenter,0,halfD-t*.5],'V1395_SHELL_FRONT_R_'+idx);
+    }
+
+    // Header closes the facade above the doorway while leaving the opening below.
+    const headerH=Math.max(.25,H-doorOpeningH);
+    const headerY=-H*.5+doorOpeningH+headerH*.5;
+    addWall([doorWidth,headerH,t],[0,headerY,halfD-t*.5],'V1395_SHELL_DOOR_HEADER_'+idx);
+
+    g.add(shell);
+    hideSourceBodyMaterial(body.material);
+
+    return {group:shell,material:wallMaterial};
+  }
+
   function makeInteractiveDoor(g,idx,L,D,H){
     const width=2.8,height=3.35;
     const pivot=new THREE.Group();
@@ -324,6 +402,7 @@ export function installFactoryInteriorsV84({world,buildings}){
       const {width:L,height:H,depth:D}=body.geometry.parameters;
 
       body.material=cloneMaterialSafe(body.material);
+      const visualShell=makeVisualFactoryShell(g,body,idx,L,D,H);
       const roofCandidates=g.children.filter(o=>
         o.isMesh &&
         o.geometry?.type==='BoxGeometry' &&
@@ -334,8 +413,12 @@ export function installFactoryInteriorsV84({world,buildings}){
       roofCandidates.forEach(m=>{m.material=cloneMaterialSafe(m.material);});
 
       const shellRecord={
-        index:idx,body,roofs:roofCandidates,
-        bodyOpacity:1,doorReveal:false
+        index:idx,
+        body,
+        visualShell,
+        roofs:roofCandidates,
+        bodyOpacity:1,
+        doorReveal:false
       };
       shellMeshes.push(shellRecord);
 
@@ -412,16 +495,14 @@ export function installFactoryInteriorsV84({world,buildings}){
   let visible=true;
 
   function applyShellVisual(record){
-    const localReveal=record.doorReveal;
-    const bodyAlpha=cutaway?.20:(localReveal?.18:1);
-    record.body.material.transparent=bodyAlpha<1;
-    record.body.material.opacity=bodyAlpha;
-    record.body.material.depthWrite=bodyAlpha>=1;
+    // V139.5: opening a door must never make the whole factory transparent.
+    // The original solid body remains render-hidden for collision metadata, while
+    // the replacement visual shell contains a physical doorway opening.
+    hideSourceBodyMaterial(record.body.material);
+    setMaterialAlpha(record.visualShell?.material,cutaway?.20:1);
     record.roofs.forEach((m,i)=>{
-      const a=cutaway?(i===0?.08:.11):(localReveal?.32:1);
-      m.material.transparent=a<1;
-      m.material.opacity=a;
-      m.material.depthWrite=a>=1;
+      const a=cutaway?(i===0?.08:.11):1;
+      setMaterialAlpha(m.material,a);
     });
   }
   function setVisible(v){
@@ -435,8 +516,8 @@ export function installFactoryInteriorsV84({world,buildings}){
   function setFactoryReveal(factoryIndex,v){
     const rec=shellMeshes.find(x=>x.index===factoryIndex);
     if(!rec)return;
+    // Compatibility state only. Door opening no longer alters wall opacity.
     rec.doorReveal=!!v;
-    applyShellVisual(rec);
   }
   function setDoorOpen(index,v){
     const d=doors[index];
@@ -474,7 +555,7 @@ export function installFactoryInteriorsV84({world,buildings}){
   }
 
   const api={
-    ready:true,version:139,controller,interiors,portals,doors,failedFactories,
+    ready:true,version:139.5,controller,interiors,portals,doors,failedFactories,
     factoryProfiles,
     factoryCount:interiors.length,
     archetypes,
@@ -483,7 +564,7 @@ export function installFactoryInteriorsV84({world,buildings}){
   };
   window.__DALOC_FACTORY_INTERIORS_V84=api;
 
-  console.info('[DaLoc] V139 interactive varied factory interiors installed',{
+  console.info('[DaLoc] V139.5 opaque factory walls with real visual door openings installed',{
     factories:interiors.length,
     portals:portals.length,
     doors:doors.length,
