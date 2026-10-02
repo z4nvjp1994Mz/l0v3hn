@@ -351,9 +351,9 @@ function makeAxeGripArm(side,materials,gripZ){
   // Shoulder anchors stay fixed near the lower corners of the camera-space
   // rig. Only elbow/wrist solve toward the animated axe handle.
   const shoulder=new THREE.Vector3(
-    .20+side*.22,
-    -.700,
-    .480
+    .26+side*.20,
+    -.740,
+    .520
   );
   const targetLocal=new THREE.Vector3(
     .020,
@@ -643,10 +643,10 @@ export function createThickerFpsArmsV138(){
 
     // Bend the elbow outward and slightly down. The shoulder remains fixed,
     // so no "arm stump" can be dragged through the center of the screen.
-    elbow.copy(d.shoulder).lerp(gripRoot,.78);
-    elbow.x+=d.side*.028;
-    elbow.y-=.030;
-    elbow.z+=.060;
+    elbow.copy(d.shoulder).lerp(gripRoot,.82);
+    elbow.x+=d.side*.020;
+    elbow.y-=.024;
+    elbow.z+=.070;
 
     foreDir.copy(gripRoot).sub(elbow).normalize();
     cuffStart.copy(gripRoot).addScaledVector(foreDir,-.078);
