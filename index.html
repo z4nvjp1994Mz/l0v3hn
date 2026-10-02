@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V123 TACTICAL FPS HANDS</small>
+  <small>GitHub → Netlify · BUILD V124 FPS HAND ORIENTATION + PINNED SPAWN</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1515,7 +1515,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V123 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V124 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1679,15 +1679,13 @@ const fpsLastSafePosition=new THREE.Vector3();
 let fpsHasSafePosition=false;
 let fpsLastBlockReason='none';
 
-// V123 tactical first-person body/viewmodel.
+// V124 corrected FPS first-person body/viewmodel.
 let fpsViewModel=null;
 let fpsBodyRig=null;
 let fpsLeftArmPivot=null;
 let fpsRightArmPivot=null;
-let fpsLeftElbowPivot=null;
-let fpsRightElbowPivot=null;
-let fpsLeftWristPivot=null;
-let fpsRightWristPivot=null;
+let fpsLeftHandPivot=null;
+let fpsRightHandPivot=null;
 let fpsLeftLegPivot=null;
 let fpsRightLegPivot=null;
 let fpsLeftKneePivot=null;
@@ -1739,104 +1737,117 @@ function buildFpsCharacterRig(){
   // Arms are a camera-relative first-person viewmodel: always readable at the
   // bottom of frame, independent from pitch/yaw and without entering collision.
   fpsViewModel=new THREE.Group();
-  fpsViewModel.name='FPS_VIEWMODEL_V123';
+  fpsViewModel.name='FPS_VIEWMODEL_V124';
   fpsViewModel.userData.ignoreFpsCollision=true;
   fpsViewModel.visible=false;
   scene.add(fpsViewModel);
 
+  function makeSegmentBetween(a,b,r0,r1,material,order){
+    const start=new THREE.Vector3(...a);
+    const end=new THREE.Vector3(...b);
+    const dir=end.clone().sub(start);
+    const len=Math.max(.001,dir.length());
+    const mesh=fpsMesh(
+      new THREE.CylinderGeometry(r1,r0,len,12,1,false),
+      material,order
+    );
+    mesh.position.copy(start).lerp(end,.5);
+    mesh.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0,1,0),
+      dir.normalize()
+    );
+    return mesh;
+  }
+
   function makeArm(side){
-    const shoulder=new THREE.Group();
-    shoulder.name=side<0?'FPS_LEFT_ARM_V123':'FPS_RIGHT_ARM_V123';
-    shoulder.userData.ignoreFpsCollision=true;
+    // Camera-local coordinates: start at bottom corners, wrist farther forward
+    // (-Z), slightly higher and closer to the center. This makes the forearm
+    // visually point INTO the scene like an FPS viewmodel instead of toward camera.
+    const root=new THREE.Group();
+    root.name=side<0?'FPS_LEFT_ARM_V124':'FPS_RIGHT_ARM_V124';
+    root.userData.ignoreFpsCollision=true;
 
-    // Root starts at the lower screen corners. Positive X rotation makes the arm
-    // extend FORWARD into -Z instead of back toward the near plane (V122 bug).
-    shoulder.position.set(side*.315,-.255,-.70);
-    shoulder.rotation.set(.82,0,-side*.24);
+    const shoulder=[side*.34,-.40,-.48];
+    const elbow=[side*.27,-.30,-.69];
+    const wristPos=[side*.18,-.225,-.90];
 
-    const upperSleeve=fpsMesh(
-      new THREE.CylinderGeometry(.052,.065,.27,12,1,false),
-      sleeveMat,999
+    const upper=makeSegmentBetween(
+      shoulder,elbow,.060,.052,sleeveDarkMat,999
     );
-    upperSleeve.position.y=-.135;
-    shoulder.add(upperSleeve);
-
-    const shoulderCap=fpsMesh(new THREE.SphereGeometry(.067,12,8),sleeveDarkMat,999);
-    shoulderCap.scale.set(1.02,.82,1.02);
-    shoulderCap.position.y=.005;
-    shoulder.add(shoulderCap);
-
-    const elbow=new THREE.Group();
-    elbow.position.y=-.275;
-    elbow.rotation.set(.30,0,-side*.075);
-    shoulder.add(elbow);
-
-    const elbowPad=fpsMesh(new THREE.SphereGeometry(.058,10,7),sleeveDarkMat,1000);
-    elbowPad.scale.set(1.10,.78,1.06);
-    elbow.add(elbowPad);
-
-    const forearm=fpsMesh(
-      new THREE.CylinderGeometry(.043,.054,.31,12,1,false),
-      sleeveMat,1000
+    const forearm=makeSegmentBetween(
+      elbow,wristPos,.054,.043,sleeveMat,1000
     );
-    forearm.position.y=-.155;
-    elbow.add(forearm);
+    root.add(upper,forearm);
 
-    // Tactical wrist/glove, deliberately much smaller than the V122 sphere hand.
-    const wrist=new THREE.Group();
-    wrist.position.y=-.325;
-    wrist.rotation.set(-.08,0,side*.04);
-    elbow.add(wrist);
+    const elbowPad=fpsMesh(
+      new THREE.SphereGeometry(.055,10,7),
+      sleeveDarkMat,1001
+    );
+    elbowPad.position.set(...elbow);
+    elbowPad.scale.set(1.10,.82,1.06);
+    root.add(elbowPad);
 
-    const cuff=fpsMesh(new THREE.CylinderGeometry(.046,.050,.070,12),gloveMat,1001);
-    cuff.position.y=-.018;
-    wrist.add(cuff);
+    const hand=new THREE.Group();
+    hand.position.set(...wristPos);
+    hand.rotation.set(.12,side*.14,-side*.10);
+    root.add(hand);
 
-    const palm=fpsMesh(new THREE.BoxGeometry(.102,.105,.155),gloveMat,1002);
-    palm.position.set(-side*.008,-.100,-.030);
-    palm.rotation.x=.10;
-    wrist.add(palm);
+    const cuff=fpsMesh(
+      new THREE.CylinderGeometry(.045,.050,.065,12),
+      gloveMat,1001
+    );
+    cuff.rotation.x=Math.PI/2;
+    cuff.position.z=.018;
+    hand.add(cuff);
 
-    // Knuckle guard gives the hand the layered silhouette common in FPS viewmodels.
-    const knuckle=fpsMesh(new THREE.BoxGeometry(.092,.034,.104),glovePadMat,1003);
-    knuckle.position.set(-side*.006,-.087,-.115);
-    knuckle.rotation.x=.16;
-    wrist.add(knuckle);
+    const palm=fpsMesh(
+      new THREE.BoxGeometry(.095,.070,.145),
+      gloveMat,1002
+    );
+    palm.position.set(0,.012,-.075);
+    palm.rotation.x=-.08;
+    hand.add(palm);
 
-    // Four compact finger lobes; kept low-poly and merged visually by overlap.
+    const knuckle=fpsMesh(
+      new THREE.BoxGeometry(.090,.028,.090),
+      glovePadMat,1003
+    );
+    knuckle.position.set(0,.050,-.105);
+    hand.add(knuckle);
+
+    // Compact curled fingers at the front of the glove.
     for(let i=0;i<4;i++){
-      const finger=fpsMesh(new THREE.SphereGeometry(.024,8,6),gloveMat,1003);
-      finger.scale.set(.82,1.20,1.18);
-      finger.position.set(
-        (i-1.5)*.024,
-        -.145,
-        -.095-i*.002
+      const finger=fpsMesh(
+        new THREE.CapsuleGeometry(.018,.040,3,6),
+        gloveMat,1003
       );
-      wrist.add(finger);
+      finger.rotation.x=Math.PI/2;
+      finger.position.set((i-1.5)*.022,-.010,-.155);
+      hand.add(finger);
     }
 
-    const thumb=fpsMesh(new THREE.SphereGeometry(.029,8,6),gloveMat,1003);
-    thumb.scale.set(.90,1.35,.82);
-    thumb.position.set(side*.063,-.105,-.020);
-    thumb.rotation.z=side*.48;
-    wrist.add(thumb);
+    const thumb=fpsMesh(
+      new THREE.CapsuleGeometry(.020,.045,3,6),
+      gloveMat,1003
+    );
+    thumb.rotation.set(Math.PI/2,0,side*.70);
+    thumb.position.set(side*.055,-.012,-.080);
+    hand.add(thumb);
 
-    fpsViewModel.add(shoulder);
-    return {shoulder,elbow,wrist};
+    fpsViewModel.add(root);
+    return {root,hand};
   }
 
   const leftArm=makeArm(-1),rightArm=makeArm(1);
-  fpsLeftArmPivot=leftArm.shoulder;
-  fpsRightArmPivot=rightArm.shoulder;
-  fpsLeftElbowPivot=leftArm.elbow;
-  fpsRightElbowPivot=rightArm.elbow;
-  fpsLeftWristPivot=leftArm.wrist;
-  fpsRightWristPivot=rightArm.wrist;
+  fpsLeftArmPivot=leftArm.root;
+  fpsRightArmPivot=rightArm.root;
+  fpsLeftHandPivot=leftArm.hand;
+  fpsRightHandPivot=rightArm.hand;
 
   // Legs live in world space beneath the camera. Looking down therefore reveals
   // the player's lower body naturally, while yaw follows the player's heading.
   fpsBodyRig=new THREE.Group();
-  fpsBodyRig.name='FPS_PLAYER_BODY_V123';
+  fpsBodyRig.name='FPS_PLAYER_BODY_V124';
   fpsBodyRig.userData.ignoreFpsCollision=true;
   fpsBodyRig.visible=false;
   world.add(fpsBodyRig);
@@ -1893,37 +1904,47 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
   const runMul=running?1.32:1;
   const airborne=!fpsGrounded;
 
-  // Camera-space tactical FPS animation: restrained bob + counter-swing.
+  // Camera-space FPS animation. Geometry orientation is fixed from the lower
+  // corners toward -Z; animation only adds small positional/roll offsets, so the
+  // arms can no longer flip backward toward the player.
   fpsViewModel.position.copy(camera.position);
   fpsViewModel.quaternion.copy(camera.quaternion);
 
-  const idleBreath=Math.sin(fpsRigTime*1.65)*.0035;
-  const stepBob=moving?Math.abs(Math.sin(phase*2))*.010*blend:0;
-  const sideSway=moving?Math.sin(phase)*.006*blend:Math.sin(fpsRigTime*.72)*.0015;
+  const idleBreath=Math.sin(fpsRigTime*1.65)*.003;
+  const stepBob=moving?Math.abs(Math.sin(phase*2))*.009*blend:0;
+  const sideSway=moving?Math.sin(phase)*.0045*blend:Math.sin(fpsRigTime*.72)*.0012;
   fpsViewModel.translateX(sideSway);
   fpsViewModel.translateY(-stepBob+idleBreath);
 
-  const armSwing=.065*runMul*blend;
-  const shoulderBase=.82;
-  fpsLeftArmPivot.rotation.x=shoulderBase+strideOpp*armSwing+(airborne?.055:0);
-  fpsRightArmPivot.rotation.x=shoulderBase+stride*armSwing+(airborne?.055:0);
-  fpsLeftArmPivot.rotation.z=.24+Math.sin(phase*.5)*.010*blend;
-  fpsRightArmPivot.rotation.z=-.24-Math.sin(phase*.5)*.010*blend;
+  const swing=.018*runMul*blend;
+  fpsLeftArmPivot.position.set(
+    strideOpp*swing,
+    strideOpp*.006*blend,
+    0
+  );
+  fpsRightArmPivot.position.set(
+    stride*swing,
+    stride*.006*blend,
+    0
+  );
+  fpsLeftArmPivot.rotation.set(
+    airborne?.025:0,
+    0,
+    .015+Math.sin(phase)*.010*blend
+  );
+  fpsRightArmPivot.rotation.set(
+    airborne?.025:0,
+    0,
+    -.015-Math.sin(phase)*.010*blend
+  );
 
-  // Elbows absorb most of the walking motion so hands stay stable near the
-  // center, matching shooter-game weaponless/ready viewmodels.
-  const elbowSwing=.045*runMul*blend;
-  fpsLeftElbowPivot.rotation.x=.30+stride*elbowSwing;
-  fpsRightElbowPivot.rotation.x=.30+strideOpp*elbowSwing;
-  fpsLeftElbowPivot.rotation.z=.075+Math.sin(phase)*.015*blend;
-  fpsRightElbowPivot.rotation.z=-.075-Math.sin(phase)*.015*blend;
-
-  // Small wrist inertia keeps the hands from looking rigid.
-  const wristInertia=Math.sin(phase*2)*.018*blend;
-  fpsLeftWristPivot.rotation.x=-.08+wristInertia;
-  fpsRightWristPivot.rotation.x=-.08-wristInertia;
-  fpsLeftWristPivot.rotation.z=-.04+Math.sin(fpsRigTime*1.4)*.006;
-  fpsRightWristPivot.rotation.z=.04-Math.sin(fpsRigTime*1.4)*.006;
+  const handInertia=Math.sin(phase*2)*.018*blend;
+  fpsLeftHandPivot.rotation.x=.12+handInertia+(airborne?.04:0);
+  fpsRightHandPivot.rotation.x=.12-handInertia+(airborne?.04:0);
+  fpsLeftHandPivot.rotation.y=-.14;
+  fpsRightHandPivot.rotation.y=.14;
+  fpsLeftHandPivot.rotation.z=.10;
+  fpsRightHandPivot.rotation.z=-.10;
 
   // World-space lower body follows horizontal player position and yaw only.
   fpsBodyRig.position.set(
@@ -1955,57 +1976,24 @@ function fpsSetLookFromCamera(){
 }
 
 function fpsSpawn(){
-  // V122: source-lock spawn to the FRONT gate of CAD road 77505.
-  // Spawn stays on the road centerline ~8 m before the gate and faces inward.
-  const placement=
-    v93GateResult?.frontPlacement ||
-    window.__DALOC_DUAL_GATES_V93?.frontPlacement ||
-    null;
+  // V124: PIN the V122-approved front-gate spawn. This exact point was derived
+  // from CAD road 77505/frontPlacement and looked correct in the accepted V122
+  // screenshot. It must not change depending on asynchronous gate load timing.
+  const spawnPx=[316.17,1528.03];
+  const lookPx=[343.50,1492.90];
+  const gateCenterPx=[322.62,1519.74];
 
-  if(
-    placement?.centerPx?.length>=2 &&
-    placement?.inwardPx?.length>=2
-  ){
-    let ux=placement.inwardPx[0],uy=placement.inwardPx[1];
-    const ul=Math.hypot(ux,uy)||1;ux/=ul;uy/=ul;
+  const pw=mapPx(spawnPx[0],spawnPx[1]);
+  const lw=mapPx(lookPx[0],lookPx[1]);
+  const position=new THREE.Vector3(pw.x,FPS_EYE_HEIGHT,pw.z);
+  const look=new THREE.Vector3(lw.x,FPS_EYE_HEIGHT,lw.z);
+  const forward=look.clone().sub(position).setY(0).normalize();
 
-    const beforeGatePx=10.5;
-    const lookInsidePx=34;
-    const spawnPx=[
-      placement.centerPx[0]-ux*beforeGatePx,
-      placement.centerPx[1]-uy*beforeGatePx
-    ];
-    const lookPx=[
-      placement.centerPx[0]+ux*lookInsidePx,
-      placement.centerPx[1]+uy*lookInsidePx
-    ];
-    const pw=mapPx(spawnPx[0],spawnPx[1]);
-    const lw=mapPx(lookPx[0],lookPx[1]);
-    const position=new THREE.Vector3(pw.x,FPS_EYE_HEIGHT,pw.z);
-    const look=new THREE.Vector3(lw.x,FPS_EYE_HEIGHT,lw.z);
-    const forward=look.clone().sub(position).setY(0).normalize();
-
-    return {
-      position,look,forward,
-      source:'front-gate-v93-centerline',
-      masterplanPx:{x:spawnPx[0],y:spawnPx[1]},
-      gateCenterPx:{x:placement.centerPx[0],y:placement.centerPx[1]}
-    };
-  }
-
-  // Early-click fallback: remain on the known entrance centerline. Never add the
-  // old +10.8 m right offset that put the player on the road edge.
-  const a0=mapPx(358.6,1500.2),b0=mapPx(435.06,1395.044);
-  const a=new THREE.Vector3(a0.x,FPS_EYE_HEIGHT,a0.z);
-  const b=new THREE.Vector3(b0.x,FPS_EYE_HEIGHT,b0.z);
-  const travel=b.clone().sub(a).setY(0).normalize();
-  const p=a.clone().lerp(b,.34);
-  p.y=FPS_EYE_HEIGHT;
   return {
-    position:p,
-    look:p.clone().addScaledVector(travel,28),
-    forward:travel.clone(),
-    source:'entrance-centerline-fallback'
+    position,look,forward,
+    source:'v122-approved-front-gate-pinned',
+    masterplanPx:{x:spawnPx[0],y:spawnPx[1]},
+    gateCenterPx:{x:gateCenterPx[0],y:gateCenterPx[1]}
   };
 }
 
@@ -2232,7 +2220,7 @@ function fpsFindSafeSpawn(spawn){
   const forward=(spawn.forward?.clone()||spawn.look.clone().sub(spawn.position))
     .setY(0).normalize();
   const right=new THREE.Vector3(forward.z,0,-forward.x).normalize();
-  const gateLocked=spawn.source==='front-gate-v93-centerline';
+  const gateLocked=spawn.source==='v122-approved-front-gate-pinned'||spawn.source==='front-gate-v93-centerline';
 
   // For the front gate, stay on/very near the CENTERLINE. The old wide side fan
   // could relocate a blocked spawn 10-24 m sideways onto the road verge.
@@ -2570,8 +2558,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V123={
-  version:123,
+window.__DALOC_FPS_V124={
+  version:124,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -2586,6 +2574,8 @@ window.__DALOC_FPS_V123={
   };},
   get currentBlocked(){return fpsPositionBlocked(camera.position);},
   get spawnSource(){return fpsLastSpawnSource;},
+  get approvedSpawnPx(){return {x:316.17,y:1528.03};},
+  get approvedLookPx(){return {x:343.50,y:1492.90};},
   get bodyRigVisible(){return !!fpsBodyRig?.visible;},
   get locomotionBlend(){return Number(fpsLocomotionBlend.toFixed(3));},
   get pixelRatio(){return renderer.getPixelRatio();},
