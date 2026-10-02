@@ -91,7 +91,7 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=1051';
-import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=115';
+import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=145';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=1051';
@@ -3344,6 +3344,8 @@ function fpsEnterVehicle(agent){
   if(!ctl.enter(agent))return false;
   fpsVehicleMode=true;
   fpsVehicleViewMode='third';
+  fpsYaw=agent?.vehicle?.rotation?.y||fpsYaw;
+  fpsPitch=-.12;
   fpsKeys.clear();
   fpsAimHeld=false;
   fpsAiming=false;
