@@ -194,6 +194,90 @@ export async function loadLushKenneyTreeAssets(){
   };
 }
 
+
+// V121: guaranteed lush street-tree prototype for the main-road greenbelt.
+// This is intentionally independent of GLB loading so boulevard trees can never
+// fall back to the old round Dodecahedron silhouette.
+export function createLushStreetTreePrototypeV121(){
+  const crownBaseHi=new THREE.IcosahedronGeometry(1,2);
+  const crownBaseLo=new THREE.IcosahedronGeometry(1,1);
+
+  const woodGeo=mergeGeometries([
+    branchGeometry([0,0,0],[0,4.25,0],.34,.22),
+    branchGeometry([0,2.55,0],[-.95,4.78,.26],.18,.075),
+    branchGeometry([0,2.72,0],[1.06,4.72,-.22],.18,.075),
+    branchGeometry([.02,2.92,0],[.28,4.95,1.04],.15,.060),
+    branchGeometry([-.03,3.04,0],[-.34,4.92,-1.02],.15,.060),
+    branchGeometry([-.45,3.68,.12],[-1.42,4.82,.48],.10,.040),
+    branchGeometry([.50,3.72,-.10],[1.48,4.80,-.44],.10,.040)
+  ],false);
+
+  const outerSpecs=[
+    [[ 0.00,5.58, 0.00],[1.90,1.38,1.72], .05],
+    [[-1.48,5.16, 0.22],[1.48,1.24,1.40],-.30],
+    [[ 1.48,5.10,-0.25],[1.55,1.26,1.38], .36],
+    [[ 0.20,5.12, 1.42],[1.34,1.12,1.46],-.18],
+    [[-0.30,5.20,-1.40],[1.38,1.13,1.44], .26],
+    [[-0.92,6.25,-0.36],[1.18,1.00,1.12], .55],
+    [[ 0.98,6.18, 0.42],[1.20,.98,1.15],-.48],
+    [[ 0.02,6.55,-0.10],[1.14,.91,1.08], .14],
+    [[-1.55,5.82,-0.62],[.96,.84,.92], .32],
+    [[ 1.58,5.76, 0.64],[.98,.84,.96],-.22]
+  ];
+  const innerSpecs=[
+    [[ 0.00,5.10, 0.00],[1.42,1.10,1.30],0],
+    [[-.82,5.38, .62],[1.00,.90,.98], .28],
+    [[ .90,5.30,-.58],[1.02,.90,1.00],-.34],
+    [[ .22,5.88,-.62],[.94,.82,.90], .50],
+    [[-.30,5.75, .82],[.88,.78,.86],-.18]
+  ];
+
+  const outerGeo=mergeGeometries(
+    outerSpecs.map(([p,sc,r])=>transformedGeometry(crownBaseHi,p,sc,r)),
+    false
+  );
+  const innerGeo=mergeGeometries(
+    innerSpecs.map(([p,sc,r])=>transformedGeometry(crownBaseLo,p,sc,r)),
+    false
+  );
+
+  woodGeo?.computeVertexNormals();
+  outerGeo?.computeVertexNormals();
+  innerGeo?.computeVertexNormals();
+
+  const barkMat=new THREE.MeshStandardMaterial({
+    color:0x73503a,roughness:.97,metalness:0
+  });
+  const leafInnerMat=new THREE.MeshStandardMaterial({
+    color:0x3d7437,roughness:.97,metalness:0
+  });
+  const leafOuterMat=new THREE.MeshStandardMaterial({
+    color:0x5f984a,roughness:.93,metalness:0
+  });
+
+  const parts=[];
+  if(woodGeo)parts.push({
+    geometry:woodGeo,material:barkMat,matrix:new THREE.Matrix4(),
+    name:'V121_STREET_TREE_WOOD',skinned:false
+  });
+  if(innerGeo)parts.push({
+    geometry:innerGeo,material:leafInnerMat,matrix:new THREE.Matrix4(),
+    name:'V121_STREET_TREE_INNER_CROWN',skinned:false
+  });
+  if(outerGeo)parts.push({
+    geometry:outerGeo,material:leafOuterMat,matrix:new THREE.Matrix4(),
+    name:'V121_STREET_TREE_OUTER_CROWN',skinned:false
+  });
+
+  return {
+    parts,
+    hasSkinnedMesh:false,
+    targetHeight:7.5,
+    sourceHeight:7.5,
+    lushStreetTreeV121:true
+  };
+}
+
 export async function loadKenneyCharacterAssets(){
   const [male,female]=await Promise.all([
     loadGLTF('./models/kenney/character-male-a.glb'),
