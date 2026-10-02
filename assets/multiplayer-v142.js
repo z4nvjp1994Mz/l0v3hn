@@ -120,7 +120,9 @@ function makeRemotePlayer(peerId){
     shoe:new THREE.MeshStandardMaterial({color:0x191d20,roughness:.90}),
     glove:new THREE.MeshStandardMaterial({color:0x242b29,roughness:.86}),
     weapon:new THREE.MeshStandardMaterial({color:0x26302e,roughness:.55,metalness:.22}),
-    metal:new THREE.MeshStandardMaterial({color:0x48504f,roughness:.44,metalness:.42})
+    metal:new THREE.MeshStandardMaterial({color:0x48504f,roughness:.44,metalness:.42}),
+    axeYellow:new THREE.MeshStandardMaterial({color:0xe0a91b,roughness:.48,metalness:.18}),
+    axeHandle:new THREE.MeshStandardMaterial({color:0x5a4026,roughness:.78,metalness:.02})
   };
 
   const torso=new THREE.Mesh(new THREE.BoxGeometry(.52,.76,.30),mats.shirt);
@@ -229,6 +231,47 @@ function makeRemotePlayer(peerId){
   gatling.add(gMuzzle);
   root.add(gatling);
 
+  const axe=new THREE.Group();
+  axe.name='V154_REMOTE_AXE_'+peerId.slice(0,8);
+  axe.position.set(.12,1.16,-.22);
+  axe.rotation.set(.10,-.10,-.28);
+  axe.visible=false;
+
+  const axeHandle=new THREE.Mesh(
+    new THREE.CylinderGeometry(.032,.040,.92,10),
+    mats.axeHandle
+  );
+  axeHandle.rotation.x=Math.PI/2;
+  axeHandle.position.set(0,0,-.36);
+  axe.add(axeHandle);
+
+  const axeHeadRoot=new THREE.Group();
+  axeHeadRoot.position.set(0,.015,-.82);
+  axe.add(axeHeadRoot);
+
+  const axeHead=new THREE.Mesh(
+    new THREE.BoxGeometry(.20,.17,.25),
+    mats.axeYellow
+  );
+  axeHeadRoot.add(axeHead);
+
+  const axeBlade=new THREE.Mesh(
+    new THREE.BoxGeometry(.36,.22,.075),
+    mats.metal
+  );
+  axeBlade.position.set(-.22,-.015,-.01);
+  axeBlade.rotation.z=.12;
+  axeHeadRoot.add(axeBlade);
+
+  const axeWedge=new THREE.Mesh(
+    new THREE.BoxGeometry(.20,.12,.11),
+    mats.axeYellow
+  );
+  axeWedge.position.set(.17,.015,.015);
+  axeHeadRoot.add(axeWedge);
+
+  root.add(axe);
+
   const tag=makeLabelSprite('P2 · '+peerId.slice(0,5).toUpperCase());
   tag.position.set(0,2.28,0);
   root.add(tag);
@@ -243,13 +286,17 @@ function makeRemotePlayer(peerId){
   });
 
   return {
-    peerId,root,torso,head,leftArm,rightArm,leftLeg,rightLeg,rifle,gatling,gCluster,tag,
+    peerId,root,torso,head,leftArm,rightArm,leftLeg,rightLeg,rifle,gatling,gCluster,axe,axeHeadRoot,tag,
     targetPos:new THREE.Vector3(),
     targetYaw:0,
     targetPitch:0,
     targetCrouch:0,
     targetAim:0,
     targetWeapon:'sniper',
+    targetMeleeSeq:0,
+    meleeSeqSeen:0,
+    meleeType:'none',
+    meleeTime:0,
     targetHp:100,
     targetAlive:true,
     lastPacketAt:performance.now(),
@@ -396,7 +443,18 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
       remote.targetPitch=Number(data.pitch)||0;
       remote.targetCrouch=clamp(Number(data.crouch)||0,0,1);
       remote.targetAim=clamp(Number(data.aim)||0,0,1);
-      remote.targetWeapon=data.weapon==='gatling'?'gatling':'sniper';
+      remote.targetWeapon=
+        data.weapon==='axe'
+          ?'axe'
+          :(data.weapon==='gatling'?'gatling':'sniper');
+
+      const meleeSeq=Math.max(0,Number(data.mseq)||0);
+      if(meleeSeq&&meleeSeq!==remote.meleeSeqSeen){
+        remote.meleeSeqSeen=meleeSeq;
+        remote.meleeType=data.mtype==='strong'?'strong':'normal';
+        remote.meleeTime=0;
+      }
+
       remote.targetHp=clamp(Number.isFinite(Number(data.hp))?Number(data.hp):100,0,100);
       remote.targetAlive=data.alive!==false;
       remote.active=!!data.active;
@@ -639,7 +697,12 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
       aim:clamp(state.aim||0,0,1),
       hp:clamp(Number(state.hp??100),0,100),
       alive:state.alive!==false,
-      weapon:state.weapon==='gatling'?'gatling':'sniper'
+      weapon:
+        state.weapon==='axe'
+          ?'axe'
+          :(state.weapon==='gatling'?'gatling':'sniper'),
+      mseq:Math.max(0,Number(state.meleeSeq)||0),
+      mtype:state.meleeType==='strong'?'strong':'normal'
     };
     localStateCache=packet;
 
@@ -720,13 +783,63 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     remote.gatling.position.y=1.17-.34*crouch;
 
     const gatlingActive=remote.targetWeapon==='gatling';
+    const axeActive=remote.targetWeapon==='axe';
     if(gatlingActive)remote.gCluster.rotation.z+=dt*8.5;
+
+    remote.axe.position.set(.12,1.16-.34*crouch,-.22);
+    remote.axe.rotation.set(.10,-.10,-.28);
+
+    if(axeActive&&remote.meleeType!=='none'){
+      remote.meleeTime+=dt;
+      const duration=remote.meleeType==='strong'?.88:.56;
+      const mp=clamp(remote.meleeTime/duration,0,1);
+
+      if(remote.meleeType==='strong'){
+        if(mp<.28){
+          const t=mp/.28;
+          remote.axe.rotation.x=THREE.MathUtils.lerp(.10,-1.18,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.28,-.06,t);
+        }else if(mp<.68){
+          const t=(mp-.28)/.40;
+          remote.axe.rotation.x=THREE.MathUtils.lerp(-1.18,.82,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.06,-.40,t);
+        }else{
+          const t=(mp-.68)/.32;
+          remote.axe.rotation.x=THREE.MathUtils.lerp(.82,.10,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.40,-.28,t);
+        }
+      }else{
+        if(mp<.22){
+          const t=mp/.22;
+          remote.axe.rotation.y=THREE.MathUtils.lerp(-.10,-.82,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.28,-.42,t);
+        }else if(mp<.62){
+          const t=(mp-.22)/.40;
+          remote.axe.rotation.y=THREE.MathUtils.lerp(-.82,.92,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.42,-.16,t);
+        }else{
+          const t=(mp-.62)/.38;
+          remote.axe.rotation.y=THREE.MathUtils.lerp(.92,-.10,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.16,-.28,t);
+        }
+      }
+
+      const armDrive=Math.sin(Math.PI*mp);
+      remote.leftArm.rotation.x-=armDrive*(remote.meleeType==='strong'?.46:.26);
+      remote.rightArm.rotation.x-=armDrive*(remote.meleeType==='strong'?.62:.38);
+
+      if(mp>=1){
+        remote.meleeType='none';
+        remote.meleeTime=0;
+      }
+    }
 
     // V143 death pose: remote remains visible but collapses sideways until respawn.
     const deathTarget=alive?0:-Math.PI*.48;
     remote.root.rotation.z+= (deathTarget-remote.root.rotation.z)*Math.min(1,dt*7);
-    remote.rifle.visible=alive&&!gatlingActive;
+    remote.rifle.visible=alive&&!gatlingActive&&!axeActive;
     remote.gatling.visible=alive&&gatlingActive;
+    remote.axe.visible=alive&&axeActive;
   }
 
   function raycastRemoteSegment(start,end){
@@ -814,7 +927,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:152,
+    version:154,
     get selfId(){return localSelfId;},
     join,
     leave,
@@ -843,7 +956,9 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
         hp:remote.targetHp,
         alive:remote.targetAlive,
         active:remote.active,
-        weapon:remote.targetWeapon
+        weapon:remote.targetWeapon,
+        meleeType:remote.meleeType,
+        meleeSeq:remote.meleeSeqSeen
       }:null;
     },
     get remoteIds(){return [...remotes.keys()];}
