@@ -28,6 +28,34 @@ function segmentBetween(a,b,r0,r1,material,name,radial=20){
   return m;
 }
 
+function makeDynamicSegment(r0,r1,material,name,radial=18){
+  const g=new THREE.CylinderGeometry(r1,r0,1,radial,2,false);
+  const m=mesh(g,material,name);
+  m.userData.dynamicArmSegment=true;
+  return m;
+}
+
+const _segA=new THREE.Vector3();
+const _segB=new THREE.Vector3();
+const _segDir=new THREE.Vector3();
+const _segMid=new THREE.Vector3();
+const _segUp=new THREE.Vector3(0,1,0);
+
+function placeDynamicSegment(m,a,b){
+  _segA.copy(a);
+  _segB.copy(b);
+  _segDir.copy(_segB).sub(_segA);
+  const len=Math.max(.001,_segDir.length());
+  _segMid.copy(_segA).lerp(_segB,.5);
+
+  m.position.copy(_segMid);
+  m.quaternion.setFromUnitVectors(
+    _segUp,
+    _segDir.normalize()
+  );
+  m.scale.set(1,len,1);
+}
+
 function makeGloveShellGeometry(){
   // Local hand points toward -Z.
   const sections=[
@@ -273,83 +301,82 @@ function makeGatling(materials){
 
 function makeAxeGripArm(side,materials,gripZ){
   const arm=new THREE.Group();
-  arm.name=side<0?'FPS_AXE_LEFT_GRIP_ARM_V156':'FPS_AXE_RIGHT_GRIP_ARM_V156';
+  arm.name=side<0?'FPS_AXE_LEFT_IK_ARM_V157':'FPS_AXE_RIGHT_IK_ARM_V157';
+  arm.visible=false;
 
-  // Coordinates are LOCAL TO THE AXE. Because these arms are children of the
-  // axe itself, the gloves can never drift away from the handle during swings.
-  const shoulder=[
-    side*.34,
-    -.30,
-    .48
-  ];
-  const elbow=[
-    side*.22,
-    -.18,
-    .27
-  ];
-  const wrist=[
-    side*.028,
-    -.018,
-    gripZ+.035
-  ];
-
-  arm.add(segmentBetween(
-    shoulder,
-    elbow,
-    .080,
-    .064,
+  const upper=makeDynamicSegment(
+    .078,.062,
     materials.sleeve,
-    'FPS_AXE_SLEEVE_V156',
+    'FPS_AXE_IK_UPPER_V157',
     18
-  ));
-
-  arm.add(segmentBetween(
-    elbow,
-    wrist,
-    .064,
-    .050,
+  );
+  const fore=makeDynamicSegment(
+    .062,.048,
     materials.sleeveDark,
-    'FPS_AXE_FOREARM_V156',
+    'FPS_AXE_IK_FOREARM_V157',
     18
-  ));
-
-  const cuff=segmentBetween(
-    [
-      side*.055,
-      -.040,
-      gripZ+.090
-    ],
-    wrist,
-    .052,
-    .045,
+  );
+  const cuff=makeDynamicSegment(
+    .052,.045,
     materials.cuff,
-    'FPS_AXE_CUFF_V156',
+    'FPS_AXE_IK_CUFF_V157',
     14
   );
-  arm.add(cuff);
+  arm.add(upper,fore,cuff);
+
+  // Rounded root cap prevents any flat/cut sleeve end from becoming visible
+  // during a fast slash.
+  const shoulderCap=mesh(
+    new THREE.SphereGeometry(.078,14,10),
+    materials.sleeve,
+    'FPS_AXE_IK_SHOULDER_CAP_V157'
+  );
+  shoulderCap.scale.set(1.0,.82,1.0);
+  arm.add(shoulderCap);
 
   const hand=makeHand(side,materials);
-  hand.name=side<0?'FPS_AXE_LEFT_GRIP_HAND_V156':'FPS_AXE_RIGHT_GRIP_HAND_V156';
-  hand.position.set(
-    side*.020,
+  hand.name=side<0?'FPS_AXE_LEFT_IK_HAND_V157':'FPS_AXE_RIGHT_IK_HAND_V157';
+  hand.scale.set(1.05,1.05,1.05);
+  arm.add(hand);
+
+  const baseHandQ=new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(
+      -1.48,
+      side*.08,
+      side<0?.18:-.18,
+      'XYZ'
+    )
+  );
+
+  // Shoulder anchors stay fixed near the lower corners of the camera-space
+  // rig. Only elbow/wrist solve toward the animated axe handle.
+  const shoulder=new THREE.Vector3(
+    side*.355,
+    -.410,
+    .285
+  );
+  const targetLocal=new THREE.Vector3(
+    .020,
     -.010,
     gripZ
   );
 
-  // Rotate both palms around the shaft instead of leaving them in the generic
-  // open FPS pose. The small opposite roll keeps thumbs on opposite sides.
-  hand.rotation.set(
-    -1.48,
-    side*.08,
-    side<0?.18:-.18
-  );
-  hand.scale.set(1.05,1.05,1.05);
-  arm.add(hand);
-
-  arm.userData.hand=hand;
+  arm.userData={
+    side,
+    gripZ,
+    upper,
+    fore,
+    cuff,
+    hand,
+    shoulderCap,
+    shoulder,
+    targetLocal,
+    baseHandQ
+  };
   return arm;
 }
 
+function makeAxe(materials){
 function makeAxe(materials){
   const axe=new THREE.Group();
   axe.name='FPS_AXE_V154';
@@ -418,15 +445,7 @@ function makeAxe(materials){
   bolt.rotation.z=Math.PI/2;
   headRoot.add(bolt);
 
-  // Dedicated two-hand grip. Right hand stays near the black lower grip,
-  // left hand holds farther up the wooden shaft for leverage.
-  const rightGripArm=makeAxeGripArm(1,materials,.105);
-  const leftGripArm=makeAxeGripArm(-1,materials,-.300);
-  axe.add(rightGripArm,leftGripArm);
-
   axe.userData.head=headRoot;
-  axe.userData.rightGripArm=rightGripArm;
-  axe.userData.leftGripArm=leftGripArm;
   return axe;
 }
 
@@ -580,7 +599,17 @@ export function createThickerFpsArmsV138(){
   const axe=makeAxe(materials);
   const leftArm=makeArm(-1,materials);
   const rightArm=makeArm(1,materials);
-  root.add(leftArm,rightArm,sniper,gatling,axe);
+  const axeRightArm=makeAxeGripArm(1,materials,.105);
+  const axeLeftArm=makeAxeGripArm(-1,materials,-.300);
+  root.add(
+    leftArm,
+    rightArm,
+    axeLeftArm,
+    axeRightArm,
+    sniper,
+    gatling,
+    axe
+  );
 
   let triangles=0;
   root.traverse(o=>{
@@ -594,7 +623,55 @@ export function createThickerFpsArmsV138(){
 
   root.userData.ignoreFpsCollision=true;
   root.userData.triangles=triangles;
-  root.userData.source='v156-sniper+gatling+two-hand-axe-viewmodels';
+  const gripWorld=new THREE.Vector3();
+  const gripRoot=new THREE.Vector3();
+  const elbow=new THREE.Vector3();
+  const cuffStart=new THREE.Vector3();
+  const foreDir=new THREE.Vector3();
+  const axeQ=new THREE.Quaternion();
+
+  function solveAxeIkArm(arm){
+    const d=arm.userData;
+    if(!d)return;
+
+    root.updateMatrixWorld(true);
+    axe.updateMatrixWorld(true);
+
+    gripWorld.copy(d.targetLocal);
+    axe.localToWorld(gripWorld);
+    gripRoot.copy(gripWorld);
+    root.worldToLocal(gripRoot);
+
+    // Bend the elbow outward and slightly down. The shoulder remains fixed,
+    // so no "arm stump" can be dragged through the center of the screen.
+    elbow.copy(d.shoulder).lerp(gripRoot,.53);
+    elbow.x+=d.side*.125;
+    elbow.y-=.018;
+    elbow.z+=.030;
+
+    foreDir.copy(gripRoot).sub(elbow).normalize();
+    cuffStart.copy(gripRoot).addScaledVector(foreDir,-.095);
+
+    placeDynamicSegment(d.upper,d.shoulder,elbow);
+    placeDynamicSegment(d.fore,elbow,cuffStart);
+    placeDynamicSegment(d.cuff,cuffStart,gripRoot);
+
+    d.shoulderCap.position.copy(d.shoulder);
+    d.hand.position.copy(gripRoot);
+
+    // Hand follows the live axe orientation while the arm chain itself is
+    // solved from a fixed camera-space shoulder.
+    axe.getWorldQuaternion(axeQ);
+    if(root.parent){
+      const parentQ=new THREE.Quaternion();
+      root.getWorldQuaternion(parentQ);
+      parentQ.invert();
+      axeQ.premultiply(parentQ);
+    }
+    d.hand.quaternion.copy(axeQ).multiply(d.baseHandQ);
+  }
+
+  root.userData.source='v157-sniper+gatling+axe-ik-viewmodels';
   root.userData.weapon='sniper';
   root.userData.sniper=sniper;
   root.userData.gatling=gatling;
@@ -602,7 +679,11 @@ export function createThickerFpsArmsV138(){
   root.userData.axe=axe;
   root.userData.leftArm=leftArm;
   root.userData.rightArm=rightArm;
-  root.userData.axeLeftGripArm=axe.userData.leftGripArm;
-  root.userData.axeRightGripArm=axe.userData.rightGripArm;
+  root.userData.axeLeftGripArm=axeLeftArm;
+  root.userData.axeRightGripArm=axeRightArm;
+  root.userData.updateAxeGripPose=()=>{
+    solveAxeIkArm(axeLeftArm);
+    solveAxeIkArm(axeRightArm);
+  };
   return root;
 }
