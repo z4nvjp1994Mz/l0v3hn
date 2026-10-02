@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V152-gatling-gun-p2p">
+<meta name="daloc-build" content="V153-recoil-magazines-shift-reload">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -35,11 +35,18 @@
 .fpsHealthTrack{height:9px;border-radius:99px;background:rgba(255,255,255,.10);overflow:hidden}
 .fpsHealthFill{height:100%;width:100%;background:linear-gradient(90deg,#67df8f,#b9ef8c);transition:width .16s ease}
 #fpsRemoteHealthRow{opacity:.48}
+#fpsAmmoHud{display:none;position:fixed;z-index:34;right:18px;bottom:92px;min-width:190px;padding:10px 12px;border-radius:11px;background:rgba(7,18,12,.86);border:1px solid rgba(255,255,255,.13);box-shadow:0 6px 20px rgba(0,0,0,.24);font-family:Arial,sans-serif;pointer-events:none}
+#fpsAmmoWeapon{font-size:10px;font-weight:900;letter-spacing:.08em;color:#8ff0b7}
+#fpsAmmoCount{margin-top:3px;font-size:25px;line-height:1;font-weight:900;color:#fff}
+#fpsAmmoHint{margin-top:5px;font-size:9px;font-weight:800;color:#b9c8c0}
+#fpsAmmoHud.reloading #fpsAmmoCount{color:#ffd68c}
+#fpsAmmoHud.empty #fpsAmmoCount{color:#ffaaa0}
 #fpsDamageFlash{position:fixed;inset:0;z-index:37;pointer-events:none;opacity:0;background:radial-gradient(circle at center,transparent 35%,rgba(180,18,18,.56) 100%);transition:opacity .08s linear}
 #fpsDeathOverlay{display:none;position:fixed;inset:0;z-index:45;pointer-events:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(12,0,0,.55);backdrop-filter:blur(2px);font-family:Arial,sans-serif}
 #fpsDeathOverlay b{font-size:54px;letter-spacing:.08em;color:#fff;text-shadow:0 8px 26px rgba(0,0,0,.75)}
 #fpsDeathOverlay span{margin-top:10px;font-size:15px;font-weight:800;color:#ffd6d6}
 body.fps-mode #fpsHealthHud{display:flex}
+body.fps-mode #fpsAmmoHud{display:block}
 body.fps-dead #fpsDeathOverlay{display:flex}
 body.fps-dead #fpsCrosshair,body.fps-dead #fpsScopeOverlay{display:none!important}
 body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
@@ -52,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V152 GATLING GUN + P2P 10 DAMAGE</small>
+  <small>GitHub → Netlify · BUILD V153 RECOIL + MAGAZINES + SHIFT RELOAD</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -76,7 +83,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · V camera · WASD · Shift · Ctrl · RMB aim sniper · LMB bắn · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V152: Sniper + Gatling · P2P Gatling damage 10 HP/shot</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · Tap Shift reload · Hold Shift sprint · RMB aim sniper · LMB bắn · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V153: recoil return + Sniper 10 + Gatling 100 · tap Shift reload</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1804,6 +1811,10 @@ const fpsLocalHpFill=document.getElementById('fpsLocalHpFill');
 const fpsRemoteHealthRow=document.getElementById('fpsRemoteHealthRow');
 const fpsRemoteHpText=document.getElementById('fpsRemoteHpText');
 const fpsRemoteHpFill=document.getElementById('fpsRemoteHpFill');
+const fpsAmmoHud=document.getElementById('fpsAmmoHud');
+const fpsAmmoWeapon=document.getElementById('fpsAmmoWeapon');
+const fpsAmmoCount=document.getElementById('fpsAmmoCount');
+const fpsAmmoHint=document.getElementById('fpsAmmoHint');
 const fpsDamageFlash=document.getElementById('fpsDamageFlash');
 const fpsRespawnText=document.getElementById('fpsRespawnText');
 const fpsKeys=new Set();
@@ -1932,6 +1943,12 @@ let fpsGatlingBarrelPhase=0;
 let fpsSniperViewModel=null;
 let fpsGatlingViewModel=null;
 let fpsGatlingBarrelCluster=null;
+let fpsRecoilPitchOffset=0;
+let fpsReloading=false;
+let fpsReloadTimer=0;
+let fpsReloadWeapon=null;
+let fpsShiftDownAt=0;
+let fpsShiftCode='';
 let fpsLastImpactObject='none';
 let fpsHitMarkerTimer=0;
 let fpsHealth=100;
@@ -1957,6 +1974,18 @@ const FPS_GATLING_PROJECTILE_SPEED=205;
 const FPS_GATLING_SPREAD=.0105;
 const FPS_PROJECTILE_GRAVITY=4.2;
 const FPS_PROJECTILE_TTL=3.0;
+const FPS_SNIPER_MAG_SIZE=10;
+const FPS_GATLING_MAG_SIZE=100;
+const FPS_SNIPER_RELOAD_TIME=1.7;
+const FPS_GATLING_RELOAD_TIME=3.0;
+const FPS_SHIFT_SPRINT_DELAY_MS=220;
+const FPS_SNIPER_RECOIL_KICK=.018;
+const FPS_GATLING_RECOIL_KICK=.0042;
+const FPS_GATLING_RECOIL_MAX=.28;
+const fpsAmmo={
+  sniper:FPS_SNIPER_MAG_SIZE,
+  gatling:FPS_GATLING_MAG_SIZE
+};
 
 const fpsProjectiles=[];
 const fpsProjectileGroup=new THREE.Group();
@@ -1983,6 +2012,152 @@ function fpsCurrentPlayerHeight(){
   return THREE.MathUtils.lerp(FPS_PLAYER_HEIGHT,FPS_CROUCH_PLAYER_HEIGHT,fpsCrouchAmount);
 }
 
+function fpsWeaponMagSize(weapon=fpsActiveWeapon){
+  return weapon==='gatling'
+    ?FPS_GATLING_MAG_SIZE
+    :FPS_SNIPER_MAG_SIZE;
+}
+
+function fpsWeaponReloadTime(weapon=fpsActiveWeapon){
+  return weapon==='gatling'
+    ?FPS_GATLING_RELOAD_TIME
+    :FPS_SNIPER_RELOAD_TIME;
+}
+
+function fpsCurrentAmmo(){
+  return Math.max(0,Number(fpsAmmo[fpsActiveWeapon])||0);
+}
+
+function fpsUpdateAmmoHud(){
+  const weapon=fpsActiveWeapon==='gatling'?'gatling':'sniper';
+  const ammo=Math.max(0,Number(fpsAmmo[weapon])||0);
+  const cap=fpsWeaponMagSize(weapon);
+
+  if(fpsAmmoWeapon){
+    fpsAmmoWeapon.textContent=
+      weapon==='gatling'?'GATLING GUN':'SNIPER';
+  }
+  if(fpsAmmoCount){
+    fpsAmmoCount.textContent=
+      fpsReloading&&fpsReloadWeapon===weapon
+        ?'RELOADING '+Math.max(0,fpsReloadTimer).toFixed(1)+'s'
+        :(ammo+' / '+cap);
+  }
+  if(fpsAmmoHint){
+    if(fpsReloading&&fpsReloadWeapon===weapon){
+      fpsAmmoHint.textContent='Đang nạp · không thể bắn';
+    }else if(ammo<=0){
+      fpsAmmoHint.textContent='HẾT ĐẠN · Tap Shift để nạp';
+    }else{
+      fpsAmmoHint.textContent='Tap Shift reload · Hold Shift sprint';
+    }
+  }
+  fpsAmmoHud?.classList.toggle(
+    'reloading',
+    fpsReloading&&fpsReloadWeapon===weapon
+  );
+  fpsAmmoHud?.classList.toggle('empty',ammo<=0&&!fpsReloading);
+}
+
+function fpsCancelReload(){
+  if(!fpsReloading)return false;
+  fpsReloading=false;
+  fpsReloadTimer=0;
+  fpsReloadWeapon=null;
+  fpsUpdateAmmoHud();
+  return true;
+}
+
+function fpsStartReload(){
+  if(
+    !fpsMode||
+    !fpsAlive||
+    fpsVehicleMode||
+    fpsClimbState||
+    fpsReloading
+  )return false;
+
+  const weapon=fpsActiveWeapon;
+  const cap=fpsWeaponMagSize(weapon);
+  if((Number(fpsAmmo[weapon])||0)>=cap)return false;
+
+  fpsTriggerHeld=false;
+  fpsCancelReload();
+  fpsRecoilPitchOffset=0;
+  fpsAimHeld=false;
+  fpsAiming=false;
+  fpsAimAmount=0;
+  document.body.classList.remove('fps-aiming');
+
+  fpsReloading=true;
+  fpsReloadWeapon=weapon;
+  fpsReloadTimer=fpsWeaponReloadTime(weapon);
+  fpsShotCooldown=0;
+  fpsUpdateAmmoHud();
+  return true;
+}
+
+function fpsUpdateReload(dt){
+  if(!fpsReloading)return;
+  fpsReloadTimer=Math.max(0,fpsReloadTimer-dt);
+
+  if(
+    !fpsMode||
+    !fpsAlive||
+    fpsVehicleMode||
+    fpsClimbState||
+    fpsReloadWeapon!==fpsActiveWeapon
+  ){
+    fpsCancelReload();
+    return;
+  }
+
+  if(fpsReloadTimer<=0){
+    fpsAmmo[fpsReloadWeapon]=fpsWeaponMagSize(fpsReloadWeapon);
+    fpsReloading=false;
+    fpsReloadWeapon=null;
+    fpsReloadTimer=0;
+  }
+  fpsUpdateAmmoHud();
+}
+
+function fpsRenderedPitch(){
+  return THREE.MathUtils.clamp(
+    fpsPitch+fpsRecoilPitchOffset,
+    -1.38,
+    1.38
+  );
+}
+
+function fpsApplyLookRotation(){
+  if(fpsVehicleMode)return;
+  camera.rotation.set(
+    fpsRenderedPitch(),
+    fpsYaw,
+    0,
+    'YXZ'
+  );
+}
+
+function fpsUpdateRecoil(dt){
+  const gatlingFiring=
+    fpsActiveWeapon==='gatling'&&
+    fpsTriggerHeld&&
+    !fpsReloading&&
+    fpsCurrentAmmo()>0;
+
+  const recoverRate=
+    fpsActiveWeapon==='gatling'
+      ?(gatlingFiring?.18:3.15)
+      :3.45;
+
+  fpsRecoilPitchOffset*=Math.exp(-recoverRate*dt);
+  if(Math.abs(fpsRecoilPitchOffset)<.00004){
+    fpsRecoilPitchOffset=0;
+  }
+  fpsApplyLookRotation();
+}
+
 function fpsUpdateHealthHud(){
   const localHp=Math.max(0,Math.min(FPS_MAX_HP,fpsHealth));
   if(fpsLocalHpText)fpsLocalHpText.textContent=Math.round(localHp)+' HP';
@@ -2003,6 +2178,10 @@ function fpsUpdateHealthHud(){
 
 function fpsResetCombatState(){
   fpsHealth=FPS_MAX_HP;
+  fpsAmmo.sniper=FPS_SNIPER_MAG_SIZE;
+  fpsAmmo.gatling=FPS_GATLING_MAG_SIZE;
+  fpsCancelReload();
+  fpsRecoilPitchOffset=0;
   fpsAlive=true;
   fpsRespawnTimer=0;
   fpsDamageFlashTimer=0;
@@ -2010,6 +2189,7 @@ function fpsResetCombatState(){
   document.body.classList.remove('fps-dead');
   if(fpsDamageFlash)fpsDamageFlash.style.opacity='0';
   fpsUpdateHealthHud();
+  fpsUpdateAmmoHud();
 }
 
 function fpsDie(sourcePeerId='unknown'){
@@ -2066,6 +2246,8 @@ function fpsRespawnPlayer(){
   fpsAimAmount=0;
   fpsWeaponKick=0;
   fpsShotCooldown=0;
+  fpsRecoilPitchOffset=0;
+  fpsCancelReload();
   fpsKeys.clear();
   fpsSetWeapon(fpsActiveWeapon);
   camera.position.copy(spawn.position);
@@ -2427,10 +2609,12 @@ function fpsSetWeapon(next){
     return weapon;
   }
 
+  fpsCancelReload();
   fpsActiveWeapon=weapon;
   fpsTriggerHeld=false;
   fpsShotCooldown=0;
   fpsWeaponKick=0;
+  fpsRecoilPitchOffset=0;
 
   if(weapon!=='sniper'){
     fpsAimHeld=false;
@@ -2444,6 +2628,8 @@ function fpsSetWeapon(next){
   }
 
   fpsApplyWeaponModelVisibility();
+  fpsUpdateAmmoHud();
+  fpsApplyLookRotation();
   if(fpsHud){
     fpsHud.textContent=
       'FPS WALK · 1 Sniper · 2 Gatling · '+(weapon==='gatling'?'GATLING 10 DMG/viên · giữ LMB':'SNIPER 50 DMG/viên · RMB scope')+
@@ -2598,7 +2784,7 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
     y:camera.position.y-fpsCurrentEyeHeight()+.02,
     z:camera.position.z,
     yaw:fpsYaw,
-    pitch:fpsPitch,
+    pitch:fpsRenderedPitch(),
     crouch:fpsCrouchAmount,
     aim:fpsAimAmount,
     moving,
@@ -4277,6 +4463,9 @@ function enterFirstPerson(){
   fpsAimAmount=0;
   fpsWeaponKick=0;
   fpsShotCooldown=0;
+  fpsRecoilPitchOffset=0;
+  fpsShiftDownAt=0;
+  fpsShiftCode='';
   fpsSetWeapon('sniper');
   fpsResetCombatState();
   document.body.classList.remove('fps-aiming');
@@ -4347,6 +4536,10 @@ function exitFirstPerson(restore=true){
   fpsAiming=false;
   fpsAimAmount=0;
   fpsWeaponKick=0;
+  fpsRecoilPitchOffset=0;
+  fpsShiftDownAt=0;
+  fpsShiftCode='';
+  fpsCancelReload();
   fpsResetCombatState();
   document.body.classList.remove('fps-aiming','fps-dead');
   fpsHasSafePosition=false;
@@ -4430,6 +4623,8 @@ document.addEventListener('pointerlockchange',()=>{
   // to leave FPS mode. A later canvas click re-acquires pointer lock.
   if(document.pointerLockElement!==renderer.domElement){
     fpsKeys.clear();
+    fpsShiftDownAt=0;
+    fpsShiftCode='';
     fpsTriggerHeld=false;
     fpsAimHeld=false;
     fpsAiming=false;
@@ -4461,7 +4656,7 @@ document.addEventListener('mousemove',e=>{
   fpsYaw-=e.movementX*.0020;
   fpsPitch-=e.movementY*.0020;
   fpsPitch=THREE.MathUtils.clamp(fpsPitch,-1.38,1.38);
-  camera.rotation.set(fpsPitch,fpsYaw,0,'YXZ');
+  fpsApplyLookRotation();
 });
 
 window.addEventListener('keydown',e=>{
@@ -4505,6 +4700,23 @@ window.addEventListener('keydown',e=>{
     return;
   }
 
+  if(e.code==='ShiftLeft'||e.code==='ShiftRight'){
+    e.preventDefault();
+    e.stopPropagation();
+
+    if(fpsVehicleMode){
+      fpsKeys.add(e.code);
+      return;
+    }
+
+    if(!e.repeat){
+      fpsShiftDownAt=performance.now();
+      fpsShiftCode=e.code;
+    }
+    fpsKeys.add(e.code);
+    return;
+  }
+
   if(e.code==='KeyE'){
     e.preventDefault();
     e.stopPropagation();
@@ -4528,7 +4740,7 @@ window.addEventListener('keydown',e=>{
     return;
   }
 
-  if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','ControlLeft','ControlRight'].includes(e.code)){
+  if(['KeyW','KeyA','KeyS','KeyD','ControlLeft','ControlRight'].includes(e.code)){
     fpsKeys.add(e.code);
     e.preventDefault();
   }
@@ -4547,10 +4759,36 @@ window.addEventListener('keyup',e=>{
     e.stopPropagation();
     return;
   }
+  if(
+    fpsMode&&
+    (e.code==='ShiftLeft'||e.code==='ShiftRight')
+  ){
+    const heldMs=fpsShiftDownAt
+      ?performance.now()-fpsShiftDownAt
+      :Infinity;
+    fpsKeys.delete(e.code);
+    e.preventDefault();
+    e.stopPropagation();
+
+    if(
+      !fpsVehicleMode&&
+      heldMs<FPS_SHIFT_SPRINT_DELAY_MS
+    ){
+      fpsStartReload();
+    }
+
+    if(e.code===fpsShiftCode){
+      fpsShiftDownAt=0;
+      fpsShiftCode='';
+    }
+    return;
+  }
   fpsKeys.delete(e.code);
 },true);
 window.addEventListener('blur',()=>{
   fpsKeys.clear();
+  fpsShiftDownAt=0;
+  fpsShiftCode='';
   fpsTriggerHeld=false;
   fpsAimHeld=false;
   fpsAiming=false;
@@ -4609,8 +4847,16 @@ function fpsSpawnPlayerShot({
   kick=1
 }={}){
   if(!fpsMode||!fpsAlive||fpsVehicleMode||document.pointerLockElement!==renderer.domElement)return false;
-  if(fpsShotCooldown>0||fpsClimbState)return false;
+  if(fpsShotCooldown>0||fpsClimbState||fpsReloading)return false;
 
+  const currentAmmo=Math.max(0,Number(fpsAmmo[weapon])||0);
+  if(currentAmmo<=0){
+    fpsUpdateAmmoHud();
+    return false;
+  }
+
+  fpsAmmo[weapon]=currentAmmo-1;
+  fpsUpdateAmmoHud();
   fpsShotCooldown=interval;
   fpsWeaponKick=Math.max(fpsWeaponKick,kick);
   fpsShotsFired++;
@@ -4681,13 +4927,19 @@ function fpsSpawnPlayerShot({
   });
 
   if(weapon==='gatling'){
-    fpsPitch=THREE.MathUtils.clamp(fpsPitch+.0022,-1.38,1.38);
-    fpsYaw+=(Math.random()-.5)*.0030;
+    fpsRecoilPitchOffset=Math.min(
+      FPS_GATLING_RECOIL_MAX,
+      fpsRecoilPitchOffset+FPS_GATLING_RECOIL_KICK
+    );
   }else{
-    fpsPitch=THREE.MathUtils.clamp(fpsPitch+.018,-1.38,1.38);
-    fpsYaw+=(Math.random()-.5)*.004;
+    // Same upward kick size as V152, but now it is a temporary offset rather
+    // than permanently modifying the player's base look pitch.
+    fpsRecoilPitchOffset=Math.min(
+      .12,
+      fpsRecoilPitchOffset+FPS_SNIPER_RECOIL_KICK
+    );
   }
-  camera.rotation.set(fpsPitch,fpsYaw,0,'YXZ');
+  fpsApplyLookRotation();
   return true;
 }
 
@@ -4885,12 +5137,16 @@ function fpsUpdateScope(dt){
 
   fpsShotCooldown=Math.max(0,fpsShotCooldown-dt);
   fpsWeaponKick=Math.max(0,fpsWeaponKick-dt*(fpsActiveWeapon==='gatling'?11:6.8));
+  fpsUpdateReload(dt);
+  fpsUpdateRecoil(dt);
 
   const gatlingWantsSpin=
     fpsActiveWeapon==='gatling'&&
     fpsMode&&
     fpsAlive&&
     fpsTriggerHeld&&
+    !fpsReloading&&
+    fpsCurrentAmmo()>0&&
     !fpsClimbState&&
     !fpsVehicleMode&&
     document.pointerLockElement===renderer.domElement;
@@ -5005,7 +5261,17 @@ function updateFirstPerson(dt){
   if(fpsKeys.has('KeyA'))move.sub(right);
 
   const moving=move.lengthSq()>0;
-  const running=moving&&!fpsCrouching&&!fpsAiming&&(fpsKeys.has('ShiftLeft')||fpsKeys.has('ShiftRight'));
+  const shiftHeld=fpsKeys.has('ShiftLeft')||fpsKeys.has('ShiftRight');
+  const shiftHeldLongEnough=
+    shiftHeld&&
+    fpsShiftDownAt>0&&
+    performance.now()-fpsShiftDownAt>=FPS_SHIFT_SPRINT_DELAY_MS;
+  const running=
+    moving&&
+    !fpsCrouching&&
+    !fpsAiming&&
+    !fpsReloading&&
+    shiftHeldLongEnough;
   if(moving){
     move.normalize();
     const moveSpeed=fpsCrouching
@@ -5030,7 +5296,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:152,
+  version:153,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -5082,6 +5348,20 @@ const fpsApiV139={
   };},
   get triggerHeld(){return fpsTriggerHeld;},
   get gatlingSpinSpeed(){return Number(fpsGatlingSpinSpeed.toFixed(2));},
+  get recoilPitch(){return Number(fpsRecoilPitchOffset.toFixed(4));},
+  get ammo(){return {
+    sniper:fpsAmmo.sniper,
+    gatling:fpsAmmo.gatling,
+    active:fpsCurrentAmmo()
+  };},
+  get magazineSize(){return {
+    sniper:FPS_SNIPER_MAG_SIZE,
+    gatling:FPS_GATLING_MAG_SIZE
+  };},
+  get reloading(){return fpsReloading;},
+  get reloadWeapon(){return fpsReloadWeapon;},
+  get reloadTimer(){return Number(fpsReloadTimer.toFixed(2));},
+  reload:fpsStartReload,
   get respawnTimer(){return Number(fpsRespawnTimer.toFixed(2));},
   get lastDamageFrom(){return fpsLastDamageFrom;},
   get multiplayer(){return {
@@ -5133,7 +5413,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:152,
+    version:153,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
