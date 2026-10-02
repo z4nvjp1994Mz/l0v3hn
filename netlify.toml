@@ -1,0 +1,24 @@
+[build]
+  publish = "."
+  command = "echo Static Three.js site - no build step"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Netlify-CDN-Cache-Control = "no-store"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Netlify-CDN-Cache-Control = "no-store"
+
+[[headers]]
+  for = "/assets/*.js"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+    Netlify-CDN-Cache-Control = "no-store"
