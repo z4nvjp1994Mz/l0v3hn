@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V145.1-all-traffic-vehicles-steering-fix">
+<meta name="daloc-build" content="V145.2-safe-vehicle-exit-collision-fix">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V145.1 ALL TRAFFIC VEHICLES + STEERING FIX</small>
+  <small>GitHub → Netlify · BUILD V145.2 SAFE VEHICLE EXIT + COLLISION FIX</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1644,7 +1644,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V145.1 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V145.2 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1800,6 +1800,8 @@ let fpsVehicleMode=false;
 let fpsVehicleViewMode='third';
 let fpsVehicleController=null;
 let fpsVehicleLastYaw=0;
+const fpsVehiclePreEnterPosition=new THREE.Vector3();
+let fpsVehicleHasPreEnterPosition=false;
 const fpsVehicleCamera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.10,5000);
 const fpsVehicleCamTarget=new THREE.Vector3();
 const fpsVehicleCamDesired=new THREE.Vector3();
@@ -3077,6 +3079,17 @@ function fpsDoorBlocked(position){
   return false;
 }
 
+function fpsVehicleHalfExtents(agent){
+  return {
+    halfW:
+      agent?.type==='container'?1.48:
+      agent?.type==='cargo'?1.36:
+      agent?.type==='motorcycle'?0.50:
+      agent?.type==='supercar'?1.12:1.04,
+    halfL:Math.max(.7,(agent?.length||4)*.5)
+  };
+}
+
 function fpsVehicleBlocked(position,eyeHeight=fpsCurrentEyeHeight(),playerHeight=fpsCurrentPlayerHeight()){
   const controller=trafficController?.agents?trafficController:window.__DALOC_TRAFFIC_V91;
   const agents=controller?.agents||[];
@@ -3089,15 +3102,16 @@ function fpsVehicleBlocked(position,eyeHeight=fpsCurrentEyeHeight(),playerHeight
     if(!v||v.visible===false)continue;
     const dx=position.x-v.position.x;
     const dz=position.z-v.position.z;
-    const c=Math.cos(-v.rotation.y),sn=Math.sin(-v.rotation.y);
+
+    // V145.2: convert world delta into the vehicle's LOCAL coordinates.
+    // The old code used cos(-yaw)/sin(-yaw) with the inverse signs again,
+    // effectively rotating the collider in the wrong direction after turns.
+    const yaw=v.rotation.y||0;
+    const c=Math.cos(yaw),sn=Math.sin(yaw);
     const lx=dx*c-dz*sn;
     const lz=dx*sn+dz*c;
-    const halfW=
-      agent.type==='container'?1.48:
-      agent.type==='cargo'?1.36:
-      agent.type==='motorcycle'?0.50:
-      agent.type==='supercar'?1.12:1.04;
-    const halfL=Math.max(.7,(agent.length||4)*.5);
+    const {halfW,halfL}=fpsVehicleHalfExtents(agent);
+
     if(
       Math.abs(lx)<halfW+FPS_PLAYER_RADIUS&&
       Math.abs(lz)<halfL+FPS_PLAYER_RADIUS
@@ -3381,7 +3395,9 @@ function fpsSetVehicleVisibility(){
 function fpsEnterVehicle(agent){
   if(!fpsAlive||fpsClimbState||fpsRoofState||fpsVehicleMode)return false;
   const ctl=ensurePlayerVehicleControllerV145();
+  fpsVehiclePreEnterPosition.copy(camera.position);
   if(!ctl.enter(agent))return false;
+  fpsVehicleHasPreEnterPosition=true;
   fpsVehicleMode=true;
   fpsVehicleViewMode='third';
   fpsYaw=agent?.vehicle?.rotation?.y||fpsYaw;
@@ -3405,39 +3421,119 @@ function fpsExitVehicle(){
   fpsVehicleMode=false;
   fpsVehicleViewMode='third';
   fpsKeys.clear();
+  fpsCurrentInteraction=null;
 
-  if(parked?.position){
+  let placed=false;
+  if(parked?.vehicle){
     const vehicle=parked.vehicle;
-    const yaw=parked.yaw||0;
-    const rightX=Math.cos(yaw),rightZ=-Math.sin(yaw);
-    const candidates=[
-      parked.position.clone(),
-      parked.position.clone().add(new THREE.Vector3(rightX*1.4,0,rightZ*1.4)),
-      parked.position.clone().add(new THREE.Vector3(-rightX*3.0,0,-rightZ*3.0))
+    const agent=parked.agent;
+    const yaw=parked.yaw||vehicle.rotation.y||0;
+    const c=Math.cos(yaw),sn=Math.sin(yaw);
+    const {halfW,halfL}=fpsVehicleHalfExtents(agent);
+    const side=halfW+FPS_PLAYER_RADIUS+.78;
+    const end=halfL+FPS_PLAYER_RADIUS+.92;
+
+    const localCandidates=[
+      [-side,0],[side,0],
+      [-side,-Math.min(1.2,halfL*.35)],[side,-Math.min(1.2,halfL*.35)],
+      [-side, Math.min(1.2,halfL*.35)],[side, Math.min(1.2,halfL*.35)],
+      [0,-end],[0,end]
     ];
-    let placed=false;
-    for(const p of candidates){
-      p.y=FPS_EYE_HEIGHT;
-      if(!fpsStaticBlocked(p,FPS_EYE_HEIGHT,FPS_PLAYER_HEIGHT)&&!fpsDoorBlocked(p)){
-        camera.position.copy(p);
+
+    if(parked.position){
+      const preferred=parked.position.clone();
+      preferred.y=FPS_EYE_HEIGHT;
+      if(!fpsPositionBlocked(preferred,FPS_EYE_HEIGHT,FPS_PLAYER_HEIGHT)){
+        camera.position.copy(preferred);
         placed=true;
-        break;
       }
     }
-    if(!placed){
-      camera.position.set(
-        parked.position.x,
+
+    for(const [lx,lz] of localCandidates){
+      if(placed)break;
+      const p=fpsVehicleExitProbe.set(
+        vehicle.position.x+lx*c+lz*sn,
         FPS_EYE_HEIGHT,
-        parked.position.z
+        vehicle.position.z-lx*sn+lz*c
       );
+      if(!fpsPositionBlocked(p,FPS_EYE_HEIGHT,FPS_PLAYER_HEIGHT)){
+        camera.position.copy(p);
+        placed=true;
+      }
+    }
+
+    // Tight parking can block both sides. Search a widening ring around the
+    // vehicle before ever falling back to the old player position.
+    if(!placed){
+      const start=Math.max(side,end);
+      for(let radius=start;radius<=start+8&&!placed;radius+=.75){
+        for(let i=0;i<16;i++){
+          const a=i*Math.PI/8;
+          const p=fpsVehicleExitProbe.set(
+            vehicle.position.x+Math.cos(a)*radius,
+            FPS_EYE_HEIGHT,
+            vehicle.position.z+Math.sin(a)*radius
+          );
+          if(!fpsPositionBlocked(p,FPS_EYE_HEIGHT,FPS_PLAYER_HEIGHT)){
+            camera.position.copy(p);
+            placed=true;
+            break;
+          }
+        }
+      }
+    }
+
+    fpsYaw=yaw;
+  }
+
+  // Guaranteed recovery: the position where E was pressed to enter the vehicle
+  // was already a valid walking position. Use it only if the local exit search
+  // genuinely cannot find free space around the parked vehicle.
+  if(!placed&&fpsVehicleHasPreEnterPosition){
+    const fallback=fpsVehiclePreEnterPosition.clone();
+    fallback.y=FPS_EYE_HEIGHT;
+    if(!fpsPositionBlocked(fallback,FPS_EYE_HEIGHT,FPS_PLAYER_HEIGHT)){
+      camera.position.copy(fallback);
+      placed=true;
     }
   }
+
+  // Absolute last resort: find the nearest free point around the current spot
+  // instead of leaving the player inside a vehicle collider.
+  if(!placed){
+    const origin=(parked?.vehicle?.position||camera.position).clone();
+    for(let radius=3;radius<=16&&!placed;radius+=1){
+      for(let i=0;i<20;i++){
+        const a=i*Math.PI/10;
+        const p=fpsVehicleExitProbe.set(
+          origin.x+Math.cos(a)*radius,
+          FPS_EYE_HEIGHT,
+          origin.z+Math.sin(a)*radius
+        );
+        if(!fpsPositionBlocked(p,FPS_EYE_HEIGHT,FPS_PLAYER_HEIGHT)){
+          camera.position.copy(p);
+          placed=true;
+          break;
+        }
+      }
+    }
+  }
+
+  fpsVehicleHasPreEnterPosition=false;
   fpsGroundLevel=0;
   fpsGrounded=true;
   fpsVerticalVelocity=0;
-  fpsHasSafePosition=false;
+  fpsCrouchAmount=0;
+  fpsCrouching=false;
+
+  // The exit point itself becomes the recovery anchor. This prevents the
+  // first WASD frame from snapping the player back into the parked vehicle.
+  fpsLastSafePosition.copy(camera.position);
+  fpsHasSafePosition=true;
+
   fpsSetViewMode('third',{snap:true});
   fpsApplyViewModeVisibility();
+  fpsUpdateInteractionPrompt();
   if(fpsButton)fpsButton.textContent='FPS Walk: 3P';
   return true;
 }
@@ -4382,7 +4478,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:145.1,
+  version:145.2,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
