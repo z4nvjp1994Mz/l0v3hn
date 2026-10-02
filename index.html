@@ -2082,8 +2082,6 @@ function fpsStartReload(){
   if((Number(fpsAmmo[weapon])||0)>=cap)return false;
 
   fpsTriggerHeld=false;
-  fpsCancelReload();
-  fpsRecoilPitchOffset=0;
   fpsAimHeld=false;
   fpsAiming=false;
   fpsAimAmount=0;
@@ -2200,7 +2198,11 @@ function fpsDie(sourcePeerId='unknown'){
   fpsRespawnTimer=FPS_RESPAWN_DELAY;
   fpsLastDamageFrom=sourcePeerId||'unknown';
   fpsKeys.clear();
+  fpsShiftDownAt=0;
+  fpsShiftCode='';
   fpsTriggerHeld=false;
+  fpsCancelReload();
+  fpsRecoilPitchOffset=0;
   fpsAimHeld=false;
   fpsAiming=false;
   fpsAimAmount=0;
@@ -2231,6 +2233,8 @@ function fpsRespawnPlayer(){
   const authoredSpawn=fpsSpawn();
   const spawn=fpsFindSafeSpawn(authoredSpawn);
   fpsHealth=FPS_MAX_HP;
+  fpsAmmo.sniper=FPS_SNIPER_MAG_SIZE;
+  fpsAmmo.gatling=FPS_GATLING_MAG_SIZE;
   fpsAlive=true;
   fpsRespawnTimer=0;
   fpsGroundLevel=0;
@@ -2248,6 +2252,8 @@ function fpsRespawnPlayer(){
   fpsShotCooldown=0;
   fpsRecoilPitchOffset=0;
   fpsCancelReload();
+  fpsShiftDownAt=0;
+  fpsShiftCode='';
   fpsKeys.clear();
   fpsSetWeapon(fpsActiveWeapon);
   camera.position.copy(spawn.position);
@@ -2260,6 +2266,7 @@ function fpsRespawnPlayer(){
   setFpsRigVisible(true);
   updateFpsCharacterRig(0,{moving:false,running:false});
   fpsUpdateHealthHud();
+  fpsUpdateAmmoHud();
 }
 
 function fpsUpdateCombatState(dt){
