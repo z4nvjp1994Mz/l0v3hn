@@ -166,7 +166,7 @@ export function installSolarRoofZoneV94({
     const root=new THREE.Group();
     root.name='V1471_SOLAR_TWO_STOREY_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     root.userData={
-      version:147.3,
+      version:147.4,
       factoryIndex,
       role:'actual-two-storey-solar-industrial-building',
       floors:2,
@@ -425,6 +425,7 @@ export function installSolarRoofZoneV94({
       stairCoreD,
       stairW,
       run,
+      stepD,
       landingDepth,
       topLandingDepth,
       leftEdge,
@@ -599,51 +600,74 @@ export function installSolarRoofZoneV94({
       const lz=walkLocalPoint.z-stair.stairCoreZ;
       const halfW=stair.stairW*.56+.18;
       const runHalf=stair.run*.5;
-      let localHeight=null;
-      let surface='';
+
+      // V147.4 continuity model:
+      // - transition zones deliberately overlap by more than one player radius;
+      // - every matching surface becomes a candidate;
+      // - the candidate closest to the current feet height wins.
+      // This prevents a single frame from selecting "no floor" at flight/landing joins.
+      const transitionMargin=Math.max(.62,(stair.stepD||stair.run/8)*1.55);
+      const candidates=[];
+
+      function addCandidate(localHeight,surface,priority=0){
+        const delta=localHeight-currentLocalY;
+        if(delta>maxStepUp||delta<-maxDrop)return;
+        candidates.push({
+          localHeight,
+          surface,
+          delta,
+          score:Math.abs(delta)+priority
+        });
+      }
 
       // Flight 1: front -> rear, 0 -> half-floor.
       if(
-        Math.abs(lx+stair.stairW*.62)<=halfW &&
-        lz>=-runHalf-.25 && lz<=runHalf+.25
+        Math.abs(lx+stair.stairW*.62)<=halfW+transitionMargin*.55 &&
+        lz>=-runHalf-transitionMargin &&
+        lz<= runHalf+transitionMargin
       ){
-        const t=THREE.MathUtils.clamp((runHalf-lz)/Math.max(.01,stair.run),0,1);
-        localHeight=t*stair.splitY*.5;
-        surface='flight-1';
+        const t=THREE.MathUtils.clamp(
+          (runHalf-lz)/Math.max(.01,stair.run),
+          0,1
+        );
+        addCandidate(t*stair.splitY*.5,'flight-1');
       }
 
-      // Half landing matches the enlarged physical platform.
+      // Enlarged half landing overlaps both flight corridors.
       if(
-        Math.abs(lx)<=stair.stairW*1.38 &&
-        Math.abs(lz+runHalf)<=stair.landingDepth*.52
+        Math.abs(lx)<=stair.stairW*1.52+transitionMargin*.35 &&
+        Math.abs(lz+runHalf)<=stair.landingDepth*.52+transitionMargin
       ){
-        localHeight=stair.splitY*.5;
-        surface='landing';
+        addCandidate(stair.splitY*.5,'landing',.005);
       }
 
       // Flight 2: rear -> front, half-floor -> second floor.
       if(
-        Math.abs(lx-stair.stairW*.62)<=halfW &&
-        lz>=-runHalf-.25 && lz<=runHalf+.25
+        Math.abs(lx-stair.stairW*.62)<=halfW+transitionMargin*.55 &&
+        lz>=-runHalf-transitionMargin &&
+        lz<= runHalf+transitionMargin
       ){
-        const t=THREE.MathUtils.clamp((lz+runHalf)/Math.max(.01,stair.run),0,1);
-        localHeight=stair.splitY*.5+t*stair.splitY*.5;
-        surface='flight-2';
+        const t=THREE.MathUtils.clamp(
+          (lz+runHalf)/Math.max(.01,stair.run),
+          0,1
+        );
+        addCandidate(
+          stair.splitY*.5+t*stair.splitY*.5,
+          'flight-2'
+        );
       }
 
-      // Upper landing bridges the second flight to the floor slab.
+      // Upper landing overlaps the last metres of flight 2 and the slab edge.
       if(
-        Math.abs(lx-stair.stairW*.62)<=stair.stairW*.76 &&
-        lz>=runHalf-.12 &&
-        lz<=runHalf+stair.topLandingDepth+.12 &&
-        currentLocalY>=stair.splitY-.90
+        Math.abs(lx-stair.stairW*.62)<=stair.stairW*.86+transitionMargin*.30 &&
+        lz>=runHalf-transitionMargin &&
+        lz<=runHalf+stair.topLandingDepth+transitionMargin &&
+        currentLocalY>=stair.splitY-1.05
       ){
-        localHeight=stair.splitY+.14;
-        surface='top-landing';
+        addCandidate(stair.splitY+.14,'top-landing',.004);
       }
 
-      // Actual second-floor slab. Only acquire it when already near upper-floor
-      // height; this prevents a player walking underneath from snapping upward.
+      // Actual second-floor slab. Only acquire it near upper-floor height.
       const inFloorRect=
         walkLocalPoint.x>=stair.leftEdge &&
         walkLocalPoint.x<=stair.rightEdge &&
@@ -657,27 +681,32 @@ export function installSolarRoofZoneV94({
       if(
         inFloorRect &&
         !inStairHole &&
-        currentLocalY>=stair.splitY-.90
+        currentLocalY>=stair.splitY-1.05
       ){
-        localHeight=stair.splitY+0.14;
-        surface='level-2';
+        addCandidate(stair.splitY+.14,'level-2',.006);
       }
 
-      if(localHeight===null)continue;
+      if(!candidates.length)continue;
+      candidates.sort((a,b)=>a.score-b.score);
+      const chosen=candidates[0];
+      const localHeight=chosen.localHeight;
+      const surface=chosen.surface;
 
-      const delta=localHeight-currentLocalY;
-      if(delta>maxStepUp||delta<-maxDrop)continue;
-
-      walkWorldPoint.set(walkLocalPoint.x,localHeight,walkLocalPoint.z);
+      walkWorldPoint.set(
+        walkLocalPoint.x,
+        localHeight,
+        walkLocalPoint.z
+      );
       building.localToWorld(walkWorldPoint);
 
-      if(Math.abs(delta)<bestDelta){
-        bestDelta=Math.abs(delta);
+      if(chosen.score<bestDelta){
+        bestDelta=chosen.score;
         best={
           height:walkWorldPoint.y,
           factoryIndex:stair.factoryIndex,
           surface,
-          localHeight
+          localHeight,
+          transitionMargin
         };
       }
     }
@@ -708,7 +737,7 @@ export function installSolarRoofZoneV94({
   };
 
   window.__DALOC_SOLAR_ROOFS_V94=controller;
-  console.info('[DaLoc] V147.3 corrected stair landings + floor connection installed',{
+  console.info('[DaLoc] V147.4 continuous stair support installed',{
     factories:controller.factoryCount,
     tables:tableCount,
     moduleEquivalent
