@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V116 FPS JUMP + COLLISION</small>
+  <small>GitHub → Netlify · BUILD V117 FPS PERFORMANCE OPTIMIZATION</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1576,7 +1576,7 @@ installCirculationV53({
    coordBadge.style.color='#ffcf86';
  });
 
-// V116 FIRST-PERSON ROLEPLAY: JUMP + COLLISION ----------------------------
+// V117 FIRST-PERSON ROLEPLAY: JUMP + OPTIMIZED COLLISION/RENDER ------------
 // Camera/input remains isolated from traffic AI. Static collision is built once
 // into a light spatial grid; moving vehicles are checked from their live transforms.
 const fpsButton=document.getElementById('fps');
@@ -1602,6 +1602,13 @@ const FPS_COLLIDER_CELL=18;
 let fpsStaticColliders=[];
 let fpsColliderGrid=new Map();
 let fpsColliderRevision=0;
+const fpsCollisionWorldPoint=new THREE.Vector3();
+const fpsCollisionLocalPoint=new THREE.Vector3();
+const fpsEmptyColliderIds=[];
+let fpsSavedPixelRatio=null;
+let fpsSavedShadowAutoUpdate=true;
+let fpsShadowFrame=0;
+let fpsExteriorTreeVisibility=null;
 
 function fpsSetLookFromCamera(){
   camera.rotation.order='YXZ';
@@ -1652,28 +1659,44 @@ function refreshFpsStaticColliders(){
   const p=new THREE.Vector3();
   const instanceMatrix=new THREE.Matrix4();
   const instanceWorld=new THREE.Matrix4();
+  const instancedBatches=new Map();
 
   function inExteriorForest(object){
     for(let o=object;o;o=o.parent)if(o.name==='EXTERIOR_FOREST_V78')return true;
     return false;
   }
 
-  function registerCollider(object,geometryBox,matrixWorld){
+  function addToGrid(id,box){
+    const minX=box.min.x-FPS_PLAYER_RADIUS,maxX=box.max.x+FPS_PLAYER_RADIUS;
+    const minZ=box.min.z-FPS_PLAYER_RADIUS,maxZ=box.max.z+FPS_PLAYER_RADIUS;
+    const ix0=Math.floor(minX/FPS_COLLIDER_CELL),ix1=Math.floor(maxX/FPS_COLLIDER_CELL);
+    const iz0=Math.floor(minZ/FPS_COLLIDER_CELL),iz1=Math.floor(maxZ/FPS_COLLIDER_CELL);
+    for(let ix=ix0;ix<=ix1;ix++)for(let iz=iz0;iz<=iz1;iz++){
+      const key=fpsGridKey(ix,iz);
+      let list=fpsColliderGrid.get(key);
+      if(!list){list=[];fpsColliderGrid.set(key,list);}
+      list.push(id);
+    }
+  }
+
+  function colliderBoxUseful(box){
+    box.getSize(worldSize);
+    if(box.max.y<.34)return false;
+    if(box.min.y>FPS_PLAYER_HEIGHT+2.4)return false;
+    if(worldSize.y<.28&&box.max.y<.85)return false;
+    if(worldSize.x>1500||worldSize.z>1500)return false;
+    return true;
+  }
+
+  function registerOrientedCollider(object,geometryBox,matrixWorld){
     localBox.copy(geometryBox);
     worldBox.copy(localBox).applyMatrix4(matrixWorld);
-    worldBox.getSize(worldSize);
-
-    // Ignore roads, ground sheets, paint and other floor-like geometry.
-    // Keep walls, factory bodies, trunks, lamp/signal poles, gate pylons,
-    // benches/bollards and other physical props that intersect a player body.
-    if(worldBox.max.y<.34)return;
-    if(worldBox.min.y>FPS_PLAYER_HEIGHT+2.4)return;
-    if(worldSize.y<.28&&worldBox.max.y<.85)return;
-    if(worldSize.x>1500||worldSize.z>1500)return;
+    if(!colliderBoxUseful(worldBox))return;
 
     matrixWorld.decompose(p,q,scale);
     const planarScale=Math.max(.001,Math.min(Math.abs(scale.x)||1,Math.abs(scale.z)||1));
     const collider={
+      type:'obb',
       object,
       localBox:localBox.clone(),
       inverse:matrixWorld.clone().invert(),
@@ -1682,19 +1705,15 @@ function refreshFpsStaticColliders(){
     };
     const id=fpsStaticColliders.length;
     fpsStaticColliders.push(collider);
+    addToGrid(id,collider.worldBox);
+  }
 
-    const expanded=worldBox.clone();
-    expanded.min.x-=FPS_PLAYER_RADIUS;expanded.max.x+=FPS_PLAYER_RADIUS;
-    expanded.min.z-=FPS_PLAYER_RADIUS;expanded.max.z+=FPS_PLAYER_RADIUS;
-    const ix0=Math.floor(expanded.min.x/FPS_COLLIDER_CELL);
-    const ix1=Math.floor(expanded.max.x/FPS_COLLIDER_CELL);
-    const iz0=Math.floor(expanded.min.z/FPS_COLLIDER_CELL);
-    const iz1=Math.floor(expanded.max.z/FPS_COLLIDER_CELL);
-    for(let ix=ix0;ix<=ix1;ix++)for(let iz=iz0;iz<=iz1;iz++){
-      const key=fpsGridKey(ix,iz);
-      if(!fpsColliderGrid.has(key))fpsColliderGrid.set(key,[]);
-      fpsColliderGrid.get(key).push(id);
-    }
+  function registerWorldBoxCollider(object,box){
+    if(!colliderBoxUseful(box))return;
+    const collider={type:'aabb',object,worldBox:box.clone()};
+    const id=fpsStaticColliders.length;
+    fpsStaticColliders.push(collider);
+    addToGrid(id,collider.worldBox);
   }
 
   scene.traverse(object=>{
@@ -1706,10 +1725,19 @@ function refreshFpsStaticColliders(){
     if(!geometryBox||geometryBox.isEmpty())return;
 
     if(object.isInstancedMesh){
-      // Internal trees/props get real per-instance collision. The 14k-tree
-      // exterior forest is intentionally excluded to keep FPS mode lightweight.
+      // A GLB asset is batched as one InstancedMesh PER mesh part. V116 created
+      // one collider for every part, multiplying the candidate count. V117 unions
+      // all parts sharing the same asset prefix into ONE world AABB per instance.
       if(inExteriorForest(object))return;
-      for(let i=0;i<object.count;i++){
+      const prefix=(object.name||'INSTANCED').replace(/_PART_\d+$/,'');
+      const batchKey=(object.parent?.uuid||'root')+'|'+prefix;
+      let batch=instancedBatches.get(batchKey);
+      if(!batch){
+        batch={object,boxes:Array.from({length:object.count},()=>null)};
+        instancedBatches.set(batchKey,batch);
+      }
+      const count=Math.min(object.count,batch.boxes.length);
+      for(let i=0;i<count;i++){
         object.getMatrixAt(i,instanceMatrix);
         if(
           Math.abs(instanceMatrix.elements[0])<1e-6&&
@@ -1717,38 +1745,42 @@ function refreshFpsStaticColliders(){
           Math.abs(instanceMatrix.elements[10])<1e-6
         )continue;
         instanceWorld.multiplyMatrices(object.matrixWorld,instanceMatrix);
-        registerCollider(object,geometryBox,instanceWorld);
+        const partBox=new THREE.Box3().copy(geometryBox).applyMatrix4(instanceWorld);
+        if(batch.boxes[i])batch.boxes[i].union(partBox);
+        else batch.boxes[i]=partBox;
       }
       return;
     }
 
-    registerCollider(object,geometryBox,object.matrixWorld);
+    registerOrientedCollider(object,geometryBox,object.matrixWorld);
   });
 
+  for(const batch of instancedBatches.values()){
+    for(const box of batch.boxes)if(box)registerWorldBoxCollider(batch.object,box);
+  }
+
   fpsColliderRevision++;
-  console.info('[DaLoc] V116 FPS static collision grid ready',{
+  console.info('[DaLoc] V117 FPS collision grid optimized',{
     colliders:fpsStaticColliders.length,
     cells:fpsColliderGrid.size,
+    instancedBatches:instancedBatches.size,
     revision:fpsColliderRevision
   });
 }
 
 function fpsNearbyColliderIds(position){
+  // Every collider was inserted into ALL cells touched by its radius-expanded box,
+  // so the player's current cell alone is sufficient. No Set allocation per test.
   const ix=Math.floor(position.x/FPS_COLLIDER_CELL);
   const iz=Math.floor(position.z/FPS_COLLIDER_CELL);
-  const ids=new Set();
-  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
-    const list=fpsColliderGrid.get(fpsGridKey(ix+dx,iz+dz));
-    if(list)for(const id of list)ids.add(id);
-  }
-  return ids;
+  return fpsColliderGrid.get(fpsGridKey(ix,iz))||fpsEmptyColliderIds;
 }
 
 function fpsStaticBlocked(position){
   const feetY=position.y-FPS_EYE_HEIGHT;
   const headY=feetY+FPS_PLAYER_HEIGHT;
   const midY=feetY+FPS_PLAYER_HEIGHT*.5;
-  const wp=new THREE.Vector3(position.x,midY,position.z);
+  fpsCollisionWorldPoint.set(position.x,midY,position.z);
 
   for(const id of fpsNearbyColliderIds(position)){
     const c=fpsStaticColliders[id];
@@ -1760,10 +1792,12 @@ function fpsStaticBlocked(position){
       position.z<b.min.z-FPS_PLAYER_RADIUS||position.z>b.max.z+FPS_PLAYER_RADIUS
     )continue;
 
-    const lp=wp.clone().applyMatrix4(c.inverse);
+    if(c.type==='aabb')return true;
+
+    fpsCollisionLocalPoint.copy(fpsCollisionWorldPoint).applyMatrix4(c.inverse);
     if(
-      lp.x>=c.localBox.min.x-c.localRadius&&lp.x<=c.localBox.max.x+c.localRadius&&
-      lp.z>=c.localBox.min.z-c.localRadius&&lp.z<=c.localBox.max.z+c.localRadius
+      fpsCollisionLocalPoint.x>=c.localBox.min.x-c.localRadius&&fpsCollisionLocalPoint.x<=c.localBox.max.x+c.localRadius&&
+      fpsCollisionLocalPoint.z>=c.localBox.min.z-c.localRadius&&fpsCollisionLocalPoint.z<=c.localBox.max.z+c.localRadius
     )return true;
   }
   return false;
@@ -1806,7 +1840,7 @@ function fpsMoveWithCollision(delta){
   const len=Math.hypot(delta.x,delta.z);
   if(len<1e-6)return;
   // Substeps prevent tunnelling through thin poles/walls while running.
-  const steps=Math.max(1,Math.ceil(len/.22));
+  const steps=Math.max(1,Math.ceil(len/.32));
   const sx=delta.x/steps,sz=delta.z/steps;
   const trial=camera.position.clone();
 
@@ -1818,6 +1852,45 @@ function fpsMoveWithCollision(delta){
     trial.copy(camera.position);
     trial.z+=sz;
     if(!fpsPositionBlocked(trial))camera.position.z=trial.z;
+  }
+}
+
+function applyFpsRenderProfile(){
+  if(fpsSavedPixelRatio===null)fpsSavedPixelRatio=renderer.getPixelRatio();
+  fpsSavedShadowAutoUpdate=renderer.shadowMap.autoUpdate;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));
+  renderer.setSize(innerWidth,innerHeight,false);
+
+  // Dynamic shadows at half-rate are visually smooth enough while walking and
+  // cut one of the most expensive ground-level passes roughly in half.
+  renderer.shadowMap.autoUpdate=false;
+  renderer.shadowMap.needsUpdate=true;
+  fpsShadowFrame=0;
+
+  // EXTERIOR_FOREST_V78 holds ~14k trees in giant batches. A giant InstancedMesh
+  // cannot frustum-cull individual trees, so at eye level the GPU still processes
+  // the full batch. Keep the forest floor/houses, but hide only tree instances in FPS.
+  if(v78ExteriorGroup&&!fpsExteriorTreeVisibility){
+    fpsExteriorTreeVisibility=[];
+    v78ExteriorGroup.traverse(o=>{
+      if(!o.isInstancedMesh)return;
+      fpsExteriorTreeVisibility.push([o,o.visible]);
+      o.visible=false;
+    });
+  }
+}
+
+function restoreFpsRenderProfile(){
+  if(fpsSavedPixelRatio!==null){
+    renderer.setPixelRatio(fpsSavedPixelRatio);
+    renderer.setSize(innerWidth,innerHeight,false);
+    fpsSavedPixelRatio=null;
+  }
+  renderer.shadowMap.autoUpdate=fpsSavedShadowAutoUpdate;
+  renderer.shadowMap.needsUpdate=true;
+  if(fpsExteriorTreeVisibility){
+    for(const [o,visible] of fpsExteriorTreeVisibility)o.visible=visible;
+    fpsExteriorTreeVisibility=null;
   }
 }
 
@@ -1845,6 +1918,7 @@ function enterFirstPerson(){
   document.getElementById('vt')?.classList.remove('active');
   document.getElementById('vd')?.classList.remove('active');
 
+  applyFpsRenderProfile();
   refreshFpsStaticColliders();
 
   const spawn=fpsSpawn();
@@ -1868,6 +1942,7 @@ function exitFirstPerson(restore=true){
   if(fpsButton)fpsButton.textContent='FPS Walk';
   fpsButton?.blur();
   controls.enabled=true;
+  restoreFpsRenderProfile();
 
   if(document.pointerLockElement===renderer.domElement){
     document.exitPointerLock?.();
@@ -1939,6 +2014,14 @@ window.addEventListener('blur',()=>fpsKeys.clear());
 function updateFirstPerson(dt){
   if(!fpsMode)return;
 
+  // Ground-level shadows are the expensive pass in FPS. Update them every
+  // second frame instead of forcing a 2048 shadow render every frame.
+  renderer.shadowMap.needsUpdate=(fpsShadowFrame++&1)===0;
+
+  // If the exterior forest finishes loading after FPS was entered, apply the
+  // same tree-batch optimization as soon as it becomes available.
+  if(v78ExteriorGroup&&!fpsExteriorTreeVisibility)applyFpsRenderProfile();
+
   // Jump/gravity is independent from horizontal collision.
   if(!fpsGrounded){
     fpsVerticalVelocity-=FPS_GRAVITY*dt;
@@ -1979,13 +2062,21 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V116={
-  version:116,
+window.__DALOC_FPS_V117={
+  version:117,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
   get grounded(){return fpsGrounded;},
-  get verticalVelocity(){return fpsVerticalVelocity;}
+  get verticalVelocity(){return fpsVerticalVelocity;},
+  get pixelRatio(){return renderer.getPixelRatio();},
+  get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
+  get renderInfo(){return {
+    calls:renderer.info.render.calls,
+    triangles:renderer.info.render.triangles,
+    points:renderer.info.render.points,
+    lines:renderer.info.render.lines
+  };}
 };
 
 // Views
