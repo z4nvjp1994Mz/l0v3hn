@@ -1,7 +1,13 @@
 import * as THREE from 'three';
-import {joinRoom,selfId} from 'https://esm.run/trystero@0.25.0';
 
 const APP_ID='dalociz-netlify-v142-2026-10';
+const TRYSTERO_CDN='https://esm.run/trystero@0.25.0';
+let trysteroPromise=null;
+
+function loadTrystero(){
+  if(!trysteroPromise)trysteroPromise=import(TRYSTERO_CDN);
+  return trysteroPromise;
+}
 const MAX_REMOTE_PLAYERS=1;
 const SEND_INTERVAL_MS=70;
 const REMOTE_TIMEOUT_MS=6500;
@@ -187,6 +193,7 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
   const effects=[];
   let room=null;
   let roomId='';
+  let localSelfId='loading';
   let stateAction=null;
   let shotAction=null;
   let helloAction=null;
@@ -224,7 +231,7 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
     helloAction=room.makeAction('hello');
 
     stateAction.onMessage=(data,{peerId})=>{
-      if(!data||peerId===selfId)return;
+      if(!data||peerId===localSelfId)return;
       const remote=ensureRemote(peerId);
       if(!remote)return;
       if(!Array.isArray(data.p)||data.p.length!==3)return;
@@ -246,7 +253,7 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
     };
 
     shotAction.onMessage=(data,{peerId})=>{
-      if(!data||peerId===selfId)return;
+      if(!data||peerId===localSelfId)return;
       if(!Array.isArray(data.o)||!Array.isArray(data.d))return;
       const fx=makeRemoteTracer(scene,data.o,data.d);
       effects.push(fx);
@@ -259,24 +266,28 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
 
     room.onPeerJoin=peerId=>{
       ensureRemote(peerId);
-      helloAction.send({v:142,id:selfId},{target:peerId}).catch(()=>{});
+      helloAction.send({v:142,id:localSelfId},{target:peerId}).catch(()=>{});
       if(localStateCache)stateAction.send(localStateCache,{target:peerId}).catch(()=>{});
     };
 
     room.onPeerLeave=peerId=>removeRemote(peerId);
   }
 
-  function join(nextRoomId){
+  async function join(nextRoomId){
     const clean=String(nextRoomId||'').trim().replace(/[^a-zA-Z0-9_-]/g,'').slice(0,40);
     if(!clean)throw new Error('Room code trống');
     leave();
 
     roomId=clean;
     lastError=null;
-    status('Đang kết nối room '+roomId,'connecting');
+    status('Đang tải multiplayer...','connecting');
 
     try{
-      room=joinRoom(
+      const trystero=await loadTrystero();
+      localSelfId=trystero.selfId;
+      status('Đang kết nối room '+roomId,'connecting');
+
+      room=trystero.joinRoom(
         {appId:APP_ID},
         roomId,
         error=>{
@@ -399,7 +410,7 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
   return {
     ready:true,
     version:142,
-    selfId,
+    get selfId(){return localSelfId;},
     join,
     leave,
     update,
