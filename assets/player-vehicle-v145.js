@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 
-// V145 - lightweight GTA-style player vehicle controller.
-// This controller does not own traffic AI. It temporarily takes manual control
-// of an existing car/supercar agent by setting agent.manualControl=true.
-// The traffic module skips manual agents, so the stolen vehicle never snaps back
-// to its route while the player is driving or after it is parked.
+// V145.1 - GTA-style player vehicle controller for all live traffic classes.
+// Supported: passenger car, supercar, cargo truck, container truck, motorcycle.
+// Taking a vehicle sets agent.manualControl=true so traffic AI cannot snap it
+// back to its authored route. Parked stolen vehicles remain where the player left them.
 export function createPlayerVehicleControllerV145({
   getAgents=()=>[],
   collisionTest=null
@@ -20,15 +19,33 @@ export function createPlayerVehicleControllerV145({
   const forward=new THREE.Vector3();
   const right=new THREE.Vector3();
   const exitPos=new THREE.Vector3();
+  const entryPos=new THREE.Vector3();
 
-  const MAX_FORWARD=29.0;
-  const MAX_REVERSE=9.0;
-  const ACCEL=11.5;
-  const REVERSE_ACCEL=7.0;
-  const BRAKE=18.0;
+  const TYPE_CONFIG={
+    car:{
+      maxForward:29.0,maxReverse:9.0,accel:11.5,reverseAccel:7.0,brake:18.0,
+      steerResponse:6.5,steerGain:.070,entryX:-1.48,entryZ:.15,exitX:-1.75,exitZ:-.15
+    },
+    supercar:{
+      maxForward:36.0,maxReverse:10.0,accel:15.5,reverseAccel:8.0,brake:21.0,
+      steerResponse:7.4,steerGain:.074,entryX:-1.52,entryZ:.05,exitX:-1.82,exitZ:-.12
+    },
+    cargo:{
+      maxForward:20.0,maxReverse:6.0,accel:7.0,reverseAccel:4.5,brake:15.0,
+      steerResponse:4.2,steerGain:.042,entryX:-1.62,entryZ:2.35,exitX:-1.95,exitZ:2.20
+    },
+    container:{
+      maxForward:17.0,maxReverse:5.0,accel:5.5,reverseAccel:3.7,brake:13.0,
+      steerResponse:3.5,steerGain:.032,entryX:-1.68,entryZ:4.75,exitX:-2.05,exitZ:4.55
+    },
+    motorcycle:{
+      maxForward:31.0,maxReverse:5.5,accel:14.0,reverseAccel:5.0,brake:20.0,
+      steerResponse:8.5,steerGain:.095,entryX:-.88,entryZ:.05,exitX:-1.12,exitZ:-.05
+    }
+  };
+
   const COAST_DRAG=1.55;
   const HANDBRAKE_DRAG=8.0;
-  const STEER_RESPONSE=6.5;
   const MAX_STEER=1.0;
 
   function agents(){
@@ -36,27 +53,54 @@ export function createPlayerVehicleControllerV145({
     return Array.isArray(list)?list:[];
   }
 
+  function configFor(agent){
+    return TYPE_CONFIG[agent?.type]||TYPE_CONFIG.car;
+  }
+
   function isDrivable(agent){
-    return !!(
-      agent?.vehicle &&
-      (agent.type==='car'||agent.type==='supercar')
+    if(!agent?.vehicle||!TYPE_CONFIG[agent.type])return false;
+
+    // Do not steal a freight vehicle while it is physically docking/loading.
+    // Cruise-state freight vehicles remain fully stealable on the road.
+    if(agent.service&&agent.service.phase!=='cruise')return false;
+    return true;
+  }
+
+  function localOffsetToWorld(vehicle,lx,lz,out){
+    const yaw=vehicle?.rotation?.y||0;
+    const c=Math.cos(yaw),sn=Math.sin(yaw);
+    out.set(
+      vehicle.position.x+lx*c+lz*sn,
+      0,
+      vehicle.position.z-lx*sn+lz*c
     );
+    return out;
   }
 
   function nearest(point,maxDistance=4.6){
     if(!point)return null;
     let best=null;
     let bestDist=Math.max(.1,Number(maxDistance)||4.6);
+
     for(const agent of agents()){
       if(!isDrivable(agent))continue;
       const vehicle=agent.vehicle;
       if(vehicle.visible===false)continue;
-      const dx=point.x-vehicle.position.x;
-      const dz=point.z-vehicle.position.z;
+
+      const cfg=configFor(agent);
+      localOffsetToWorld(vehicle,cfg.entryX,cfg.entryZ,entryPos);
+      const dx=point.x-entryPos.x;
+      const dz=point.z-entryPos.z;
       const dist=Math.hypot(dx,dz);
+
       if(dist<bestDist){
         bestDist=dist;
-        best={agent,vehicle,distance:dist};
+        best={
+          agent,
+          vehicle,
+          distance:dist,
+          entryPoint:entryPos.clone()
+        };
       }
     }
     return best;
@@ -72,10 +116,14 @@ export function createPlayerVehicleControllerV145({
         p &&
         Math.abs(p.x)>.72 &&
         p.y>=.20 &&
-        p.y<.75
+        p.y<.80
       )found.push(obj);
     });
     return found;
+  }
+
+  function motorcycleRider(vehicle){
+    return vehicle?.children?.find?.(o=>/^V91_RIDER_/.test(o.name||''))||null;
   }
 
   function enter(agent){
@@ -89,11 +137,16 @@ export function createPlayerVehicleControllerV145({
     active=true;
     activeAgent.manualControl=true;
     activeAgent.playerControlled=true;
-    activeAgent.speed=0;
 
-    // Preserve a little of the traffic vehicle's incoming momentum without
-    // inheriting an excessive AI speed on the first manual frame.
-    speed=THREE.MathUtils.clamp(Number(agent.speed)||0,-2.5,8.0);
+    const cfg=configFor(agent);
+
+    // Preserve a little incoming motion so hijacking a moving vehicle is smooth.
+    speed=THREE.MathUtils.clamp(
+      Number(agent.speed)||0,
+      -Math.min(2.5,cfg.maxReverse),
+      Math.min(8.0,cfg.maxForward)
+    );
+    activeAgent.speed=Math.abs(speed);
     steer=0;
     distanceDriven=0;
     wheelMeshes=findWheels(activeAgent.vehicle);
@@ -101,6 +154,11 @@ export function createPlayerVehicleControllerV145({
     activeAgent.vehicle.userData.playerDrivableV145=true;
     activeAgent.vehicle.userData.playerControlledV145=true;
     activeAgent.vehicle.userData.ignoreFpsBullet=false;
+
+    // The traffic motorcycle already carries a seated rider mesh. During manual
+    // control it acts as the visible rider proxy for the local player.
+    const rider=motorcycleRider(activeAgent.vehicle);
+    if(rider)rider.visible=true;
 
     return true;
   }
@@ -111,18 +169,20 @@ export function createPlayerVehicleControllerV145({
     const parked=activeAgent;
     const vehicle=parked.vehicle;
     const yaw=vehicle?.rotation?.y||0;
+    const cfg=configFor(parked);
 
     parked.manualControl=true;
     parked.playerControlled=false;
     parked.speed=0;
+
     if(vehicle){
       vehicle.userData.playerControlledV145=false;
-      forward.set(Math.sin(yaw),0,Math.cos(yaw));
-      right.set(Math.cos(yaw),0,-Math.sin(yaw));
-      exitPos.copy(vehicle.position)
-        .addScaledVector(right,-1.75)
-        .addScaledVector(forward,-.25);
-      exitPos.y=0;
+      localOffsetToWorld(vehicle,cfg.exitX,cfg.exitZ,exitPos);
+
+      // Once the player gets off a stolen motorcycle, leave it visibly parked
+      // rather than leaving the original AI rider sitting on it.
+      const rider=motorcycleRider(vehicle);
+      if(rider&&parked.type==='motorcycle')rider.visible=false;
     }else{
       exitPos.set(0,0,0);
     }
@@ -132,7 +192,8 @@ export function createPlayerVehicleControllerV145({
       vehicle,
       position:exitPos.clone(),
       yaw,
-      speed
+      speed,
+      type:parked.type
     };
 
     activeAgent=null;
@@ -148,6 +209,7 @@ export function createPlayerVehicleControllerV145({
     if(!Number.isFinite(dt)||dt<=0)return state();
 
     dt=Math.min(.05,dt);
+    const cfg=configFor(activeAgent);
     const has=code=>!!keys?.has?.(code);
     const throttle=has('KeyW');
     const reverse=has('KeyS');
@@ -156,9 +218,9 @@ export function createPlayerVehicleControllerV145({
     const handbrake=has('Space');
 
     if(throttle&&!reverse){
-      speed+=((speed<0)?BRAKE:ACCEL)*dt;
+      speed+=((speed<0)?cfg.brake:cfg.accel)*dt;
     }else if(reverse&&!throttle){
-      speed-=((speed>0)?BRAKE:REVERSE_ACCEL)*dt;
+      speed-=((speed>0)?cfg.brake:cfg.reverseAccel)*dt;
     }else{
       speed*=Math.exp(-COAST_DRAG*dt);
       if(Math.abs(speed)<.035)speed=0;
@@ -169,20 +231,21 @@ export function createPlayerVehicleControllerV145({
       if(Math.abs(speed)<.08)speed=0;
     }
 
-    speed=THREE.MathUtils.clamp(speed,-MAX_REVERSE,MAX_FORWARD);
+    speed=THREE.MathUtils.clamp(speed,-cfg.maxReverse,cfg.maxForward);
 
-    const steerInput=(turnRight?1:0)-(left?1:0);
+    // V145.1 steering fix: A must turn LEFT and D must turn RIGHT in the
+    // project's +Z-forward Three.js vehicle convention.
+    const steerInput=(left?1:0)-(turnRight?1:0);
     const steerTarget=steerInput*MAX_STEER;
-    steer+=(steerTarget-steer)*Math.min(1,dt*STEER_RESPONSE);
+    steer+=(steerTarget-steer)*Math.min(1,dt*cfg.steerResponse);
 
     const vehicle=activeAgent.vehicle;
     let yaw=vehicle.rotation.y;
 
-    // Steering authority fades near zero speed and reverses naturally while backing.
     const speedAbs=Math.abs(speed);
     const steeringAuthority=THREE.MathUtils.clamp(speedAbs/2.2,0,1);
     if(steeringAuthority>.001){
-      yaw+=steer*Math.sign(speed||1)*Math.min(speedAbs,20)*.070*dt*steeringAuthority;
+      yaw+=steer*Math.sign(speed||1)*Math.min(speedAbs,20)*cfg.steerGain*dt*steeringAuthority;
     }
 
     forward.set(Math.sin(yaw),0,Math.cos(yaw));
@@ -201,8 +264,6 @@ export function createPlayerVehicleControllerV145({
       vehicle.rotation.y=yaw;
       distanceDriven+=moved;
 
-      // Wheels share geometry but are independent meshes. Rotate around each
-      // wheel's local axle without creating any per-frame geometry/material.
       const roll=speed*dt/.35;
       for(const wheel of wheelMeshes){
         wheel.rotateY(-roll);
@@ -232,7 +293,7 @@ export function createPlayerVehicleControllerV145({
   }
 
   return {
-    version:145,
+    version:145.1,
     nearest,
     enter,
     park,
