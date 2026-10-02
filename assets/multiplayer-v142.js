@@ -250,6 +250,8 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
   const root=new THREE.Group();
   root.name='MULTIPLAYER_V142';
   root.userData.ignoreFpsCollision=true;
+  root.userData.multiplayerRoot=true;
+  root.userData.ignoreFpsBullet=true;
   world.add(root);
 
   const remotes=new Map();
