@@ -271,6 +271,85 @@ function makeGatling(materials){
   return gun;
 }
 
+function makeAxeGripArm(side,materials,gripZ){
+  const arm=new THREE.Group();
+  arm.name=side<0?'FPS_AXE_LEFT_GRIP_ARM_V156':'FPS_AXE_RIGHT_GRIP_ARM_V156';
+
+  // Coordinates are LOCAL TO THE AXE. Because these arms are children of the
+  // axe itself, the gloves can never drift away from the handle during swings.
+  const shoulder=[
+    side*.34,
+    -.30,
+    .48
+  ];
+  const elbow=[
+    side*.22,
+    -.18,
+    .27
+  ];
+  const wrist=[
+    side*.028,
+    -.018,
+    gripZ+.035
+  ];
+
+  arm.add(segmentBetween(
+    shoulder,
+    elbow,
+    .080,
+    .064,
+    materials.sleeve,
+    'FPS_AXE_SLEEVE_V156',
+    18
+  ));
+
+  arm.add(segmentBetween(
+    elbow,
+    wrist,
+    .064,
+    .050,
+    materials.sleeveDark,
+    'FPS_AXE_FOREARM_V156',
+    18
+  ));
+
+  const cuff=segmentBetween(
+    [
+      side*.055,
+      -.040,
+      gripZ+.090
+    ],
+    wrist,
+    .052,
+    .045,
+    materials.cuff,
+    'FPS_AXE_CUFF_V156',
+    14
+  );
+  arm.add(cuff);
+
+  const hand=makeHand(side,materials);
+  hand.name=side<0?'FPS_AXE_LEFT_GRIP_HAND_V156':'FPS_AXE_RIGHT_GRIP_HAND_V156';
+  hand.position.set(
+    side*.020,
+    -.010,
+    gripZ
+  );
+
+  // Rotate both palms around the shaft instead of leaving them in the generic
+  // open FPS pose. The small opposite roll keeps thumbs on opposite sides.
+  hand.rotation.set(
+    -1.48,
+    side*.08,
+    side<0?.18:-.18
+  );
+  hand.scale.set(1.05,1.05,1.05);
+  arm.add(hand);
+
+  arm.userData.hand=hand;
+  return arm;
+}
+
 function makeAxe(materials){
   const axe=new THREE.Group();
   axe.name='FPS_AXE_V154';
@@ -339,7 +418,15 @@ function makeAxe(materials){
   bolt.rotation.z=Math.PI/2;
   headRoot.add(bolt);
 
+  // Dedicated two-hand grip. Right hand stays near the black lower grip,
+  // left hand holds farther up the wooden shaft for leverage.
+  const rightGripArm=makeAxeGripArm(1,materials,.105);
+  const leftGripArm=makeAxeGripArm(-1,materials,-.300);
+  axe.add(rightGripArm,leftGripArm);
+
   axe.userData.head=headRoot;
+  axe.userData.rightGripArm=rightGripArm;
+  axe.userData.leftGripArm=leftGripArm;
   return axe;
 }
 
@@ -491,7 +578,9 @@ export function createThickerFpsArmsV138(){
   const sniper=makeSniper(materials);
   const gatling=makeGatling(materials);
   const axe=makeAxe(materials);
-  root.add(makeArm(-1,materials),makeArm(1,materials),sniper,gatling,axe);
+  const leftArm=makeArm(-1,materials);
+  const rightArm=makeArm(1,materials);
+  root.add(leftArm,rightArm,sniper,gatling,axe);
 
   let triangles=0;
   root.traverse(o=>{
@@ -505,11 +594,15 @@ export function createThickerFpsArmsV138(){
 
   root.userData.ignoreFpsCollision=true;
   root.userData.triangles=triangles;
-  root.userData.source='v154-sniper+gatling+axe-viewmodels + shaped-glove-shell-v137';
+  root.userData.source='v156-sniper+gatling+two-hand-axe-viewmodels';
   root.userData.weapon='sniper';
   root.userData.sniper=sniper;
   root.userData.gatling=gatling;
   root.userData.gatlingBarrel=gatling.userData.barrelCluster;
   root.userData.axe=axe;
+  root.userData.leftArm=leftArm;
+  root.userData.rightArm=rightArm;
+  root.userData.axeLeftGripArm=axe.userData.leftGripArm;
+  root.userData.axeRightGripArm=axe.userData.rightGripArm;
   return root;
 }
