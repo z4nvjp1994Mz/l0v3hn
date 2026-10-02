@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V121 LUSH MAIN-ROAD TREES</small>
+  <small>GitHub → Netlify · BUILD V122 FPS FRONT-GATE SPAWN + BODY ANIMATION</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -47,7 +47,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · WASD di chuyển · Shift chạy · Space nhảy · Chuột nhìn · ESC thoát</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · Spawn trước cổng chính · WASD di chuyển · Shift chạy · Space nhảy · Chuột nhìn · ESC thoát</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1515,7 +1515,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V121 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V122 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1642,7 +1642,7 @@ installCirculationV53({
    coordBadge.style.color='#ffcf86';
  });
 
-// V118 FIRST-PERSON ROLEPLAY: SAFE SPAWN + OPTIMIZED COLLISION/RENDER -------
+// V122 FIRST-PERSON ROLEPLAY: FRONT-GATE SPAWN + BODY ANIMATION -------------
 // Camera/input remains isolated from traffic AI. Static collision is built once
 // into a light spatial grid; moving vehicles are checked from their live transforms.
 const fpsButton=document.getElementById('fps');
@@ -1679,6 +1679,186 @@ const fpsLastSafePosition=new THREE.Vector3();
 let fpsHasSafePosition=false;
 let fpsLastBlockReason='none';
 
+// V122 lightweight first-person body/viewmodel.
+let fpsViewModel=null;
+let fpsBodyRig=null;
+let fpsLeftArmPivot=null;
+let fpsRightArmPivot=null;
+let fpsLeftLegPivot=null;
+let fpsRightLegPivot=null;
+let fpsLeftKneePivot=null;
+let fpsRightKneePivot=null;
+let fpsLocomotionPhase=0;
+let fpsLocomotionBlend=0;
+let fpsRigTime=0;
+let fpsLastSpawnSource='uninitialized';
+
+function fpsMesh(geometry,material,renderOrder=0){
+  const mesh=new THREE.Mesh(geometry,material);
+  mesh.frustumCulled=false;
+  mesh.castShadow=false;
+  mesh.receiveShadow=false;
+  mesh.renderOrder=renderOrder;
+  return mesh;
+}
+
+function buildFpsCharacterRig(){
+  if(fpsViewModel&&fpsBodyRig)return;
+
+  const skinMat=new THREE.MeshStandardMaterial({
+    color:0xd6a07d,roughness:.88,metalness:0,
+    depthTest:false,depthWrite:false
+  });
+  const sleeveMat=new THREE.MeshStandardMaterial({
+    color:0x315f4d,roughness:.86,metalness:0,
+    depthTest:false,depthWrite:false
+  });
+  const cuffMat=new THREE.MeshStandardMaterial({
+    color:0xe9ece8,roughness:.82,metalness:0,
+    depthTest:false,depthWrite:false
+  });
+  const pantsMat=new THREE.MeshStandardMaterial({
+    color:0x263b48,roughness:.90,metalness:0
+  });
+  const shoeMat=new THREE.MeshStandardMaterial({
+    color:0x191d20,roughness:.88,metalness:.05
+  });
+
+  // Arms are a camera-relative first-person viewmodel: always readable at the
+  // bottom of frame, independent from pitch/yaw and without entering collision.
+  fpsViewModel=new THREE.Group();
+  fpsViewModel.name='FPS_VIEWMODEL_V122';
+  fpsViewModel.userData.ignoreFpsCollision=true;
+  fpsViewModel.visible=false;
+  scene.add(fpsViewModel);
+
+  function makeArm(side){
+    const pivot=new THREE.Group();
+    pivot.name=side<0?'FPS_LEFT_ARM_V122':'FPS_RIGHT_ARM_V122';
+    pivot.userData.ignoreFpsCollision=true;
+    pivot.position.set(side*.285,-.245,-.56);
+    pivot.rotation.set(-.64,0,side*.10);
+
+    const sleeve=fpsMesh(new THREE.CylinderGeometry(.082,.095,.25,10),sleeveMat,999);
+    sleeve.position.y=.035;
+    pivot.add(sleeve);
+
+    const cuff=fpsMesh(new THREE.CylinderGeometry(.072,.078,.075,10),cuffMat,1000);
+    cuff.position.y=-.125;
+    pivot.add(cuff);
+
+    const forearm=fpsMesh(new THREE.CylinderGeometry(.058,.070,.31,10),skinMat,1001);
+    forearm.position.y=-.31;
+    pivot.add(forearm);
+
+    const hand=fpsMesh(new THREE.SphereGeometry(.080,12,8),skinMat,1002);
+    hand.scale.set(1.02,.78,1.18);
+    hand.position.set(0,-.485,-.015);
+    pivot.add(hand);
+
+    fpsViewModel.add(pivot);
+    return pivot;
+  }
+
+  fpsLeftArmPivot=makeArm(-1);
+  fpsRightArmPivot=makeArm(1);
+
+  // Legs live in world space beneath the camera. Looking down therefore reveals
+  // the player's lower body naturally, while yaw follows the player's heading.
+  fpsBodyRig=new THREE.Group();
+  fpsBodyRig.name='FPS_PLAYER_BODY_V122';
+  fpsBodyRig.userData.ignoreFpsCollision=true;
+  fpsBodyRig.visible=false;
+  world.add(fpsBodyRig);
+
+  function makeLeg(side){
+    const hip=new THREE.Group();
+    hip.name=side<0?'FPS_LEFT_LEG_V122':'FPS_RIGHT_LEG_V122';
+    hip.userData.ignoreFpsCollision=true;
+    hip.position.set(side*.125,1.00,.015);
+
+    const thigh=fpsMesh(new THREE.BoxGeometry(.185,.48,.205),pantsMat);
+    thigh.position.y=-.245;
+    hip.add(thigh);
+
+    const knee=new THREE.Group();
+    knee.position.y=-.49;
+    hip.add(knee);
+
+    const shin=fpsMesh(new THREE.BoxGeometry(.165,.43,.175),pantsMat);
+    shin.position.y=-.215;
+    knee.add(shin);
+
+    const shoe=fpsMesh(new THREE.BoxGeometry(.19,.12,.36),shoeMat);
+    shoe.position.set(0,-.46,-.075);
+    knee.add(shoe);
+
+    fpsBodyRig.add(hip);
+    return {hip,knee};
+  }
+
+  const left=makeLeg(-1),right=makeLeg(1);
+  fpsLeftLegPivot=left.hip;fpsLeftKneePivot=left.knee;
+  fpsRightLegPivot=right.hip;fpsRightKneePivot=right.knee;
+}
+
+function setFpsRigVisible(visible){
+  buildFpsCharacterRig();
+  fpsViewModel.visible=visible;
+  fpsBodyRig.visible=visible;
+}
+
+function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
+  if(!fpsViewModel||!fpsBodyRig)return;
+
+  fpsRigTime+=dt;
+  const target=moving?1:0;
+  fpsLocomotionBlend+=(target-fpsLocomotionBlend)*Math.min(1,dt*11);
+  if(moving)fpsLocomotionPhase+=dt*(running?11.2:7.4);
+
+  const phase=fpsLocomotionPhase;
+  const stride=Math.sin(phase);
+  const strideOpp=Math.sin(phase+Math.PI);
+  const blend=fpsLocomotionBlend;
+  const runMul=running?1.32:1;
+  const airborne=!fpsGrounded;
+
+  // Camera-space hand/forearm animation.
+  fpsViewModel.position.copy(camera.position);
+  fpsViewModel.quaternion.copy(camera.quaternion);
+  const idleBreath=Math.sin(fpsRigTime*1.7)*.006;
+  const bob=moving?Math.abs(Math.sin(phase*2))*.018*blend:0;
+  fpsViewModel.translateY(-bob+idleBreath);
+
+  const armSwing=.16*runMul*blend;
+  fpsLeftArmPivot.rotation.x=-.64+strideOpp*armSwing+(airborne?.11:0);
+  fpsRightArmPivot.rotation.x=-.64+stride*armSwing+(airborne?.11:0);
+  fpsLeftArmPivot.rotation.z=-.10+Math.sin(phase*.5)*.018*blend;
+  fpsRightArmPivot.rotation.z=.10-Math.sin(phase*.5)*.018*blend;
+
+  // World-space lower body follows horizontal player position and yaw only.
+  fpsBodyRig.position.set(
+    camera.position.x,
+    camera.position.y-FPS_EYE_HEIGHT+.02,
+    camera.position.z
+  );
+  fpsBodyRig.rotation.set(0,fpsYaw,0);
+
+  const legSwing=.58*runMul*blend;
+  if(airborne){
+    const rise=THREE.MathUtils.clamp(fpsVerticalVelocity/FPS_JUMP_SPEED,-1,1);
+    fpsLeftLegPivot.rotation.x=-.20-rise*.08;
+    fpsRightLegPivot.rotation.x=.12-rise*.06;
+    fpsLeftKneePivot.rotation.x=.42;
+    fpsRightKneePivot.rotation.x=.28;
+  }else{
+    fpsLeftLegPivot.rotation.x=stride*legSwing;
+    fpsRightLegPivot.rotation.x=strideOpp*legSwing;
+    fpsLeftKneePivot.rotation.x=Math.max(0,-stride)*.42*blend*runMul;
+    fpsRightKneePivot.rotation.x=Math.max(0,-strideOpp)*.42*blend*runMul;
+  }
+}
+
 function fpsSetLookFromCamera(){
   camera.rotation.order='YXZ';
   fpsPitch=camera.rotation.x;
@@ -1686,15 +1866,58 @@ function fpsSetLookFromCamera(){
 }
 
 function fpsSpawn(){
-  // Start beside the source-locked central spine near the lower entrance.
+  // V122: source-lock spawn to the FRONT gate of CAD road 77505.
+  // Spawn stays on the road centerline ~8 m before the gate and faces inward.
+  const placement=
+    v93GateResult?.frontPlacement ||
+    window.__DALOC_DUAL_GATES_V93?.frontPlacement ||
+    null;
+
+  if(
+    placement?.centerPx?.length>=2 &&
+    placement?.inwardPx?.length>=2
+  ){
+    let ux=placement.inwardPx[0],uy=placement.inwardPx[1];
+    const ul=Math.hypot(ux,uy)||1;ux/=ul;uy/=ul;
+
+    const beforeGatePx=10.5;
+    const lookInsidePx=34;
+    const spawnPx=[
+      placement.centerPx[0]-ux*beforeGatePx,
+      placement.centerPx[1]-uy*beforeGatePx
+    ];
+    const lookPx=[
+      placement.centerPx[0]+ux*lookInsidePx,
+      placement.centerPx[1]+uy*lookInsidePx
+    ];
+    const pw=mapPx(spawnPx[0],spawnPx[1]);
+    const lw=mapPx(lookPx[0],lookPx[1]);
+    const position=new THREE.Vector3(pw.x,FPS_EYE_HEIGHT,pw.z);
+    const look=new THREE.Vector3(lw.x,FPS_EYE_HEIGHT,lw.z);
+    const forward=look.clone().sub(position).setY(0).normalize();
+
+    return {
+      position,look,forward,
+      source:'front-gate-v93-centerline',
+      masterplanPx:{x:spawnPx[0],y:spawnPx[1]},
+      gateCenterPx:{x:placement.centerPx[0],y:placement.centerPx[1]}
+    };
+  }
+
+  // Early-click fallback: remain on the known entrance centerline. Never add the
+  // old +10.8 m right offset that put the player on the road edge.
   const a0=mapPx(358.6,1500.2),b0=mapPx(435.06,1395.044);
   const a=new THREE.Vector3(a0.x,FPS_EYE_HEIGHT,a0.z);
   const b=new THREE.Vector3(b0.x,FPS_EYE_HEIGHT,b0.z);
   const travel=b.clone().sub(a).setY(0).normalize();
-  const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
-  const p=a.clone().lerp(b,.34).addScaledVector(right,10.8);
+  const p=a.clone().lerp(b,.34);
   p.y=FPS_EYE_HEIGHT;
-  return {position:p,look:p.clone().addScaledVector(travel,24)};
+  return {
+    position:p,
+    look:p.clone().addScaledVector(travel,28),
+    forward:travel.clone(),
+    source:'entrance-centerline-fallback'
+  };
 }
 
 function fpsObjectVisible(object){
@@ -1704,6 +1927,7 @@ function fpsObjectVisible(object){
 
 function fpsIsDynamicObject(object){
   for(let o=object;o;o=o.parent){
+    if(o.userData?.ignoreFpsCollision)return true;
     const n=o.name||'';
     if(
       /^(V103_CAR_|V103_CARGO_TRUCK_|V103_CONTAINER_TRUCK_|V103_SUPERCAR_|V91_MOTORCYCLE_|V91_RIDER_)/.test(n) ||
@@ -1916,18 +2140,23 @@ function fpsPositionBlocked(position){
 
 function fpsFindSafeSpawn(spawn){
   const base=spawn.position.clone();
-  const forward=spawn.look.clone().sub(spawn.position).setY(0).normalize();
+  const forward=(spawn.forward?.clone()||spawn.look.clone().sub(spawn.position))
+    .setY(0).normalize();
   const right=new THREE.Vector3(forward.z,0,-forward.x).normalize();
+  const gateLocked=spawn.source==='front-gate-v93-centerline';
 
-  // Test the authored spawn first, then progressively search a compact roadside
-  // fan around it. This prevents a gate pylon/tree/prop from trapping the player
-  // on frame 1 while preserving the intended entrance starting area.
+  // For the front gate, stay on/very near the CENTERLINE. The old wide side fan
+  // could relocate a blocked spawn 10-24 m sideways onto the road verge.
   const candidates=[base.clone()];
-  const sideOffsets=[4,7,10,14,18,24];
-  const forwardOffsets=[4,8,14,22,32];
-  for(const f of [0,...forwardOffsets,...forwardOffsets.map(v=>-v)]){
-    for(const side of [0,...sideOffsets,...sideOffsets.map(v=>-v)]){
-      if(f===0&&side===0)continue;
+  const longitudinal=gateLocked
+    ?[-2,-4,-6,-8,2,4,6,8]
+    :[4,-4,8,-8,14,-14,22,-22];
+  const lateral=gateLocked
+    ?[0,.65,-.65,1.25,-1.25]
+    :[0,2,-2,4,-4];
+
+  for(const f of longitudinal){
+    for(const side of lateral){
       candidates.push(
         base.clone()
           .addScaledVector(forward,f)
@@ -1941,28 +2170,39 @@ function fpsFindSafeSpawn(spawn){
     if(!fpsPositionBlocked(candidate)){
       return {
         position:candidate,
-        look:candidate.clone().addScaledVector(forward,24),
+        look:candidate.clone().addScaledVector(forward,28),
+        forward:forward.clone(),
+        source:spawn.source,
         relocated:candidate.distanceToSquared(base)>.01
       };
     }
   }
 
-  // Absolute fallback: move back toward the road center direction in larger steps.
-  for(let d=28;d<=80;d+=4){
-    const candidate=base.clone().addScaledVector(right,-d);
-    candidate.y=FPS_EYE_HEIGHT;
-    if(!fpsPositionBlocked(candidate)){
-      return {
-        position:candidate,
-        look:candidate.clone().addScaledVector(forward,24),
-        relocated:true
-      };
+  // Final gate-safe fallback only walks BACKWARD along the entrance centerline.
+  if(gateLocked){
+    for(let d=10;d<=36;d+=2){
+      const candidate=base.clone().addScaledVector(forward,-d);
+      candidate.y=FPS_EYE_HEIGHT;
+      if(!fpsPositionBlocked(candidate)){
+        return {
+          position:candidate,
+          look:candidate.clone().addScaledVector(forward,30),
+          forward:forward.clone(),
+          source:spawn.source,
+          relocated:true
+        };
+      }
     }
   }
 
-  // Never prevent FPS from opening. If the imported collision map is pathological,
-  // use the original point but expose diagnostics instead of silently freezing WASD.
-  return {position:base,look:spawn.look.clone(),relocated:false,unresolved:true};
+  return {
+    position:base,
+    look:spawn.look.clone(),
+    forward:forward.clone(),
+    source:spawn.source,
+    relocated:false,
+    unresolved:true
+  };
 }
 
 function fpsMoveWithCollision(delta){
@@ -2061,6 +2301,9 @@ function enterFirstPerson(){
   fpsMode=true;
   fpsKeys.clear();
   fpsVerticalVelocity=0;
+  fpsLocomotionPhase=0;
+  fpsLocomotionBlend=0;
+  fpsRigTime=0;
   fpsGrounded=true;
   controls.enabled=false;
   document.body.classList.add('fps-mode');
@@ -2076,6 +2319,7 @@ function enterFirstPerson(){
 
   const authoredSpawn=fpsSpawn();
   const spawn=fpsFindSafeSpawn(authoredSpawn);
+  fpsLastSpawnSource=spawn.source||authoredSpawn.source||'unknown';
   camera.position.copy(spawn.position);
   fpsLastSafePosition.copy(spawn.position);
   fpsHasSafePosition=!fpsPositionBlocked(spawn.position);
@@ -2083,16 +2327,18 @@ function enterFirstPerson(){
   camera.updateProjectionMatrix();
   camera.lookAt(spawn.look);
   if(spawn.relocated){
-    console.info('[DaLoc] V118 FPS spawn relocated away from collider',{
+    console.info('[DaLoc] V122 FPS spawn relocated near front gate',{
       from:{x:authoredSpawn.position.x,z:authoredSpawn.position.z},
       to:{x:spawn.position.x,z:spawn.position.z}
     });
   }
   if(spawn.unresolved){
-    console.warn('[DaLoc] V118 FPS safe spawn unresolved; collision diagnostics available');
+    console.warn('[DaLoc] V122 FPS safe front-gate spawn unresolved; collision diagnostics available');
   }
   fpsSetLookFromCamera();
   controls.target.copy(spawn.look);
+  setFpsRigVisible(true);
+  updateFpsCharacterRig(0,{moving:false,running:false});
   renderer.domElement.requestPointerLock?.();
 }
 
@@ -2103,6 +2349,9 @@ function exitFirstPerson(restore=true){
   fpsVerticalVelocity=0;
   fpsGrounded=true;
   fpsHasSafePosition=false;
+  fpsLocomotionBlend=0;
+  if(fpsViewModel)fpsViewModel.visible=false;
+  if(fpsBodyRig)fpsBodyRig.visible=false;
   document.body.classList.remove('fps-mode');
   fpsButton?.classList.remove('active');
   if(fpsButton)fpsButton.textContent='FPS Walk';
@@ -2215,12 +2464,16 @@ function updateFirstPerson(dt){
   if(fpsKeys.has('KeyS'))move.sub(forward);
   if(fpsKeys.has('KeyD'))move.add(right);
   if(fpsKeys.has('KeyA'))move.sub(right);
-  if(move.lengthSq()>0){
+
+  const moving=move.lengthSq()>0;
+  const running=moving&&(fpsKeys.has('ShiftLeft')||fpsKeys.has('ShiftRight'));
+  if(moving){
     move.normalize();
-    const running=fpsKeys.has('ShiftLeft')||fpsKeys.has('ShiftRight');
     move.multiplyScalar((running?FPS_RUN_SPEED:FPS_WALK_SPEED)*dt);
     fpsMoveWithCollision(move);
   }
+
+  updateFpsCharacterRig(dt,{moving,running});
 
   // Keep shadow/light tracking compatible with the existing lightweight renderer.
   const lookDir=new THREE.Vector3();
@@ -2228,8 +2481,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V118={
-  version:118,
+window.__DALOC_FPS_V122={
+  version:122,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -2243,6 +2496,9 @@ window.__DALOC_FPS_V118={
     z:Number(camera.position.z.toFixed(2))
   };},
   get currentBlocked(){return fpsPositionBlocked(camera.position);},
+  get spawnSource(){return fpsLastSpawnSource;},
+  get bodyRigVisible(){return !!fpsBodyRig?.visible;},
+  get locomotionBlend(){return Number(fpsLocomotionBlend.toFixed(3));},
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get renderInfo(){return {
