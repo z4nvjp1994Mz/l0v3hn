@@ -26,7 +26,7 @@ body.fps-mode #fpsInteractPrompt.active{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V139.3 FACTORY ACCESS SAFE</small>
+  <small>GitHub → Netlify · BUILD V139.4 FPS FREE ROAM</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1523,7 +1523,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V139.3 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V139.4 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -2214,6 +2214,36 @@ function fpsIsWalkableSurface(object){
   return false;
 }
 
+function fpsIsFreeRoamDecoration(object){
+  for(let o=object;o;o=o.parent){
+    if(o.userData?.fpsNonSolid===true||o.userData?.walkable===true)return true;
+    const n=String(o.name||'').toUpperCase();
+    if(
+      n==='LANDSCAPE_V95' ||
+      n==='V95_POND_LANDSCAPE' ||
+      n==='V95_DENSE_PARKS' ||
+      n==='SEMANTIC2D3D' ||
+      n==='CIRCULATION_V53' ||
+      n==='FACTORY_ACCESS_V99' ||
+      n==='V54_ROAD_FURNITURE' ||
+      n==='V54_LANDSCAPE_DETAIL' ||
+      /(?:^|_)(?:PARK|GARDEN|GRASS|SHRUB|FLOWER|HEDGE|PLANT|PLANTER|PROMENADE|BENCH|LAMP|ROCK|LANDSCAPE|ROAD_PAINT|ROAD_DASH|EDGE_LINE|LANE|CURB|SIDEWALK|GREENBELT|ACCESS|DRIVEWAY|APRON|STEP|PAD)(?:_|$)/i.test(n)
+    )return true;
+  }
+  return false;
+}
+
+function fpsIsHardStaticObject(object){
+  for(let o=object;o;o=o.parent){
+    if(o.userData?.fpsHardCollision===true||o.userData?.collider===true)return true;
+    const n=String(o.name||'');
+    if(
+      /(?:FACTORY|WAREHOUSE|AUX_|HOUSE|BUILDING|GATE|PYLON|WALL|FENCE|GUARD|SECURITY|SUBSTATION|UTILITY_BUILDING)/i.test(n)
+    )return true;
+  }
+  return false;
+}
+
 function fpsGridKey(ix,iz){return ix+','+iz;}
 
 function refreshFpsStaticColliders(){
@@ -2380,6 +2410,11 @@ function refreshFpsStaticColliders(){
     if(!fpsObjectVisible(object)||fpsIsDynamicObject(object))return;
     if(fpsIsWalkableSurface(object))return;
 
+    // V139.4 free-roam policy: landscaping and ground dressing never become
+    // movement blockers. Visible low details remain rendered, but FPS movement
+    // is governed only by intentional hard structures below.
+    if(fpsIsFreeRoamDecoration(object))return;
+
     // V138.5: never collide against the full branch/crown envelope. That created
     // invisible walls under roadside canopies. Normal trees get a compact trunk
     // collider; the instanced V121 boulevard gets one trunk box per instance.
@@ -2411,6 +2446,11 @@ function refreshFpsStaticColliders(){
       }
       if(!fpsInsideFactoryInterior(object))return;
     }
+
+    // Outside factories and explicit tree handling, only intentionally hard
+    // structures receive static collision. This removes the old "everything is
+    // a collider" behavior that caused invisible walls in gardens and yards.
+    if(!fpsIsHardStaticObject(object))return;
 
     if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();
     const geometryBox=object.geometry.boundingBox;
@@ -2452,7 +2492,7 @@ function refreshFpsStaticColliders(){
   }
 
   fpsColliderRevision++;
-  console.info('[DaLoc] V139.1 FPS collision grid: verified road-safe corridor + factory shell doors + trunk-only trees',{
+  console.info('[DaLoc] V139.4 FPS collision grid: hard structures only + free-roam landscape',{
     colliders:fpsStaticColliders.length,
     cells:fpsColliderGrid.size,
     instancedBatches:instancedBatches.size,
@@ -3209,6 +3249,7 @@ const fpsApiV139={
   get factoryAccessSafeInfo(){return fpsFactoryAccessSafeInfo(camera.position);},
   get onFactoryAccess(){return fpsOnFactoryAccess(camera.position);},
   get onVerifiedGroundRoute(){return fpsOnVerifiedGroundRoute(camera.position);},
+  get groundCollisionPolicy(){return 'hard-structures-only-free-roam';},
   get currentPosition(){return {
     x:Number(camera.position.x.toFixed(2)),
     y:Number(camera.position.y.toFixed(2)),
