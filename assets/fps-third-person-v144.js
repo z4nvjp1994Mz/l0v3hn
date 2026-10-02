@@ -264,53 +264,91 @@ export function createThirdPersonPlayerV144(){
     gatlingSpin+=(firing&&gatlingActive?18:3)*dt;
     gatlingCluster.rotation.z=gatlingSpin;
 
-    // V154 melee animation: normal slash sweeps right-to-left; strong slash
-    // winds overhead and chops downward with a longer follow-through.
+    // V155: anatomically clearer axe motion.
+    // Normal = upper-right -> lower-left diagonal cut.
+    // Strong = true overhead raise -> vertical downward chop.
     const mp=THREE.MathUtils.clamp(meleeProgress||0,0,1);
+    const easeOut=t=>1-Math.pow(1-THREE.MathUtils.clamp(t,0,1),3);
+    const easeIn=t=>Math.pow(THREE.MathUtils.clamp(t,0,1),3);
+    const smooth=t=>{
+      t=THREE.MathUtils.clamp(t,0,1);
+      return t*t*(3-2*t);
+    };
+
     axe.position.set(.12,1.16-crouchY,-.22);
     axe.rotation.set(.10,-.10,-.28);
+    torso.rotation.set(0,0,0);
+    chest.rotation.set(0,0,0);
 
     if(axeActive&&mp>0){
       if(meleeType==='strong'){
-        let rx=.10,rz=-.28,ry=-.10;
-        if(mp<.28){
-          const t=mp/.28;
-          rx=THREE.MathUtils.lerp(.10,-1.18,t);
-          rz=THREE.MathUtils.lerp(-.28,-.06,t);
-          ry=THREE.MathUtils.lerp(-.10,.08,t);
-        }else if(mp<.68){
-          const t=(mp-.28)/.40;
-          rx=THREE.MathUtils.lerp(-1.18,.82,t);
-          rz=THREE.MathUtils.lerp(-.06,-.40,t);
-          ry=THREE.MathUtils.lerp(.08,-.10,t);
+        if(mp<.34){
+          const t=easeOut(mp/.34);
+          axe.rotation.x=THREE.MathUtils.lerp(.10,1.30,t);
+          axe.rotation.y=THREE.MathUtils.lerp(-.10,-.02,t);
+          axe.rotation.z=THREE.MathUtils.lerp(-.28,.02,t);
+          axe.position.y=THREE.MathUtils.lerp(1.16-crouchY,1.48-crouchY,t);
+          axe.position.z=THREE.MathUtils.lerp(-.22,-.08,t);
+          torso.rotation.x=THREE.MathUtils.lerp(0,-.10,t);
+          leftArm.rotation.x-=THREE.MathUtils.lerp(0,.72,t);
+          rightArm.rotation.x-=THREE.MathUtils.lerp(0,.82,t);
+        }else if(mp<.72){
+          const t=easeIn((mp-.34)/.38);
+          axe.rotation.x=THREE.MathUtils.lerp(1.30,-1.08,t);
+          axe.rotation.y=THREE.MathUtils.lerp(-.02,.03,t);
+          axe.rotation.z=THREE.MathUtils.lerp(.02,-.18,t);
+          axe.position.y=THREE.MathUtils.lerp(1.48-crouchY,.91-crouchY,t);
+          axe.position.z=THREE.MathUtils.lerp(-.08,-.34,t);
+          torso.rotation.x=THREE.MathUtils.lerp(-.10,.15,t);
+          leftArm.rotation.x-=THREE.MathUtils.lerp(.72,.98,t);
+          rightArm.rotation.x-=THREE.MathUtils.lerp(.82,1.08,t);
         }else{
-          const t=(mp-.68)/.32;
-          rx=THREE.MathUtils.lerp(.82,.10,t);
-          rz=THREE.MathUtils.lerp(-.40,-.28,t);
+          const t=smooth((mp-.72)/.28);
+          axe.rotation.x=THREE.MathUtils.lerp(-1.08,.10,t);
+          axe.rotation.y=THREE.MathUtils.lerp(.03,-.10,t);
+          axe.rotation.z=THREE.MathUtils.lerp(-.18,-.28,t);
+          axe.position.y=THREE.MathUtils.lerp(.91-crouchY,1.16-crouchY,t);
+          axe.position.z=THREE.MathUtils.lerp(-.34,-.22,t);
+          torso.rotation.x=THREE.MathUtils.lerp(.15,0,t);
+          leftArm.rotation.x-=THREE.MathUtils.lerp(.98,0,t);
+          rightArm.rotation.x-=THREE.MathUtils.lerp(1.08,0,t);
         }
-        axe.rotation.set(rx,ry,rz);
       }else{
-        let ry=-.10,rz=-.28;
-        if(mp<.22){
-          const t=mp/.22;
-          ry=THREE.MathUtils.lerp(-.10,-.82,t);
-          rz=THREE.MathUtils.lerp(-.28,-.42,t);
-        }else if(mp<.62){
-          const t=(mp-.22)/.40;
-          ry=THREE.MathUtils.lerp(-.82,.92,t);
-          rz=THREE.MathUtils.lerp(-.42,-.16,t);
+        if(mp<.26){
+          const t=easeOut(mp/.26);
+          axe.rotation.x=THREE.MathUtils.lerp(.10,.72,t);
+          axe.rotation.y=THREE.MathUtils.lerp(-.10,-.66,t);
+          axe.rotation.z=THREE.MathUtils.lerp(-.28,-.64,t);
+          axe.position.x=THREE.MathUtils.lerp(.12,.34,t);
+          axe.position.y=THREE.MathUtils.lerp(1.16-crouchY,1.36-crouchY,t);
+          torso.rotation.y=THREE.MathUtils.lerp(0,-.18,t);
+          chest.rotation.z=THREE.MathUtils.lerp(0,-.06,t);
+          leftArm.rotation.x-=THREE.MathUtils.lerp(0,.26,t);
+          rightArm.rotation.x-=THREE.MathUtils.lerp(0,.48,t);
+        }else if(mp<.66){
+          const t=easeIn((mp-.26)/.40);
+          axe.rotation.x=THREE.MathUtils.lerp(.72,-.58,t);
+          axe.rotation.y=THREE.MathUtils.lerp(-.66,.68,t);
+          axe.rotation.z=THREE.MathUtils.lerp(-.64,.28,t);
+          axe.position.x=THREE.MathUtils.lerp(.34,-.22,t);
+          axe.position.y=THREE.MathUtils.lerp(1.36-crouchY,.91-crouchY,t);
+          torso.rotation.y=THREE.MathUtils.lerp(-.18,.24,t);
+          chest.rotation.z=THREE.MathUtils.lerp(-.06,.08,t);
+          leftArm.rotation.x-=THREE.MathUtils.lerp(.26,.44,t);
+          rightArm.rotation.x-=THREE.MathUtils.lerp(.48,.68,t);
         }else{
-          const t=(mp-.62)/.38;
-          ry=THREE.MathUtils.lerp(.92,-.10,t);
-          rz=THREE.MathUtils.lerp(-.16,-.28,t);
+          const t=smooth((mp-.66)/.34);
+          axe.rotation.x=THREE.MathUtils.lerp(-.58,.10,t);
+          axe.rotation.y=THREE.MathUtils.lerp(.68,-.10,t);
+          axe.rotation.z=THREE.MathUtils.lerp(.28,-.28,t);
+          axe.position.x=THREE.MathUtils.lerp(-.22,.12,t);
+          axe.position.y=THREE.MathUtils.lerp(.91-crouchY,1.16-crouchY,t);
+          torso.rotation.y=THREE.MathUtils.lerp(.24,0,t);
+          chest.rotation.z=THREE.MathUtils.lerp(.08,0,t);
+          leftArm.rotation.x-=THREE.MathUtils.lerp(.44,0,t);
+          rightArm.rotation.x-=THREE.MathUtils.lerp(.68,0,t);
         }
-        axe.rotation.y=ry;
-        axe.rotation.z=rz;
       }
-
-      const armDrive=Math.sin(Math.PI*mp);
-      leftArm.rotation.x-=armDrive*(meleeType==='strong'?.46:.26);
-      rightArm.rotation.x-=armDrive*(meleeType==='strong'?.62:.38);
     }
 
     const deathTarget=alive?0:-Math.PI*.48;
