@@ -407,8 +407,12 @@ function makeAxe(materials){
   axe.add(grip);
 
   const headRoot=new THREE.Group();
-  headRoot.name='FPS_AXE_HEAD_ROOT_V154';
+  headRoot.name='FPS_AXE_HEAD_ROOT_V162';
   headRoot.position.set(.02,.015,-.80);
+
+  // V162: rotate ONLY the axe head assembly relative to the handle.
+  // The handle/grip/IK hands keep their existing lower-right pose.
+  headRoot.rotation.z=.28;
   axe.add(headRoot);
 
   const headBody=mesh(
@@ -670,7 +674,7 @@ export function createThickerFpsArmsV138(){
     d.hand.quaternion.copy(axeQ).multiply(d.baseHandQ);
   }
 
-  root.userData.source='v159-sniper+gatling+right-biased-deep-axe-ik';
+  root.userData.source='v162-sniper+gatling+axe-head-perpendicular-ik';
   root.userData.weapon='sniper';
   root.userData.sniper=sniper;
   root.userData.gatling=gatling;
