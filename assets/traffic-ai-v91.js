@@ -14,7 +14,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   ]);
   if(!response.ok)throw new Error('V91 traffic routes HTTP '+response.status);
   if(!cadResponse.ok)throw new Error('V91 CAD routes HTTP '+cadResponse.status);
-  if(!cadJunctionResponse.ok)throw new Error('V114 CAD junction source HTTP '+cadJunctionResponse.status);
+  if(!cadJunctionResponse.ok)throw new Error('V115 CAD junction source HTTP '+cadJunctionResponse.status);
   const data=await response.json();
   const cadData=await cadResponse.json();
   const cadJunctionData=await cadJunctionResponse.json();
@@ -22,13 +22,13 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     data.frameSignature!==frameSignature||
     cadData.frameSignature!==frameSignature||
     cadJunctionData.frameSignature!==frameSignature
-  )throw new Error('V114 traffic coordinate frame mismatch');
+  )throw new Error('V115 traffic coordinate frame mismatch');
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
 
   const root=new THREE.Group();
-  root.name='AI_TRAFFIC_V114';
+  root.name='AI_TRAFFIC_V115';
   root.userData={
-    version:114,
+    version:115,
     cars:4,cargoTrucks:10,containerTrucks:6,motorcycles:24,supercars:6,
     factoryLogistics:true
   };
@@ -40,7 +40,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     Math.hypot(pxX.x-pxO.x,pxX.z-pxO.z)+
     Math.hypot(pxY.x-pxO.x,pxY.z-pxO.z)
   )*.5;
-  // V114 authoritative visible-road occupancy mask.
+  // V115 authoritative visible-road occupancy mask.
   // This reproduces the SAME geometry used by cad-source-v72.js:
   //   - only the surfaced TIM____NG handles
   //   - road widths from DXF
@@ -235,6 +235,123 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       if(pointInsideCarriageway(mid))a=mid;else b=mid;
     }
     return b;
+  }
+
+  // V115: signal bases must sit on an ACTUAL rendered roadside support surface,
+  // not merely somewhere outside asphalt. These polygons use the exact same
+  // corridorWarpV91 + mapPx transform as V53_CIRCULATION's visible meshes.
+  function worldLayerPolys(layerName){
+    return (data.layers?.[layerName]||[]).map(poly=>({
+      outer:worldRingFromPx(poly.outer),
+      holes:(poly.holes||[]).map(worldRingFromPx)
+    })).filter(poly=>poly.outer.length>=3);
+  }
+  const signalSupportWorldPolys={
+    sidewalk:worldLayerPolys('sidewalk'),
+    greenbelt:worldLayerPolys('greenbelt')
+  };
+
+  function pointInsideWorldPolys(point,polys){
+    return polys.some(poly=>{
+      if(!pointInRingXZ(point,poly.outer))return false;
+      return !poly.holes.some(hole=>pointInRingXZ(point,hole));
+    });
+  }
+
+  function signalSupportSurfaceAt(point){
+    if(pointInsideWorldPolys(point,signalSupportWorldPolys.sidewalk))return 'sidewalk';
+    if(pointInsideWorldPolys(point,signalSupportWorldPolys.greenbelt))return 'greenbelt';
+    return null;
+  }
+
+  function signalSupportFootprint(point,radius=.46){
+    const centerSurface=signalSupportSurfaceAt(point);
+    if(!centerSurface)return {surface:null,coverage:0};
+    let hits=1;
+    const samples=9;
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4;
+      const q=new THREE.Vector3(
+        point.x+Math.cos(a)*radius,
+        point.y,
+        point.z+Math.sin(a)*radius
+      );
+      if(signalSupportSurfaceAt(q))hits++;
+    }
+    return {surface:centerSurface,coverage:hits/samples};
+  }
+
+  function findSignalSupportBase(roadEdge,right,travel){
+    let best=null;
+    const passes=[
+      {sideMax:11,upstreamMax:8,minCoverage:.67},
+      {sideMax:24,upstreamMax:16,minCoverage:.45}
+    ];
+
+    for(const pass of passes){
+      for(let side=.45;side<=pass.sideMax;side+=.35){
+        for(let upstream=.35;upstream<=pass.upstreamMax;upstream+=.35){
+          const q=roadEdge.clone()
+            .addScaledVector(right,side)
+            .addScaledVector(travel,-upstream);
+
+          // The whole concrete foot must be outside the exact visible CAD asphalt.
+          if(!cadSignalBaseClear(q,.62))continue;
+
+          const support=signalSupportFootprint(q,.46);
+          if(!support.surface||support.coverage<pass.minCoverage)continue;
+
+          // Prefer a real sidewalk corner; green verge is the second valid choice.
+          // Within the same support type, prefer the closest practical roadside point.
+          const score=
+            (support.surface==='sidewalk'?0:1.25)+
+            side*.065+upstream*.045-
+            support.coverage*.80;
+
+          if(!best||score<best.score){
+            best={
+              position:q,
+              surface:support.surface,
+              coverage:support.coverage,
+              sideDistance:side,
+              upstreamDistance:upstream,
+              score
+            };
+          }
+        }
+      }
+      if(best)break;
+    }
+
+    if(best)return best;
+
+    // Last-resort safety path: never put the base back on asphalt even if an
+    // imported support polygon is missing. Diagnostics will expose this fallback.
+    let q=roadEdge.clone();
+    let sideDistance=0;
+    for(let i=0;i<80;i++){
+      q.addScaledVector(right,.35);
+      sideDistance+=.35;
+      if(cadSignalBaseClear(q,.62)){
+        const support=signalSupportFootprint(q,.46);
+        return {
+          position:q,
+          surface:support.surface||'roadside-clearance-fallback',
+          coverage:support.coverage,
+          sideDistance,
+          upstreamDistance:0,
+          score:Infinity
+        };
+      }
+    }
+    return {
+      position:roadEdge.clone().addScaledVector(right,30),
+      surface:'unresolved-fallback',
+      coverage:0,
+      sideDistance:30,
+      upstreamDistance:0,
+      score:Infinity
+    };
   }
 
   // V91: derive real conflict points from the three source-locked route polylines.
@@ -783,7 +900,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   // The two junctions are offset so both crossings do not switch simultaneously.
   // -----------------------------------------------------------------------
   const signalGroup=new THREE.Group();
-  signalGroup.name='TRAFFIC_SIGNALS_V114';
+  signalGroup.name='TRAFFIC_SIGNALS_V115';
   root.add(signalGroup);
 
   const signalJunctions=junctions.slice(0,2);
@@ -883,7 +1000,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     const travel=sample.tangent.clone().multiplyScalar(dir).normalize();
     const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
 
-    // V114: place the pole against the EXACT visible CAD road surface.
+    // V115: place the pole on an actual rendered sidewalk/green verge while staying clear of CAD asphalt.
     // The previous V113 scan used the derived circulation mask, while the user
     // is actually looking at CAD road meshes + RG_NUT junction polygons.
     const crossRouteId=junction.routes.find(id=>id!==route.id);
@@ -897,33 +1014,19 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     // Scan sideways until we leave the actual DXF road/junction surface.
     const roadEdge=findCadRightRoadEdge(stopCenter,right,halfRoad);
 
-    // Put the base 1.8 m beyond the CAD asphalt edge and 1.2 m upstream.
-    // Apply BOTH offsets before validating so the final move cannot re-enter road.
-    let polePos=roadEdge.clone()
-      .addScaledVector(right,1.80)
-      .addScaledVector(travel,-1.20);
-
-    let sidePush=0;
-    while(!cadSignalBaseClear(polePos,.62)&&sidePush<18){
-      polePos.addScaledVector(right,.40);
-      sidePush+=.40;
-    }
-
-    // Final belt-and-suspenders fallback: walk diagonally outward/upstream until
-    // the entire concrete base footprint is guaranteed clear of CAD asphalt.
-    let cornerPush=0;
-    const cornerOut=right.clone().sub(travel).normalize();
-    while(!cadSignalBaseClear(polePos,.62)&&cornerPush<18){
-      polePos.addScaledVector(cornerOut,.40);
-      cornerPush+=.40;
-    }
+    // V115: search the real rendered sidewalk/greenbelt polygons and accept a
+    // pole only when its complete base footprint is also clear of CAD asphalt.
+    const supportPlacement=findSignalSupportBase(roadEdge,right,travel);
+    const polePos=supportPlacement.position;
+    const sidePush=supportPlacement.sideDistance;
+    const cornerPush=supportPlacement.upstreamDistance;
 
     const poleSideOffset=polePos.clone().sub(stopCenter).dot(right);
     const heading=Math.atan2(travel.x,travel.z);
 
 
     const g=new THREE.Group();
-    g.name='V114_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
+    g.name='V115_SIGNAL_'+junction.id+'_'+route.id+'_'+(dir>0?'FWD':'REV');
     g.position.set(polePos.x,.02,polePos.z);
     g.rotation.y=heading;
 
@@ -965,7 +1068,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
     // Scale stop bar to the actual source-road width instead of a fixed 8.2 m.
     const stopLine=new THREE.Mesh(signalGeo.stopLine,lineMat);
-    stopLine.name='V114_STOP_LINE_'+junction.id+'_'+approachIndex;
+    stopLine.name='V115_STOP_LINE_'+junction.id+'_'+approachIndex;
     stopLine.position.set(stopCenter.x,.13,stopCenter.z);
     stopLine.rotation.y=heading;
     stopLine.scale.x=Math.max(6.5,(route.widthWorld||10)*.88);
@@ -975,9 +1078,15 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     return {
       junction,routeId:route.id,dir,group:g,red,yellow,green,lastColor:null,
       halfRoad,crossHalf,poleSideOffset,sidePush,cornerPush,
+      stopCenter:{x:stopCenter.x,z:stopCenter.z},
+      pole:{x:polePos.x,z:polePos.z},
       roadEdge:{x:roadEdge.x,z:roadEdge.z},
+      supportSurface:supportPlacement.surface,
+      supportCoverage:Number((supportPlacement.coverage||0).toFixed(3)),
+      distanceFromRoadEdge:Number(polePos.distanceTo(roadEdge).toFixed(3)),
       baseOutsideCarriageway:signalBaseClear(polePos,.58),
-      baseOutsideCadSurface:cadSignalBaseClear(polePos,.62)
+      baseOutsideCadSurface:cadSignalBaseClear(polePos,.62),
+      baseOnSidewalkOrVerge:supportPlacement.surface==='sidewalk'||supportPlacement.surface==='greenbelt'
     };
   }
 
@@ -1014,16 +1123,42 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     allRedSeconds:SIGNAL_TIMING.allRed,
     curbsidePlacement:true,
     polygonValidatedPlacement:true,
-    placementMode:'authoritative CAD surface + RG_NUT edge scan',
+    placementMode:'V115 rendered sidewalk/greenbelt search + authoritative CAD/RG_NUT clearance',
     carriagewayPolygonCount:carriagewayWorldPolys.length,
     cadRoadCapsuleCount:cadRoadCapsules.length,
     cadJunctionPolygonCount:cadJunctionWorldPolys.length,
+    sidewalkPolygonCount:signalSupportWorldPolys.sidewalk.length,
+    greenbeltPolygonCount:signalSupportWorldPolys.greenbelt.length,
     basesOutsideCarriageway:signalHeads.every(h=>h.baseOutsideCarriageway),
     basesOutsideCadSurface:signalHeads.every(h=>h.baseOutsideCadSurface),
+    basesOnSidewalkOrVerge:signalHeads.every(h=>h.baseOnSidewalkOrVerge),
+    supportSurfaces:Object.fromEntries(
+      ['sidewalk','greenbelt','roadside-clearance-fallback','unresolved-fallback']
+        .map(name=>[name,signalHeads.filter(h=>h.supportSurface===name).length])
+    ),
     maxSidePush:Number(Math.max(0,...signalHeads.map(h=>h.sidePush||0)).toFixed(2)),
     maxCornerPush:Number(Math.max(0,...signalHeads.map(h=>h.cornerPush||0)).toFixed(2)),
     sourceRoadWidths:Object.fromEntries(routes.map(r=>[r.id,Number(r.widthWorld.toFixed(2))]))
   };
+
+  function getSignalPlacementDiagnostics(){
+    return signalHeads.map((h,index)=>({
+      index,
+      junction:h.junction.id,
+      route:h.routeId,
+      dir:h.dir,
+      stopCenter:h.stopCenter,
+      roadEdge:h.roadEdge,
+      pole:h.pole,
+      distanceFromRoadEdge:h.distanceFromRoadEdge,
+      supportSurface:h.supportSurface,
+      supportCoverage:h.supportCoverage,
+      baseOutsideCadSurface:h.baseOutsideCadSurface,
+      baseOutsideCarriageway:h.baseOutsideCarriageway,
+      baseOnSidewalkOrVerge:h.baseOnSidewalkOrVerge,
+      signalColor:h.lastColor
+    }));
+  }
 
   function updateTrafficSignals(){
     for(const junction of signalJunctions){
@@ -1635,8 +1770,9 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   counts.total=Object.values(counts).reduce((a,b)=>a+b,0);
 
   window.__DALOC_TRAFFIC_V91={
-    ready:true,version:114,group:root,agents,counts,junctions,
+    ready:true,version:115,group:root,agents,counts,junctions,
     serviceTargets,serviceStats,gridlockStats,trafficLightStats,signalGroup,
+    getSignalPlacementDiagnostics,
     getJunctionDiagnostics:()=>junctions.map(j=>({
       id:j.id,
       phase:j.signal?.phase||'reservation',
@@ -1648,7 +1784,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     update,setEnabled,setLogisticsEnabled
   };
 
-  console.info('[DaLoc] V113 adaptive geometry-aware anti-gridlock signal traffic installed',{
+  console.info('[DaLoc] V115 support-surface signal placement + adaptive anti-gridlock traffic installed',{
     ...counts,
     trafficLights:trafficLightStats,
     serviceAgents:serviceAgentCount,
@@ -1660,7 +1796,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   });
 
   return {
-    ready:true,version:113,group:root,counts,junctions,signalGroup,trafficLightStats,
+    ready:true,version:115,group:root,counts,junctions,signalGroup,trafficLightStats,
     carCount:counts.cars,cargoTruckCount:counts.cargoTrucks,
     containerTruckCount:counts.containerTrucks,motorcycleCount:counts.motorcycles,
     supercarCount:counts.supercars,totalCount:counts.total,
@@ -1668,6 +1804,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     serviceTargetCount:serviceTargets.length,
     serviceFactoryCount:serviceStats.targetFactories,
     serviceStats,gridlockStats,
+    getSignalPlacementDiagnostics,
     getJunctionDiagnostics:()=>junctions.map(j=>({
       id:j.id,
       phase:j.signal?.phase||'reservation',
