@@ -1653,6 +1653,7 @@ installCirculationV53({
 const fpsButton=document.getElementById('fps');
 const fpsCrosshair=document.getElementById('fpsCrosshair');
 const fpsHud=document.getElementById('fpsHud');
+const fpsInteractPrompt=document.getElementById('fpsInteractPrompt');
 const fpsKeys=new Set();
 let fpsMode=false;
 let fpsYaw=0;
@@ -1693,6 +1694,7 @@ let fpsColliderGrid=new Map();
 let fpsColliderRevision=0;
 const fpsCollisionWorldPoint=new THREE.Vector3();
 const fpsCollisionLocalPoint=new THREE.Vector3();
+const fpsDoorLocalPoint=new THREE.Vector3();
 const fpsEmptyColliderIds=[];
 let fpsSavedPixelRatio=null;
 let fpsSavedShadowAutoUpdate=true;
@@ -2488,6 +2490,27 @@ function fpsStaticBlocked(position){
   return false;
 }
 
+function fpsDoorBlocked(position){
+  const doors=factoryInteriorsV84?.doors||[];
+  for(const d of doors){
+    if(!d?.building||d.openAmount>=.64)continue;
+    d.building.updateWorldMatrix(true,false);
+    fpsDoorLocalPoint.copy(position);
+    d.building.worldToLocal(fpsDoorLocalPoint);
+
+    if(fpsDoorLocalPoint.y<-.2||fpsDoorLocalPoint.y>d.height+.55)continue;
+    const dz=Math.abs(fpsDoorLocalPoint.z-(d.D/2+.15));
+    if(
+      Math.abs(fpsDoorLocalPoint.x)<=d.width*.5+FPS_PLAYER_RADIUS &&
+      dz<=.26+FPS_PLAYER_RADIUS
+    ){
+      fpsLastBlockObject='V139_FACTORY_DOOR_'+d.factoryIndex;
+      return true;
+    }
+  }
+  return false;
+}
+
 function fpsVehicleBlocked(position){
   const controller=trafficController?.agents?trafficController:window.__DALOC_TRAFFIC_V91;
   const agents=controller?.agents||[];
@@ -2521,6 +2544,10 @@ function fpsPositionBlocked(position){
   fpsLastBlockObject='none';
   if(fpsStaticBlocked(position)){
     fpsLastBlockReason='static';
+    return true;
+  }
+  if(fpsDoorBlocked(position)){
+    fpsLastBlockReason='door';
     return true;
   }
   if(fpsVehicleBlocked(position)){
