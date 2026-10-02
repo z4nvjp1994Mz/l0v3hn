@@ -1913,7 +1913,7 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
   // Elbows absorb most of the walking motion so hands stay stable near the
   // center, matching shooter-game weaponless/ready viewmodels.
   const elbowSwing=.045*runMul*blend;
-  fpsLeftElbowPivot.rotation.x=.30+stride*.elbowSwing;
+  fpsLeftElbowPivot.rotation.x=.30+stride*elbowSwing;
   fpsRightElbowPivot.rotation.x=.30+strideOpp*elbowSwing;
   fpsLeftElbowPivot.rotation.z=.075+Math.sin(phase)*.015*blend;
   fpsRightElbowPivot.rotation.z=-.075-Math.sin(phase)*.015*blend;
