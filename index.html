@@ -76,7 +76,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · V camera · WASD · Shift · Ctrl · RMB aim sniper · LMB bắn · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V147.1: actual two-storey solar buildings + internal stairs + unique factories</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · V camera · WASD · Shift · Ctrl · RMB aim sniper · LMB bắn · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V152: Sniper + Gatling · P2P Gatling damage 10 HP/shot</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -4600,54 +4600,125 @@ function fpsShowHitMarker(){
   fpsHitMarker?.classList.add('active');
 }
 
-function fpsFireSniper(){
-  if(!fpsMode||!fpsAlive||document.pointerLockElement!==renderer.domElement)return false;
+function fpsSpawnPlayerShot({
+  weapon='sniper',
+  damage=FPS_SNIPER_DAMAGE,
+  interval=FPS_SNIPER_FIRE_INTERVAL,
+  speed=FPS_PROJECTILE_SPEED,
+  spread=0,
+  kick=1
+}={}){
+  if(!fpsMode||!fpsAlive||fpsVehicleMode||document.pointerLockElement!==renderer.domElement)return false;
   if(fpsShotCooldown>0||fpsClimbState)return false;
 
-  fpsShotCooldown=FPS_FIRE_INTERVAL;
-  fpsWeaponKick=1;
+  fpsShotCooldown=interval;
+  fpsWeaponKick=Math.max(fpsWeaponKick,kick);
   fpsShotsFired++;
-  const shotId=(multiplayerV142?.selfId||'local')+'-'+fpsShotsFired+'-'+Math.round(performance.now());
+  const shotId=
+    (multiplayerV142?.selfId||'local')+
+    '-'+weapon+
+    '-'+fpsShotsFired+
+    '-'+Math.round(performance.now());
 
   const origin=camera.position.clone();
   camera.getWorldDirection(fpsBulletDir);
   fpsBulletDir.normalize();
 
-  // Start a short distance in front of the camera to avoid spawning inside the player.
-  origin.addScaledVector(fpsBulletDir,.62);
+  if(spread>0){
+    fpsBulletRight.crossVectors(fpsBulletDir,camera.up).normalize();
+    fpsBulletUp.crossVectors(fpsBulletRight,fpsBulletDir).normalize();
+    fpsBulletDir
+      .addScaledVector(fpsBulletRight,(Math.random()-.5)*spread*2)
+      .addScaledVector(fpsBulletUp,(Math.random()-.5)*spread*2)
+      .normalize();
+  }
 
-  const mesh=new THREE.Mesh(new THREE.SphereGeometry(.030,8,6),fpsBulletMat);
+  origin.addScaledVector(fpsBulletDir,weapon==='gatling'?.72:.62);
+
+  const bulletRadius=weapon==='gatling'?.021:.030;
+  const mesh=new THREE.Mesh(
+    new THREE.SphereGeometry(bulletRadius,8,6),
+    fpsBulletMat
+  );
   mesh.position.copy(origin);
-  mesh.name='FPS_PROJECTILE_'+fpsShotsFired;
-  mesh.userData={fpsProjectile:true,ignoreFpsCollision:true};
+  mesh.name='FPS_PROJECTILE_'+weapon+'_'+fpsShotsFired;
+  mesh.userData={
+    fpsProjectile:true,
+    ignoreFpsCollision:true,
+    weapon,
+    damage
+  };
   fpsProjectileGroup.add(mesh);
 
   const tracerGeo=new THREE.BufferGeometry().setFromPoints([origin,origin]);
-  const tracer=new THREE.Line(tracerGeo,fpsTracerMat.clone());
-  tracer.name='FPS_TRACER_'+fpsShotsFired;
-  tracer.userData={fpsProjectile:true,ignoreFpsCollision:true};
+  const tracerMat=fpsTracerMat.clone();
+  if(weapon==='gatling'){
+    tracerMat.color.setHex(0xffb35c);
+    tracerMat.opacity=.78;
+  }
+  const tracer=new THREE.Line(tracerGeo,tracerMat);
+  tracer.name='FPS_TRACER_'+weapon+'_'+fpsShotsFired;
+  tracer.userData={fpsProjectile:true,ignoreFpsCollision:true,weapon};
   fpsProjectileGroup.add(tracer);
 
   fpsProjectiles.push({
-    mesh,tracer,
+    mesh,
+    tracer,
     shotId,
+    weapon,
+    damage,
     position:origin.clone(),
     previous:origin.clone(),
-    velocity:fpsBulletDir.clone().multiplyScalar(FPS_PROJECTILE_SPEED),
+    velocity:fpsBulletDir.clone().multiplyScalar(speed),
     life:FPS_PROJECTILE_TTL
   });
 
   multiplayerV142?.sendShot?.({
     origin:[origin.x,origin.y,origin.z],
     dir:[fpsBulletDir.x,fpsBulletDir.y,fpsBulletDir.z],
-    aim:fpsAimAmount
+    aim:weapon==='sniper'?fpsAimAmount:0,
+    weapon
   });
 
-  // Small visual recoil only; no real-world ballistic parameters are modeled.
-  fpsPitch=THREE.MathUtils.clamp(fpsPitch+.018,-1.38,1.38);
-  fpsYaw+=(Math.random()-.5)*.004;
+  if(weapon==='gatling'){
+    fpsPitch=THREE.MathUtils.clamp(fpsPitch+.0022,-1.38,1.38);
+    fpsYaw+=(Math.random()-.5)*.0030;
+  }else{
+    fpsPitch=THREE.MathUtils.clamp(fpsPitch+.018,-1.38,1.38);
+    fpsYaw+=(Math.random()-.5)*.004;
+  }
   camera.rotation.set(fpsPitch,fpsYaw,0,'YXZ');
   return true;
+}
+
+function fpsFireSniper(){
+  if(fpsActiveWeapon!=='sniper')return false;
+  return fpsSpawnPlayerShot({
+    weapon:'sniper',
+    damage:FPS_SNIPER_DAMAGE,
+    interval:FPS_SNIPER_FIRE_INTERVAL,
+    speed:FPS_PROJECTILE_SPEED,
+    spread:0,
+    kick:1
+  });
+}
+
+function fpsFireGatling(){
+  if(fpsActiveWeapon!=='gatling')return false;
+  return fpsSpawnPlayerShot({
+    weapon:'gatling',
+    damage:FPS_GATLING_DAMAGE,
+    interval:FPS_GATLING_FIRE_INTERVAL,
+    speed:FPS_GATLING_PROJECTILE_SPEED,
+    spread:FPS_GATLING_SPREAD,
+    kick:.32
+  });
+}
+
+function fpsFireActiveWeapon(){
+  return fpsActiveWeapon==='gatling'
+    ?fpsFireGatling()
+    :fpsFireSniper();
 }
 
 function fpsRemoveProjectile(p){
@@ -4725,13 +4796,17 @@ function fpsUpdateProjectiles(dt){
         const remotePeerId=remoteImpact.peerId;
         const remoteState=multiplayerV142?.remoteStatus;
         if(remotePeerId&&remoteState?.alive!==false){
+          const hitDamage=Math.max(
+            0,
+            Math.min(FPS_MAX_HP,Number(p.damage)||FPS_SNIPER_DAMAGE)
+          );
           multiplayerV142?.sendDamage?.(
             remotePeerId,
-            FPS_DAMAGE_PER_PLAYER_HIT,
+            hitDamage,
             p.shotId
           );
           fpsShowHitMarker();
-          if((Number(remoteState?.hp)||FPS_MAX_HP)<=FPS_DAMAGE_PER_PLAYER_HIT)fpsKills++;
+          if((Number(remoteState?.hp)||FPS_MAX_HP)<=hitDamage)fpsKills++;
         }
       }
 
@@ -4770,7 +4845,15 @@ function fpsUpdateProjectiles(dt){
 }
 
 function fpsUpdateScope(dt){
-  const canAim=fpsMode&&fpsAlive&&fpsAimHeld&&!fpsClimbState&&document.pointerLockElement===renderer.domElement;
+  const sniper=fpsActiveWeapon==='sniper';
+  const canAim=
+    fpsMode&&
+    fpsAlive&&
+    sniper&&
+    fpsAimHeld&&
+    !fpsClimbState&&
+    document.pointerLockElement===renderer.domElement;
+
   fpsAiming=!!canAim;
   const target=fpsAiming?1:0;
   fpsAimAmount+=(target-fpsAimAmount)*Math.min(1,dt*FPS_AIM_SPEED);
@@ -4778,7 +4861,7 @@ function fpsUpdateScope(dt){
 
   const third=fpsViewMode==='third';
   const ease=fpsAimAmount*fpsAimAmount*(3-2*fpsAimAmount);
-  const targetFov=third
+  const targetFov=(!sniper||third)
     ?fpsBaseFov
     :THREE.MathUtils.lerp(fpsBaseFov,FPS_SCOPE_FOV,ease);
   if(Math.abs(camera.fov-targetFov)>.001){
@@ -4786,15 +4869,45 @@ function fpsUpdateScope(dt){
     camera.updateProjectionMatrix();
   }
 
-  // 1P uses the circular sniper scope. 3P keeps the crosshair and performs
-  // shoulder-camera zoom instead.
-  document.body.classList.toggle('fps-aiming',!third&&fpsAimAmount>.08);
+  document.body.classList.toggle(
+    'fps-aiming',
+    sniper&&!third&&fpsAimAmount>.08
+  );
+
+  fpsApplyWeaponModelVisibility();
   if(fpsRealArmsRig){
-    fpsRealArmsRig.visible=fpsMode&&fpsAlive&&!third&&fpsAimAmount<.88;
+    fpsRealArmsRig.visible=
+      fpsMode&&
+      fpsAlive&&
+      !third&&
+      (!sniper||fpsAimAmount<.88);
   }
 
   fpsShotCooldown=Math.max(0,fpsShotCooldown-dt);
-  fpsWeaponKick=Math.max(0,fpsWeaponKick-dt*6.8);
+  fpsWeaponKick=Math.max(0,fpsWeaponKick-dt*(fpsActiveWeapon==='gatling'?11:6.8));
+
+  const gatlingWantsSpin=
+    fpsActiveWeapon==='gatling'&&
+    fpsMode&&
+    fpsAlive&&
+    fpsTriggerHeld&&
+    !fpsClimbState&&
+    !fpsVehicleMode&&
+    document.pointerLockElement===renderer.domElement;
+  const targetSpin=gatlingWantsSpin?34:(fpsActiveWeapon==='gatling'?5:0);
+  fpsGatlingSpinSpeed+=
+    (targetSpin-fpsGatlingSpinSpeed)*
+    Math.min(1,dt*(gatlingWantsSpin?14:7));
+  fpsGatlingBarrelPhase+=fpsGatlingSpinSpeed*dt;
+  if(fpsGatlingBarrelCluster){
+    fpsGatlingBarrelCluster.rotation.z=fpsGatlingBarrelPhase;
+  }
+
+  // Automatic fire while LMB is held. Every spawned Gatling projectile carries
+  // damage=10 and its own shotId, preserving P2P damage deduplication.
+  if(gatlingWantsSpin&&fpsShotCooldown<=0){
+    fpsFireGatling();
+  }
 
   if(fpsHitMarkerTimer>0){
     fpsHitMarkerTimer-=dt;
@@ -4917,7 +5030,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:151,
+  version:152,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -4939,7 +5052,8 @@ const fpsApiV139={
   get ladderCount(){return (v54DetailResult?.ladders||window.__DALOC_V54?.ladders||[]).length;},
   get doorCount(){return factoryInteriorsV84?.doors?.length||0;},
   get factoryArchetypes(){return factoryInteriorsV84?.factoryProfiles?.map?.(p=>({index:p.index,archetype:p.archetype}))||[];},
-  get weapon(){return fpsRealArmsRig?.userData?.weapon||'none';},
+  get weapon(){return fpsActiveWeapon;},
+  setWeapon:fpsSetWeapon,
   get viewMode(){return fpsViewMode;},
   toggleViewMode:fpsToggleViewMode,
   get vehicleMode(){return fpsVehicleMode;},
@@ -4957,7 +5071,17 @@ const fpsApiV139={
   get alive(){return fpsAlive;},
   get deaths(){return fpsDeaths;},
   get kills(){return fpsKills;},
-  get damagePerHit(){return FPS_DAMAGE_PER_PLAYER_HIT;},
+  get damagePerHit(){
+    return fpsActiveWeapon==='gatling'
+      ?FPS_GATLING_DAMAGE
+      :FPS_SNIPER_DAMAGE;
+  },
+  get weaponDamage(){return {
+    sniper:FPS_SNIPER_DAMAGE,
+    gatling:FPS_GATLING_DAMAGE
+  };},
+  get triggerHeld(){return fpsTriggerHeld;},
+  get gatlingSpinSpeed(){return Number(fpsGatlingSpinSpeed.toFixed(2));},
   get respawnTimer(){return Number(fpsRespawnTimer.toFixed(2));},
   get lastDamageFrom(){return fpsLastDamageFrom;},
   get multiplayer(){return {
@@ -5009,7 +5133,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:151,
+    version:152,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
@@ -5132,6 +5256,7 @@ let lastFrameTime=performance.now();
     pitch:fpsPitch,
     crouch:fpsCrouchAmount,
     aim:fpsAimAmount,
+    weapon:fpsActiveWeapon,
     hp:fpsHealth,
     alive:fpsAlive
   });
