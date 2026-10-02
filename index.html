@@ -3864,6 +3864,8 @@ function fpsUpdateProjectiles(dt){
       fpsBulletRaycaster.near=.001;
       fpsBulletRaycaster.far=distance;
       const raycastRoots=world.children.filter(child=>
+        child!==fpsThirdPersonAvatar?.root &&
+        child?.userData?.thirdPersonLocalRoot!==true &&
         child?.userData?.multiplayerRoot!==true &&
         child?.name!=='MULTIPLAYER_V142'
       );
@@ -4080,7 +4082,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:143,
+  version:144,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
