@@ -1758,7 +1758,7 @@ function fpsVehicleBlocked(position){
     const halfW=
       agent.type==='container'?1.48:
       agent.type==='cargo'?1.36:
-      agent.type==='motorcycle'?.50:
+      agent.type==='motorcycle'?0.50:
       agent.type==='supercar'?1.12:1.04;
     const halfL=Math.max(.7,(agent.length||4)*.5);
     if(
