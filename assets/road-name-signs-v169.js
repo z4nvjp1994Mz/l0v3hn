@@ -8,7 +8,8 @@ export function installRoadNameSignsV169({
   mapPx,
   warpPx=null,
   frameSignature,
-  renderer=null
+  renderer=null,
+  roadSafeInfo=null
 }){
   if(!world)throw new Error('V169 road signs: world required');
   if(typeof mapPx!=='function')throw new Error('V169 road signs: mapPx required');
@@ -16,7 +17,7 @@ export function installRoadNameSignsV169({
   const root=new THREE.Group();
   root.name='ROAD_NAME_SIGNS_V169';
   root.userData={
-    version:169,
+    version:169.1,
     frameSignature,
     source:'user-annotated-masterplan-1616x2048'
   };
@@ -55,12 +56,14 @@ export function installRoadNameSignsV169({
   const routeById=new Map(routes.map(r=>[r.id,r]));
 
   // Two verified junctions derived from the converging colored route endpoints.
-  // postPx is intentionally offset into roadside/green space, not road center.
+  // V169.1: the old manual postPx values are kept only as side hints. Final pole
+  // positions are solved after CAD warp from road tangent/normal + road width and
+  // validated against the live FPS road-safe corridors.
   const posts=[
     {
       id:'junction-west',
       junctionPx:[672,1069],
-      postPx:[692,1049],
+      sideHintPx:[692,1049],
       blades:[
         {routeId:'que-vien-1',targetPx:[421,882]},
         {routeId:'dai-phat-2',targetPx:[1034,779]},
@@ -71,7 +74,7 @@ export function installRoadNameSignsV169({
     {
       id:'junction-east',
       junctionPx:[1054,779],
-      postPx:[1064,757],
+      sideHintPx:[1064,757],
       blades:[
         {routeId:'lien-hoa-1',targetPx:[758,568]},
         {routeId:'dai-phat-1',targetPx:[1378,732]},
@@ -100,6 +103,99 @@ export function installRoadNameSignsV169({
   function worldAt(px,py){
     const [x,y]=warped(px,py);
     return mapPx(x,y);
+  }
+
+  function roadFreeAt(x,z,radius=.85){
+    if(typeof roadSafeInfo!=='function')return true;
+    const probes=[[0,0],[radius,0],[-radius,0],[0,radius],[0,-radius]];
+    return probes.every(([ox,oz])=>!roadSafeInfo(x+ox,z+oz));
+  }
+
+  function findRoadsideSignPosition(post){
+    const junction=worldAt(post.junctionPx[0],post.junctionPx[1]);
+    const targetPx=post.blades?.[0]?.targetPx;
+    if(!targetPx){
+      return {position:junction,offsetM:0,directionMode:'junction-fallback',roadWidthPx:null,roadSafeAfter:null};
+    }
+
+    const target=worldAt(targetPx[0],targetPx[1]);
+    let tx=target.x-junction.x,tz=target.z-junction.z;
+    let tLen=Math.hypot(tx,tz)||1;
+    tx/=tLen;tz/=tLen;
+    let nx=-tz,nz=tx;
+
+    // Preserve only the intended corner/side from V169; never reuse its final position.
+    const hintPx=post.sideHintPx||post.junctionPx;
+    const hint=worldAt(hintPx[0],hintPx[1]);
+    let hx=hint.x-junction.x,hz=hint.z-junction.z;
+    const hLen=Math.hypot(hx,hz);
+    if(hLen>.001){hx/=hLen;hz/=hLen;}
+    if(hLen>.001 && hx*nx+hz*nz<0){nx=-nx;nz=-nz;}
+
+    // Measure local cross-road scale after CAD warp. This captures corridor width
+    // expansion/contraction better than assuming the original 0.782 m/px everywhere.
+    const rdx=targetPx[0]-post.junctionPx[0],rdy=targetPx[1]-post.junctionPx[1];
+    const rLen=Math.hypot(rdx,rdy)||1;
+    const rawNx=-rdy/rLen,rawNy=rdx/rLen;
+    const samplePx=[post.junctionPx[0]+rawNx*4,post.junctionPx[1]+rawNy*4];
+    const sample=worldAt(samplePx[0],samplePx[1]);
+    const localWorldPerPx=Math.max(.1,Math.hypot(sample.x-junction.x,sample.z-junction.z)/4);
+
+    // At a junction fpsRoadSafeInfo() returns the nearest corridor. Probe the nearby
+    // junction area and use the widest touching primary road so the pole clears the
+    // full carriageway, not only the narrower safe center corridor.
+    let roadInfo=null;
+    if(typeof roadSafeInfo==='function'){
+      const probeRadius=5.5;
+      const probes=[[0,0]];
+      for(let k=0;k<12;k++){
+        const a=k*Math.PI*2/12;
+        probes.push([Math.cos(a)*probeRadius,Math.sin(a)*probeRadius]);
+      }
+      for(const [ox,oz] of probes){
+        const info=roadSafeInfo(junction.x+ox,junction.z+oz);
+        if(info && (!roadInfo||(info.widthPx||0)>(roadInfo.widthPx||0)))roadInfo=info;
+      }
+    }
+
+    const roadWidthPx=roadInfo?.widthPx||18;
+    const halfRoadM=Math.max(roadWidthPx*localWorldPerPx*.5,roadInfo?.halfSafe||0);
+    const baseOffset=Math.max(6,halfRoadM+2.4,(roadInfo?.halfSafe||0)+2.0);
+
+    const dirs=[{x:nx,z:nz,mode:'road-normal'}];
+    if(hLen>.001){
+      let bx=nx*.72+hx*.28,bz=nz*.72+hz*.28;
+      const bLen=Math.hypot(bx,bz)||1;bx/=bLen;bz/=bLen;
+      if(Math.abs(bx*nx+bz*nz)>.45)dirs.push({x:bx,z:bz,mode:'normal-corner-bias'});
+      dirs.push({x:hx,z:hz,mode:'side-hint-fallback'});
+    }
+
+    let best=null;
+    dirs.forEach((dir,dirIndex)=>{
+      for(let step=0;step<=36;step++){
+        const offset=baseOffset+step*.75;
+        const x=junction.x+dir.x*offset,z=junction.z+dir.z*offset;
+        if(!roadFreeAt(x,z,.85))continue;
+        const score=offset+dirIndex*1.35;
+        if(!best||score<best.score)best={x,z,offset,score,mode:dir.mode};
+        break;
+      }
+    });
+
+    if(!best){
+      best={x:junction.x+nx*(baseOffset+30),z:junction.z+nz*(baseOffset+30),offset:baseOffset+30,mode:'forced-road-normal'};
+    }
+
+    return {
+      position:{x:best.x,y:.04,z:best.z},
+      offsetM:Number(best.offset.toFixed(2)),
+      directionMode:best.mode,
+      roadWidthPx,
+      localWorldPerPx:Number(localWorldPerPx.toFixed(4)),
+      halfRoadM:Number(halfRoadM.toFixed(2)),
+      roadSafeBefore:typeof roadSafeInfo==='function'?!!roadSafeInfo(junction.x,junction.z):null,
+      roadSafeAfter:typeof roadSafeInfo==='function'?roadSafeInfo(best.x,best.z):null
+    };
   }
 
   function signTexture(label){
@@ -193,7 +289,8 @@ export function installRoadNameSignsV169({
   }
 
   function makePost(post,postIndex){
-    const p=worldAt(post.postPx[0],post.postPx[1]);
+    const placement=findRoadsideSignPosition(post);
+    const p=placement.position;
     const g=new THREE.Group();
     g.name='V169_WAYFINDING_POST_'+postIndex;
     g.position.set(p.x,.04,p.z);
@@ -201,7 +298,17 @@ export function installRoadNameSignsV169({
       fpsNonSolid:true,
       roadWayfinding:true,
       postId:post.id,
-      sourcePx:{x:post.postPx[0],y:post.postPx[1]}
+      sourcePx:{junction:[...post.junctionPx],sideHint:[...(post.sideHintPx||post.junctionPx)]},
+      resolvedWorld:{x:Number(p.x.toFixed(2)),z:Number(p.z.toFixed(2))},
+      roadsidePlacement:{
+        offsetM:placement.offsetM,
+        directionMode:placement.directionMode,
+        roadWidthPx:placement.roadWidthPx,
+        localWorldPerPx:placement.localWorldPerPx,
+        halfRoadM:placement.halfRoadM,
+        roadSafeBefore:placement.roadSafeBefore,
+        roadSafeAfter:placement.roadSafeAfter
+      }
     };
     root.add(g);
 
@@ -232,22 +339,25 @@ export function installRoadNameSignsV169({
   }
 
   const postGroups=posts.map(makePost);
+  const placements=postGroups.map(g=>({postId:g.userData.postId,resolvedWorld:g.userData.resolvedWorld,...g.userData.roadsidePlacement}));
 
   const api={
     ready:true,
-    version:169,
+    version:169.1,
     group:root,
     routes,
     posts,
     postGroups,
+    placements,
     setVisible(v){root.visible=!!v;},
     get visible(){return root.visible;}
   };
 
   window.__DALOC_ROAD_SIGNS_V169=api;
-  console.info('[DaLoc] V169 named-road wayfinding signs installed',{
+  console.info('[DaLoc] V169.1 road-safe named-road wayfinding signs installed',{
     routes:routes.map(r=>r.name),
     posts:postGroups.length,
+    placements,
     frameSignature
   });
   return api;
