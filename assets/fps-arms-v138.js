@@ -105,8 +105,8 @@ function makeHand(side,materials){
   hand.name=side<0?'FPS_LEFT_HAND_V138':'FPS_RIGHT_HAND_V138';
 
   // Low-profile FPS placement; larger/flatter than V136 mitten.
-  hand.position.set(side*.292,-.192,-.048);
-  hand.rotation.set(-.075,side*.115,-side*.085);
+  hand.position.set(side*.315,-.240,.060);
+  hand.rotation.set(-.145,side*.095,-side*.060);
 
   const shell=mesh(
     makeGloveShellGeometry(),
@@ -153,10 +153,10 @@ function makeArm(side,materials){
   const arm=new THREE.Group();
   arm.name=side<0?'FPS_LEFT_ARM_V138':'FPS_RIGHT_ARM_V138';
 
-  // V138.2: keep V138 thickness but recess the visible forearm down/back toward the player.
+  // V138.4: strongly retract the whole visible arm chain toward the player and lower it in frame.
   // The hand topology stays unchanged from V137.
-  const sleeveStart=[side*.440,-.405,.225];
-  const sleeveEnd=[side*.326,-.250,.040];
+  const sleeveStart=[side*.445,-.465,.300];
+  const sleeveEnd=[side*.340,-.285,.120];
 
   arm.add(segmentBetween(
     sleeveStart,
@@ -169,8 +169,8 @@ function makeArm(side,materials){
   ));
 
   const underside=segmentBetween(
-    [side*.433,-.398,.218],
-    [side*.332,-.257,.045],
+    [side*.438,-.456,.290],
+    [side*.346,-.292,.126],
     .066,
     .051,
     materials.sleeveDark,
@@ -182,7 +182,7 @@ function makeArm(side,materials){
 
   arm.add(segmentBetween(
     sleeveEnd,
-    [side*.304,-.213,-.020],
+    [side*.320,-.250,.085],
     .062,
     .055,
     materials.cuff,
