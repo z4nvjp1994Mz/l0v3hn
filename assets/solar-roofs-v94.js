@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// V147 solar-roof pilot zone + two-storey industrial architecture.
+// V147.1 solar-roof pilot zone + ACTUAL two-storey industrial architecture.
 // A compact cluster of three adjacent factories receives realistic photovoltaic tables.
 // Geometry stays attached to each factory local frame, so it follows the verified roof footprint.
 export function installSolarRoofZoneV94({
@@ -94,6 +94,8 @@ export function installSolarRoofZoneV94({
   const stairMat=new THREE.MeshStandardMaterial({color:0x778481,roughness:.55,metalness:.30});
   const sunshadeMat=new THREE.MeshStandardMaterial({color:0xd8ded8,roughness:.72});
   const parapetMat=new THREE.MeshStandardMaterial({color:0xe8ece7,roughness:.78});
+  const floorSlabMat=new THREE.MeshStandardMaterial({color:0xc7cdca,roughness:.88});
+  const stairWallMat=new THREE.MeshStandardMaterial({color:0xdce2de,roughness:.82});
 
   const tableW=4.65;
   const tableD=2.35;
@@ -158,125 +160,233 @@ export function installSolarRoofZoneV94({
 
   function addTwoStoreyArchitecture(g,factoryIndex,L,D,H){
     const root=new THREE.Group();
-    root.name='V147_SOLAR_TWO_STOREY_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
+    root.name='V1471_SOLAR_TWO_STOREY_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     root.userData={
-      version:147,
+      version:147.1,
       factoryIndex,
-      role:'two-storey-solar-industrial-building',
+      role:'actual-two-storey-solar-industrial-building',
       floors:2,
       fpsNonSolid:true
     };
     g.add(root);
     twoStoreyRoots.push(root);
 
-    // A strong horizontal datum makes the two floors legible without changing
-    // the verified building shell or its FPS collision.
-    const splitY=Math.max(3.6,Math.min(H*.50,5.15));
-    const band=new THREE.Mesh(new THREE.BoxGeometry(L*.94,.28,.16),floorBandMat);
-    band.position.set(0,splitY,D/2+.10);
-    markArchitecturalDetail(band,factoryIndex);root.add(band);
-
-    // Two separate glazing levels on the public/front facade.
-    const margin=Math.max(6,L*.10);
-    const glassSpan=Math.max(8,L-margin*2);
-    const lowerY=Math.max(2.15,splitY*.55);
+    const splitY=Math.max(3.9,Math.min(H*.50,5.15));
+    const lowerY=Math.max(2.05,splitY*.53);
     const upperY=Math.min(H-1.55,splitY+(H-splitY)*.48);
-    for(const y of [lowerY,upperY]){
-      const glass=new THREE.Mesh(new THREE.BoxGeometry(glassSpan,1.42,.10),solarGlassMat);
-      glass.position.set(0,y,D/2+.115);
-      markArchitecturalDetail(glass,factoryIndex);root.add(glass);
+    const wallOffset=.13;
 
-      const mullions=Math.max(5,Math.min(18,Math.round(glassSpan/5.2)));
-      for(let i=0;i<=mullions;i++){
-        const x=-glassSpan/2+i/mullions*glassSpan;
-        const m=new THREE.Mesh(new THREE.BoxGeometry(.075,1.56,.12),balconyMat);
-        m.position.set(x,y,D/2+.18);
-        markArchitecturalDetail(m,factoryIndex);root.add(m);
+    const addDetail=(mesh,name)=>{
+      mesh.name=name;
+      markArchitecturalDetail(mesh,factoryIndex);
+      root.add(mesh);
+      return mesh;
+    };
+
+    // ---------------------------------------------------------------------
+    // REAL SECOND-FLOOR SLAB
+    // ---------------------------------------------------------------------
+    // Use four slab segments so the internal stair core has a real opening.
+    // This remains decorative/non-solid for FPS until stair-walking is added,
+    // but it is actual level geometry visible from inside the building.
+    const stairSide=factoryIndex%2===0?-1:1;
+    const stairCoreW=Math.min(6.4,Math.max(5.2,L*.07));
+    const stairCoreD=Math.min(9.0,Math.max(7.2,D*.26));
+    const stairCoreX=stairSide*(L*.5-stairCoreW*.62-1.2);
+    const stairCoreZ=D*.20;
+
+    const slabT=.26;
+    const leftEdge=-L*.46,rightEdge=L*.46;
+    const backEdge=-D*.44,frontEdge=D*.44;
+    const holeX0=stairCoreX-stairCoreW*.55;
+    const holeX1=stairCoreX+stairCoreW*.55;
+    const holeZ0=stairCoreZ-stairCoreD*.55;
+    const holeZ1=stairCoreZ+stairCoreD*.55;
+
+    const slabParts=[
+      {x:(leftEdge+holeX0)/2,z:0,w:Math.max(.2,holeX0-leftEdge),d:frontEdge-backEdge},
+      {x:(holeX1+rightEdge)/2,z:0,w:Math.max(.2,rightEdge-holeX1),d:frontEdge-backEdge},
+      {x:stairCoreX,z:(backEdge+holeZ0)/2,w:Math.max(.2,holeX1-holeX0),d:Math.max(.2,holeZ0-backEdge)},
+      {x:stairCoreX,z:(holeZ1+frontEdge)/2,w:Math.max(.2,holeX1-holeX0),d:Math.max(.2,frontEdge-holeZ1)}
+    ];
+    for(const [i,p] of slabParts.entries()){
+      if(p.w<.3||p.d<.3)continue;
+      addDetail(
+        Object.assign(new THREE.Mesh(new THREE.BoxGeometry(p.w,slabT,p.d),floorSlabMat),{
+          position:new THREE.Vector3(p.x,splitY,p.z)
+        }),
+        'V1471_SECOND_FLOOR_SLAB_'+factoryIndex+'_'+i
+      );
+    }
+
+    // Strong slab edge / floor line on ALL FOUR facades.
+    for(const z of [-D/2-wallOffset,D/2+wallOffset]){
+      const band=new THREE.Mesh(new THREE.BoxGeometry(L*.96,.30,.18),floorBandMat);
+      band.position.set(0,splitY,z);
+      addDetail(band,'V1471_FLOOR_BAND_LONG_'+factoryIndex);
+    }
+    for(const x of [-L/2-wallOffset,L/2+wallOffset]){
+      const band=new THREE.Mesh(new THREE.BoxGeometry(.18,.30,D*.96),floorBandMat);
+      band.position.set(x,splitY,0);
+      addDetail(band,'V1471_FLOOR_BAND_END_'+factoryIndex);
+    }
+
+    // ---------------------------------------------------------------------
+    // TWO ROWS OF WINDOWS ON ALL FOUR SIDES
+    // ---------------------------------------------------------------------
+    const longMargin=Math.max(6,L*.09);
+    const longSpan=Math.max(8,L-longMargin*2);
+    const endMargin=Math.max(3,D*.12);
+    const endSpan=Math.max(5,D-endMargin*2);
+
+    function addLongFacade(z,tag){
+      for(const [level,y] of [['L1',lowerY],['L2',upperY]]){
+        const glass=new THREE.Mesh(new THREE.BoxGeometry(longSpan,1.46,.10),solarGlassMat);
+        glass.position.set(0,y,z);
+        addDetail(glass,'V1471_'+tag+'_GLASS_'+level+'_'+factoryIndex);
+
+        const mullions=Math.max(6,Math.min(20,Math.round(longSpan/5.0)));
+        for(let i=0;i<=mullions;i++){
+          const x=-longSpan/2+i/mullions*longSpan;
+          const m=new THREE.Mesh(new THREE.BoxGeometry(.075,1.60,.13),balconyMat);
+          m.position.set(x,y,z+(z>0?.06:-.06));
+          addDetail(m,'V1471_'+tag+'_MULLION_'+level+'_'+factoryIndex+'_'+i);
+        }
       }
     }
 
-    // Corner entrance tower changes side by building so the three solar blocks
-    // are related but not identical.
-    const side=factoryIndex%2===0?-1:1;
-    const towerX=side*(L*.5-3.9);
-    const towerW=Math.min(6.2,Math.max(4.8,L*.075));
-    const tower=new THREE.Mesh(new THREE.BoxGeometry(towerW,H*.82,.34),solarGlassMat);
-    tower.position.set(towerX,H*.45,D/2+.20);
-    markArchitecturalDetail(tower,factoryIndex);root.add(tower);
+    function addEndFacade(x,tag){
+      for(const [level,y] of [['L1',lowerY],['L2',upperY]]){
+        const glass=new THREE.Mesh(new THREE.BoxGeometry(.10,1.46,endSpan),solarGlassMat);
+        glass.position.set(x,y,0);
+        addDetail(glass,'V1471_'+tag+'_GLASS_'+level+'_'+factoryIndex);
 
-    // Second-floor balcony / maintenance terrace.
-    const balconyW=Math.min(18,Math.max(10,L*.20));
-    const balcony=new THREE.Mesh(new THREE.BoxGeometry(balconyW,.20,2.25),balconyMat);
-    balcony.position.set(-side*L*.18,splitY+.18,D/2+1.15);
-    markArchitecturalDetail(balcony,factoryIndex);root.add(balcony);
-
-    const railH=1.05;
-    const railTop=new THREE.Mesh(new THREE.BoxGeometry(balconyW,.08,.08),balconyMat);
-    railTop.position.set(-side*L*.18,splitY+railH,D/2+2.20);
-    markArchitecturalDetail(railTop,factoryIndex);root.add(railTop);
-    const railPosts=Math.max(5,Math.round(balconyW/2.6));
-    for(let i=0;i<=railPosts;i++){
-      const x=-side*L*.18-balconyW/2+i/railPosts*balconyW;
-      const post=new THREE.Mesh(new THREE.BoxGeometry(.07,railH,.07),balconyMat);
-      post.position.set(x,splitY+railH*.52,D/2+2.20);
-      markArchitecturalDetail(post,factoryIndex);root.add(post);
+        const mullions=Math.max(4,Math.min(12,Math.round(endSpan/4.2)));
+        for(let i=0;i<=mullions;i++){
+          const z=-endSpan/2+i/mullions*endSpan;
+          const m=new THREE.Mesh(new THREE.BoxGeometry(.13,1.60,.075),balconyMat);
+          m.position.set(x+(x>0?.06:-.06),y,z);
+          addDetail(m,'V1471_'+tag+'_MULLION_'+level+'_'+factoryIndex+'_'+i);
+        }
+      }
     }
 
-    // External maintenance stair to make the upper floor physically readable.
-    const stairX=side*(L*.5-2.0);
-    const stairZ=D/2+2.10;
-    const steps=12;
-    for(let i=0;i<steps;i++){
-      const t=(i+.5)/steps;
-      const step=new THREE.Mesh(new THREE.BoxGeometry(2.0,.16,.55),stairMat);
-      step.position.set(
-        stairX,
-        .45+t*(splitY-.55),
-        stairZ+(t-.5)*5.4
+    addLongFacade(D/2+wallOffset,'FRONT');
+    addLongFacade(-D/2-wallOffset,'REAR');
+    addEndFacade(L/2+wallOffset,'RIGHT');
+    addEndFacade(-L/2-wallOffset,'LEFT');
+
+    // ---------------------------------------------------------------------
+    // INTERNAL U-SHAPED STAIR — ENTIRELY INSIDE THE VERIFIED FOOTPRINT
+    // ---------------------------------------------------------------------
+    const stairRoot=new THREE.Group();
+    stairRoot.name='V1471_INTERNAL_STAIR_'+factoryIndex;
+    stairRoot.position.set(stairCoreX,0,stairCoreZ);
+    stairRoot.userData={
+      fpsNonSolid:true,
+      solarTwoStoreyV147:true,
+      factoryIndex,
+      internal:true
+    };
+    root.add(stairRoot);
+
+    const totalSteps=16;
+    const flightSteps=8;
+    const stairW=Math.min(2.2,stairCoreW*.38);
+    const run=Math.min(3.9,stairCoreD*.39);
+    const stepD=run/flightSteps;
+    const rise=splitY/totalSteps;
+
+    // Flight 1: ground -> half landing, moving toward rear.
+    for(let i=0;i<flightSteps;i++){
+      const step=new THREE.Mesh(
+        new THREE.BoxGeometry(stairW,.16,stepD+.05),
+        stairMat
       );
-      markArchitecturalDetail(step,factoryIndex);root.add(step);
-    }
-    for(const xOff of [-1.02,1.02]){
-      const stringer=new THREE.Mesh(new THREE.BoxGeometry(.09,splitY*.92,.09),stairMat);
-      stringer.position.set(stairX+xOff,splitY*.48,stairZ);
-      stringer.rotation.x=THREE.MathUtils.degToRad(32);
-      markArchitecturalDetail(stringer,factoryIndex);root.add(stringer);
+      step.position.set(
+        -stairW*.62,
+        .20+(i+.5)*rise,
+        run*.50-(i+.5)*stepD
+      );
+      markArchitecturalDetail(step,factoryIndex);
+      stairRoot.add(step);
     }
 
-    // Vertical sunshades give the second floor a distinct administrative facade.
-    const shadeN=Math.max(6,Math.min(16,Math.round(L/8)));
+    const landing=new THREE.Mesh(
+      new THREE.BoxGeometry(stairW*2.45,.18,1.55),
+      floorSlabMat
+    );
+    landing.position.set(0,splitY*.50,-run*.52);
+    markArchitecturalDetail(landing,factoryIndex);
+    stairRoot.add(landing);
+
+    // Flight 2: half landing -> second floor, returning toward front.
+    for(let i=0;i<flightSteps;i++){
+      const step=new THREE.Mesh(
+        new THREE.BoxGeometry(stairW,.16,stepD+.05),
+        stairMat
+      );
+      step.position.set(
+        stairW*.62,
+        splitY*.50+.20+(i+.5)*rise,
+        -run*.50+(i+.5)*stepD
+      );
+      markArchitecturalDetail(step,factoryIndex);
+      stairRoot.add(step);
+    }
+
+    // Internal stair guard walls / rails stay inside the stair core.
+    for(const x of [-stairW*1.22,stairW*1.22]){
+      const rail=new THREE.Mesh(
+        new THREE.BoxGeometry(.09,splitY*.88,.09),
+        balconyMat
+      );
+      rail.position.set(x,splitY*.48,0);
+      markArchitecturalDetail(rail,factoryIndex);
+      stairRoot.add(rail);
+    }
+
+    // Stair core walls stop below ceiling and remain fully inside footprint.
+    for(const x of [-stairCoreW*.52,stairCoreW*.52]){
+      const wall=new THREE.Mesh(
+        new THREE.BoxGeometry(.10,splitY*.90,stairCoreD*.92),
+        stairWallMat
+      );
+      wall.position.set(x,splitY*.45,0);
+      markArchitecturalDetail(wall,factoryIndex);
+      stairRoot.add(wall);
+    }
+
+    // Ground-floor entrance canopy. No external stairs or balcony.
+    const entranceX=-stairSide*L*.22;
+    const canopy=new THREE.Mesh(new THREE.BoxGeometry(5.2,.18,1.65),sunshadeMat);
+    canopy.position.set(entranceX,3.05,D/2+.78);
+    addDetail(canopy,'V1471_ENTRANCE_CANOPY_'+factoryIndex);
+
+    // Upper floor gets a denser sunshade rhythm so the second level is readable.
+    const shadeN=Math.max(8,Math.min(20,Math.round(L/7.5)));
     for(let i=0;i<shadeN;i++){
-      const x=(-.34+i/Math.max(1,shadeN-1)*.68)*L;
-      const shade=new THREE.Mesh(new THREE.BoxGeometry(.14,2.15,.62),sunshadeMat);
-      shade.position.set(x,upperY,D/2+.48);
-      markArchitecturalDetail(shade,factoryIndex);root.add(shade);
+      const x=(-.38+i/Math.max(1,shadeN-1)*.76)*L;
+      const shade=new THREE.Mesh(new THREE.BoxGeometry(.12,2.05,.50),sunshadeMat);
+      shade.position.set(x,upperY,D/2+.42);
+      addDetail(shade,'V1471_UPPER_SUNSHADE_'+factoryIndex+'_'+i);
     }
 
-    // Roof parapet around the solar field. It stays low enough to preserve the
-    // PV silhouette and never becomes an FPS wall.
+    // Roof parapet around the PV field.
     const parapetH=.48,t=.14,py=H+.70;
     for(const z of [-D/2,D/2]){
       const p=new THREE.Mesh(new THREE.BoxGeometry(L+.40,parapetH,t),parapetMat);
       p.position.set(0,py,z);
-      markArchitecturalDetail(p,factoryIndex);root.add(p);
+      addDetail(p,'V1471_PARAPET_LONG_'+factoryIndex);
     }
     for(const x of [-L/2,L/2]){
       const p=new THREE.Mesh(new THREE.BoxGeometry(t,parapetH,D+.40),parapetMat);
       p.position.set(x,py,0);
-      markArchitecturalDetail(p,factoryIndex);root.add(p);
+      addDetail(p,'V1471_PARAPET_END_'+factoryIndex);
     }
-
-    // Simple floor labels as geometry bands, not camera-facing sprites.
-    const level1=new THREE.Mesh(new THREE.BoxGeometry(3.8,.18,.12),floorBandMat);
-    level1.position.set(-side*L*.30,1.0,D/2+.18);
-    markArchitecturalDetail(level1,factoryIndex);root.add(level1);
-    const level2=level1.clone();
-    level2.position.y=splitY+1.0;
-    markArchitecturalDetail(level2,factoryIndex);root.add(level2);
 
     return root;
   }
-
   for(const factoryIndex of selectedIndices){
     const g=buildings[factoryIndex];
     const body=bodyFor(g);
@@ -313,7 +423,7 @@ export function installSolarRoofZoneV94({
     const solarRoot=new THREE.Group();
     solarRoot.name='V94_SOLAR_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     solarRoot.userData={
-      version:147,
+      version:147.1,
       factoryIndex,
       role:'solar-roof-pilot-two-storey',
       tableCount:placements.length
@@ -390,7 +500,7 @@ export function installSolarRoofZoneV94({
 
   const controller={
     ready:true,
-    version:147,
+    version:147.1,
     selectedIndices:selectedIndices.slice(),
     factoryCount:panelRoots.length,
     twoStoreyFactoryCount:twoStoreyRoots.length,
@@ -403,7 +513,7 @@ export function installSolarRoofZoneV94({
   };
 
   window.__DALOC_SOLAR_ROOFS_V94=controller;
-  console.info('[DaLoc] V147 two-storey solar industrial zone installed',{
+  console.info('[DaLoc] V147.1 actual two-storey solar industrial zone installed',{
     factories:controller.factoryCount,
     tables:tableCount,
     moduleEquivalent
