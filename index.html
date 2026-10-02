@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V117 FPS PERFORMANCE OPTIMIZATION</small>
+  <small>GitHub → Netlify · BUILD V118 FPS SAFE SPAWN + MOVEMENT FIX</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1576,7 +1576,7 @@ installCirculationV53({
    coordBadge.style.color='#ffcf86';
  });
 
-// V117 FIRST-PERSON ROLEPLAY: JUMP + OPTIMIZED COLLISION/RENDER ------------
+// V118 FIRST-PERSON ROLEPLAY: SAFE SPAWN + OPTIMIZED COLLISION/RENDER -------
 // Camera/input remains isolated from traffic AI. Static collision is built once
 // into a light spatial grid; moving vehicles are checked from their live transforms.
 const fpsButton=document.getElementById('fps');
@@ -1609,6 +1609,9 @@ let fpsSavedPixelRatio=null;
 let fpsSavedShadowAutoUpdate=true;
 let fpsShadowFrame=0;
 let fpsExteriorTreeVisibility=null;
+const fpsLastSafePosition=new THREE.Vector3();
+let fpsHasSafePosition=false;
+let fpsLastBlockReason='none';
 
 function fpsSetLookFromCamera(){
   camera.rotation.order='YXZ';
@@ -1833,7 +1836,67 @@ function fpsVehicleBlocked(position){
 }
 
 function fpsPositionBlocked(position){
-  return fpsStaticBlocked(position)||fpsVehicleBlocked(position);
+  if(fpsStaticBlocked(position)){
+    fpsLastBlockReason='static';
+    return true;
+  }
+  if(fpsVehicleBlocked(position)){
+    fpsLastBlockReason='vehicle';
+    return true;
+  }
+  fpsLastBlockReason='none';
+  return false;
+}
+
+function fpsFindSafeSpawn(spawn){
+  const base=spawn.position.clone();
+  const forward=spawn.look.clone().sub(spawn.position).setY(0).normalize();
+  const right=new THREE.Vector3(forward.z,0,-forward.x).normalize();
+
+  // Test the authored spawn first, then progressively search a compact roadside
+  // fan around it. This prevents a gate pylon/tree/prop from trapping the player
+  // on frame 1 while preserving the intended entrance starting area.
+  const candidates=[base.clone()];
+  const sideOffsets=[4,7,10,14,18,24];
+  const forwardOffsets=[4,8,14,22,32];
+  for(const f of [0,...forwardOffsets,...forwardOffsets.map(v=>-v)]){
+    for(const side of [0,...sideOffsets,...sideOffsets.map(v=>-v)]){
+      if(f===0&&side===0)continue;
+      candidates.push(
+        base.clone()
+          .addScaledVector(forward,f)
+          .addScaledVector(right,side)
+      );
+    }
+  }
+
+  for(const candidate of candidates){
+    candidate.y=FPS_EYE_HEIGHT;
+    if(!fpsPositionBlocked(candidate)){
+      return {
+        position:candidate,
+        look:candidate.clone().addScaledVector(forward,24),
+        relocated:candidate.distanceToSquared(base)>.01
+      };
+    }
+  }
+
+  // Absolute fallback: move back toward the road center direction in larger steps.
+  for(let d=28;d<=80;d+=4){
+    const candidate=base.clone().addScaledVector(right,-d);
+    candidate.y=FPS_EYE_HEIGHT;
+    if(!fpsPositionBlocked(candidate)){
+      return {
+        position:candidate,
+        look:candidate.clone().addScaledVector(forward,24),
+        relocated:true
+      };
+    }
+  }
+
+  // Never prevent FPS from opening. If the imported collision map is pathological,
+  // use the original point but expose diagnostics instead of silently freezing WASD.
+  return {position:base,look:spawn.look.clone(),relocated:false,unresolved:true};
 }
 
 function fpsMoveWithCollision(delta){
@@ -1845,13 +1908,35 @@ function fpsMoveWithCollision(delta){
   const trial=camera.position.clone();
 
   for(let i=0;i<steps;i++){
+    let moved=false;
+
     trial.copy(camera.position);
     trial.x+=sx;
-    if(!fpsPositionBlocked(trial))camera.position.x=trial.x;
+    if(!fpsPositionBlocked(trial)){
+      camera.position.x=trial.x;
+      moved=true;
+    }
 
     trial.copy(camera.position);
     trial.z+=sz;
-    if(!fpsPositionBlocked(trial))camera.position.z=trial.z;
+    if(!fpsPositionBlocked(trial)){
+      camera.position.z=trial.z;
+      moved=true;
+    }
+
+    // Keep a known-good recovery point. A moving vehicle or late-loaded prop can
+    // otherwise overlap the player after a valid frame and trap every next move.
+    if(moved&&!fpsPositionBlocked(camera.position)){
+      fpsLastSafePosition.copy(camera.position);
+      fpsHasSafePosition=true;
+    }
+  }
+
+  // If the current position itself became invalid (for example a vehicle moved
+  // into the player), recover to the most recent safe point instead of freezing WASD.
+  if(fpsPositionBlocked(camera.position)&&fpsHasSafePosition){
+    camera.position.x=fpsLastSafePosition.x;
+    camera.position.z=fpsLastSafePosition.z;
   }
 }
 
@@ -1923,11 +2008,23 @@ function enterFirstPerson(){
   applyFpsRenderProfile();
   refreshFpsStaticColliders();
 
-  const spawn=fpsSpawn();
+  const authoredSpawn=fpsSpawn();
+  const spawn=fpsFindSafeSpawn(authoredSpawn);
   camera.position.copy(spawn.position);
+  fpsLastSafePosition.copy(spawn.position);
+  fpsHasSafePosition=!fpsPositionBlocked(spawn.position);
   camera.near=.12;
   camera.updateProjectionMatrix();
   camera.lookAt(spawn.look);
+  if(spawn.relocated){
+    console.info('[DaLoc] V118 FPS spawn relocated away from collider',{
+      from:{x:authoredSpawn.position.x,z:authoredSpawn.position.z},
+      to:{x:spawn.position.x,z:spawn.position.z}
+    });
+  }
+  if(spawn.unresolved){
+    console.warn('[DaLoc] V118 FPS safe spawn unresolved; collision diagnostics available');
+  }
   fpsSetLookFromCamera();
   controls.target.copy(spawn.look);
   renderer.domElement.requestPointerLock?.();
@@ -1939,6 +2036,7 @@ function exitFirstPerson(restore=true){
   fpsKeys.clear();
   fpsVerticalVelocity=0;
   fpsGrounded=true;
+  fpsHasSafePosition=false;
   document.body.classList.remove('fps-mode');
   fpsButton?.classList.remove('active');
   if(fpsButton)fpsButton.textContent='FPS Walk';
@@ -2064,13 +2162,21 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V117={
-  version:117,
+window.__DALOC_FPS_V118={
+  version:118,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
   get grounded(){return fpsGrounded;},
   get verticalVelocity(){return fpsVerticalVelocity;},
+  get keys(){return [...fpsKeys];},
+  get lastBlockReason(){return fpsLastBlockReason;},
+  get currentPosition(){return {
+    x:Number(camera.position.x.toFixed(2)),
+    y:Number(camera.position.y.toFixed(2)),
+    z:Number(camera.position.z.toFixed(2))
+  };},
+  get currentBlocked(){return fpsPositionBlocked(camera.position);},
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get renderInfo(){return {
