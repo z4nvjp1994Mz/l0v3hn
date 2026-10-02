@@ -26,7 +26,7 @@ body.fps-mode #fpsInteractPrompt.active{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V139 FPS FACTORY INTERACTION</small>
+  <small>GitHub → Netlify · BUILD V139.1 VERIFIED ROAD SAFE</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -56,7 +56,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=1384';
-import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
+import { installCirculationV53 } from './assets/circulation-v53.js?v=1391';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
@@ -1313,6 +1313,7 @@ document.querySelector('.controls')?.appendChild(factoryCutawayButton);
 // ---------------------------------------------------------------------------
 // V74: restore previously-built 3D detail without replacing authoritative CAD asphalt.
 let v53DetailGroup=null;
+let v53CirculationResult=null;
 let v54DetailGroup=null;
 let v54DetailResult=null;
 let v78ExteriorGroup=null;
@@ -1344,6 +1345,7 @@ installCirculationV53({
   showUI:false
 })
  .then(circulationResult=>{
+   v53CirculationResult=circulationResult;
    v53DetailGroup=circulationResult?.group||null;
    v53AccessCount=circulationResult?.cadAccessCount||0;
    const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
@@ -1521,7 +1523,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V139 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V139.1 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -2450,12 +2452,22 @@ function refreshFpsStaticColliders(){
   }
 
   fpsColliderRevision++;
-  console.info('[DaLoc] V139 FPS collision grid: factory shell doors + walkable surfaces + trunk-only trees',{
+  console.info('[DaLoc] V139.1 FPS collision grid: verified road-safe corridor + factory shell doors + trunk-only trees',{
     colliders:fpsStaticColliders.length,
     cells:fpsColliderGrid.size,
     instancedBatches:instancedBatches.size,
     revision:fpsColliderRevision
   });
+}
+
+function fpsRoadSafeInfo(position){
+  if(!position||fpsGroundLevel>.05||fpsClimbState||fpsRoofState)return null;
+  const api=v53CirculationResult||window.__DALOC_V53;
+  return api?.fpsRoadSafeInfo?.(position.x,position.z)||null;
+}
+
+function fpsOnVerifiedRoad(position){
+  return !!fpsRoadSafeInfo(position);
 }
 
 function fpsNearbyColliderIds(position){
@@ -2467,6 +2479,11 @@ function fpsNearbyColliderIds(position){
 }
 
 function fpsStaticBlocked(position){
+  // V139.1 hard guarantee: inside the verified center corridor of a real road,
+  // decorative/static meshes may never create an invisible wall. Traffic still
+  // collides separately in fpsVehicleBlocked().
+  if(fpsOnVerifiedRoad(position))return false;
+
   const feetY=position.y-FPS_EYE_HEIGHT;
   const headY=feetY+FPS_PLAYER_HEIGHT;
   const midY=feetY+FPS_PLAYER_HEIGHT*.5;
@@ -3173,6 +3190,8 @@ const fpsApiV139={
   get keys(){return [...fpsKeys];},
   get lastBlockReason(){return fpsLastBlockReason;},
   get lastBlockObject(){return fpsLastBlockObject;},
+  get roadSafeInfo(){return fpsRoadSafeInfo(camera.position);},
+  get onVerifiedRoad(){return fpsOnVerifiedRoad(camera.position);},
   get currentPosition(){return {
     x:Number(camera.position.x.toFixed(2)),
     y:Number(camera.position.y.toFixed(2)),
