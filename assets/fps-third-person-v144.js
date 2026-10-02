@@ -186,7 +186,7 @@ export function createThirdPersonPlayerV144(){
 
   const axeHeadRoot=new THREE.Group();
   axeHeadRoot.position.set(0,.015,-.82);
-  axeHeadRoot.rotation.z=.28;
+  axeHeadRoot.rotation.z=-.50;
   axe.add(axeHeadRoot);
 
   const axeHead=mark(new THREE.Mesh(
