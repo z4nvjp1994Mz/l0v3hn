@@ -13,19 +13,25 @@
 .controls{max-width:calc(100vw - 450px);flex-wrap:wrap;right:16px;top:16px;padding:8px;border-radius:14px;display:flex;gap:7px}.controls button{border:0;border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.07);color:#eef8f1;font-weight:800;cursor:pointer}.controls button.active,.controls button:hover{background:#effff5;color:#092217}
 .info{right:16px;bottom:16px;width:330px;padding:16px;border-radius:16px}.eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#82edb2;font-weight:800}.info h2{font-size:18px;margin:6px 0 8px}.info p{font-size:12px;color:#bdc8c1;line-height:1.5;margin:0}.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.stat{padding:9px;border-radius:10px;background:rgba(255,255,255,.05)}.stat b{display:block;font-size:14px}.stat span{font-size:10px;color:#93a29a}
 .hint{position:fixed;z-index:4;left:50%;bottom:18px;transform:translateX(-50%);padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.1);font-size:11px;color:#dce7e0;pointer-events:none}
+#fpsCrosshair{display:none;position:fixed;z-index:30;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%);pointer-events:none}
+#fpsCrosshair:before,#fpsCrosshair:after{content:'';position:absolute;background:rgba(255,255,255,.92);box-shadow:0 0 4px rgba(0,0,0,.65)}
+#fpsCrosshair:before{left:8px;top:1px;width:2px;height:16px}#fpsCrosshair:after{left:1px;top:8px;width:16px;height:2px}
+#fpsHud{display:none;position:fixed;z-index:29;left:50%;bottom:54px;transform:translateX(-50%);padding:8px 12px;border-radius:10px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.12);font:700 11px Arial;color:#dff7e8;pointer-events:none}
+body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 @media(max-width:850px){.brand{left:10px;top:10px;width:calc(100vw - 20px)}.controls{left:10px;right:auto;top:128px;max-width:calc(100vw - 20px);overflow:auto}.info{right:10px;bottom:10px;width:285px}}
 </style>
 </head>
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V114 CAD-SURFACE SIGNAL PLACEMENT</small>
+  <small>GitHub → Netlify · BUILD V115 SIDEWALK SIGNALS + FPS WALK</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
   <button id="vt">Top View</button><button id="vd">Detail View</button>
+  <button id="fps">FPS Walk</button>
   <button id="bp">Blueprint Off</button>
   <button id="reset">Reset</button>
 </div>
@@ -40,7 +46,8 @@
     <div class="stat"><b>2D + 3D</b><span>direct overlay</span></div>
   </div>
 </div>
-<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
+<div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · WASD di chuyển · Shift chạy · Chuột nhìn · ESC thoát</div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -50,7 +57,7 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=1051';
-import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=114';
+import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=115';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=1051';
@@ -1362,16 +1369,16 @@ installCirculationV53({
          factoryAccess:v99AccessResult
        })
        .catch(error=>{
-         console.error('[DaLoc] V112 traffic fallback: controls will stay available',error);
+         console.error('[DaLoc] V115 traffic fallback: controls will stay available',error);
          // Remove any half-built traffic root left by a failed bootstrap so frozen
          // vehicles/signals cannot remain in the scene.
          for(const child of [...world.children]){
-           if(/^AI_TRAFFIC_V10\d$/.test(child.name)||child.name==='AI_TRAFFIC_V110'){
+           if(/^AI_TRAFFIC_V\d+$/.test(child.name)){
              world.remove(child);
            }
          }
          return {
-           ready:false,version:112,error,
+           ready:false,version:115,error,
            group:null,
            carCount:0,cargoTruckCount:0,containerTruckCount:0,
            motorcycleCount:0,supercarCount:0,totalCount:0,
@@ -1442,7 +1449,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent=(trafficResult?.ready===false?'V112 traffic fallback · ':'V114 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent=(trafficResult?.ready===false?'V115 traffic fallback · ':'V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1565,9 +1572,155 @@ installCirculationV53({
  })
  .catch(error=>{
    console.error(error);
-   coordBadge.textContent='V112 asset warning: '+error.message;
+   coordBadge.textContent='V115 asset warning: '+error.message;
    coordBadge.style.color='#ffcf86';
  });
+
+// V115 FIRST-PERSON ROLEPLAY DEMO -----------------------------------------
+// Camera/input only. Traffic, logistics, pedestrians and scene modules continue
+// updating exactly as before. This demo intentionally adds no collision system yet.
+const fpsButton=document.getElementById('fps');
+const fpsCrosshair=document.getElementById('fpsCrosshair');
+const fpsHud=document.getElementById('fpsHud');
+const fpsKeys=new Set();
+let fpsMode=false;
+let fpsYaw=0;
+let fpsPitch=0;
+let fpsSavedView=null;
+const FPS_EYE_HEIGHT=1.72;
+const FPS_WALK_SPEED=8.0;
+const FPS_RUN_SPEED=15.0;
+
+function fpsSetLookFromCamera(){
+  camera.rotation.order='YXZ';
+  fpsPitch=camera.rotation.x;
+  fpsYaw=camera.rotation.y;
+}
+
+function fpsSpawn(){
+  // Start beside the source-locked central spine near the lower entrance.
+  const a0=mapPx(358.6,1500.2),b0=mapPx(435.06,1395.044);
+  const a=new THREE.Vector3(a0.x,FPS_EYE_HEIGHT,a0.z);
+  const b=new THREE.Vector3(b0.x,FPS_EYE_HEIGHT,b0.z);
+  const travel=b.clone().sub(a).setY(0).normalize();
+  const right=new THREE.Vector3(travel.z,0,-travel.x).normalize();
+  const p=a.clone().lerp(b,.34).addScaledVector(right,10.8);
+  p.y=FPS_EYE_HEIGHT;
+  return {position:p,look:p.clone().addScaledVector(travel,24)};
+}
+
+function enterFirstPerson(){
+  if(fpsMode){
+    renderer.domElement.requestPointerLock?.();
+    return;
+  }
+  fpsSavedView={
+    position:camera.position.clone(),
+    target:controls.target.clone(),
+    near:camera.near
+  };
+  fpsMode=true;
+  fpsKeys.clear();
+  controls.enabled=false;
+  document.body.classList.add('fps-mode');
+  fpsButton?.classList.add('active');
+  if(fpsButton)fpsButton.textContent='FPS Walk: On';
+  document.getElementById('v3')?.classList.remove('active');
+  document.getElementById('vt')?.classList.remove('active');
+  document.getElementById('vd')?.classList.remove('active');
+
+  const spawn=fpsSpawn();
+  camera.position.copy(spawn.position);
+  camera.near=.12;
+  camera.updateProjectionMatrix();
+  camera.lookAt(spawn.look);
+  fpsSetLookFromCamera();
+  controls.target.copy(spawn.look);
+  renderer.domElement.requestPointerLock?.();
+}
+
+function exitFirstPerson(restore=true){
+  if(!fpsMode)return;
+  fpsMode=false;
+  fpsKeys.clear();
+  document.body.classList.remove('fps-mode');
+  fpsButton?.classList.remove('active');
+  if(fpsButton)fpsButton.textContent='FPS Walk';
+  controls.enabled=true;
+
+  if(document.pointerLockElement===renderer.domElement){
+    document.exitPointerLock?.();
+  }
+
+  if(fpsSavedView){
+    camera.near=fpsSavedView.near;
+    camera.updateProjectionMatrix();
+    if(restore){
+      camera.position.copy(fpsSavedView.position);
+      controls.target.copy(fpsSavedView.target);
+    }
+  }
+}
+
+fpsButton?.addEventListener('click',()=>{
+  if(fpsMode)exitFirstPerson(true);
+  else enterFirstPerson();
+});
+renderer.domElement.addEventListener('click',()=>{
+  if(fpsMode&&document.pointerLockElement!==renderer.domElement){
+    renderer.domElement.requestPointerLock?.();
+  }
+});
+document.addEventListener('pointerlockchange',()=>{
+  if(fpsMode&&document.pointerLockElement!==renderer.domElement){
+    exitFirstPerson(true);
+  }
+});
+document.addEventListener('mousemove',e=>{
+  if(!fpsMode||document.pointerLockElement!==renderer.domElement)return;
+  fpsYaw-=e.movementX*.0020;
+  fpsPitch-=e.movementY*.0020;
+  fpsPitch=THREE.MathUtils.clamp(fpsPitch,-1.38,1.38);
+  camera.rotation.set(fpsPitch,fpsYaw,0,'YXZ');
+});
+window.addEventListener('keydown',e=>{
+  if(!fpsMode)return;
+  if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight'].includes(e.code)){
+    fpsKeys.add(e.code);
+    e.preventDefault();
+  }
+});
+window.addEventListener('keyup',e=>fpsKeys.delete(e.code));
+window.addEventListener('blur',()=>fpsKeys.clear());
+
+function updateFirstPerson(dt){
+  if(!fpsMode)return;
+  const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+  forward.y=0;
+  if(forward.lengthSq()<1e-6)forward.set(0,0,-1);
+  forward.normalize();
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
+  right.y=0;
+  if(right.lengthSq()<1e-6)right.set(1,0,0);
+  right.normalize();
+
+  const move=new THREE.Vector3();
+  if(fpsKeys.has('KeyW'))move.add(forward);
+  if(fpsKeys.has('KeyS'))move.sub(forward);
+  if(fpsKeys.has('KeyD'))move.add(right);
+  if(fpsKeys.has('KeyA'))move.sub(right);
+  if(move.lengthSq()>0){
+    move.normalize();
+    const running=fpsKeys.has('ShiftLeft')||fpsKeys.has('ShiftRight');
+    camera.position.addScaledVector(move,(running?FPS_RUN_SPEED:FPS_WALK_SPEED)*dt);
+  }
+  camera.position.y=FPS_EYE_HEIGHT;
+
+  // Keep shadow/light tracking compatible with the existing lightweight renderer.
+  const lookDir=new THREE.Vector3();
+  camera.getWorldDirection(lookDir);
+  controls.target.copy(camera.position).addScaledVector(lookDir,12);
+}
 
 // Views
 function tween(pos,tgt){
@@ -1575,15 +1728,15 @@ function tween(pos,tgt){
   const go=()=>{t=Math.min(1,t+.035);const k=1-Math.pow(1-t,3);camera.position.lerpVectors(a,pos,k);controls.target.lerpVectors(b,tgt,k);if(t<1)requestAnimationFrame(go)};go();
 }
 const v3=document.getElementById('v3'),vt=document.getElementById('vt'),vd=document.getElementById('vd'),bp=document.getElementById('bp');
-v3.onclick=()=>{visualQualityV102.setMode('perspective');v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.18;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
-vt.onclick=()=>{visualQualityV102.setMode('top');vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
-vd.onclick=()=>{visualQualityV102.setMode('detail');vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.10;factoryCutawayOn=!!factoryInteriorsV84?.ready;factoryInteriorsV84?.setCutaway?.(factoryCutawayOn);factoryCutawayButton.classList.toggle('active',factoryCutawayOn);factoryCutawayButton.textContent=factoryCutawayOn?'Factory Cutaway: On':'Factory Cutaway: Loading';tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
+v3.onclick=()=>{exitFirstPerson(false);visualQualityV102.setMode('perspective');v3.classList.add('active');vt.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=.18;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(820,620,900),new THREE.Vector3(0,0,20))};
+vt.onclick=()=>{exitFirstPerson(false);visualQualityV102.setMode('top');vt.classList.add('active');v3.classList.remove('active');vd.classList.remove('active');blueprintMat.opacity=1;factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';tween(new THREE.Vector3(0,2200,.1),new THREE.Vector3(0,0,0))};
+vd.onclick=()=>{exitFirstPerson(false);visualQualityV102.setMode('detail');vd.classList.add('active');v3.classList.remove('active');vt.classList.remove('active');blueprintMat.opacity=.10;factoryCutawayOn=!!factoryInteriorsV84?.ready;factoryInteriorsV84?.setCutaway?.(factoryCutawayOn);factoryCutawayButton.classList.toggle('active',factoryCutawayOn);factoryCutawayButton.textContent=factoryCutawayOn?'Factory Cutaway: On':'Factory Cutaway: Loading';tween(new THREE.Vector3(220,95,255),new THREE.Vector3(0,8,22))};
 
 let bpOn=false;
 blueprint.visible=false;
 ground.visible=true;
 bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classList.toggle('active',bpOn);bp.textContent=bpOn?'Blueprint On':'Blueprint Off'};
-document.getElementById('reset').onclick=()=>{bpOn=false;blueprint.visible=false;ground.visible=true;bp.classList.remove('active');bp.textContent='Blueprint Off';factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';window.__DALOC_V72?.setEnabled?.(true);window.__DALOC_V72?.showEdges?.(false);v3.click()};
+document.getElementById('reset').onclick=()=>{exitFirstPerson(false);bpOn=false;blueprint.visible=false;ground.visible=true;bp.classList.remove('active');bp.textContent='Blueprint Off';factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';window.__DALOC_V72?.setEnabled?.(true);window.__DALOC_V72?.showEdges?.(false);v3.click()};
 
 let treeVisibilityState=true;
 function updateTreeVisibility(){
@@ -1622,7 +1775,7 @@ let lastFrameTime=performance.now();
   pondFishV82?.update?.(dt);
   pedestrianController?.update?.(dt);
   atmosphereV106?.update?.(dt);
-  controls.update();
+  if(fpsMode)updateFirstPerson(dt);else controls.update();
   visualQualityV102.update();
   const d=camera.position.distanceTo(controls.target);
   world.traverse(o=>{
