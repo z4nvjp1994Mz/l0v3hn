@@ -3323,6 +3323,7 @@ function enterFirstPerson(){
   fpsAimAmount=0;
   fpsWeaponKick=0;
   fpsShotCooldown=0;
+  fpsResetCombatState();
   document.body.classList.remove('fps-aiming');
   if(fpsInteractPrompt){
     fpsInteractPrompt.classList.remove('active');
@@ -3382,7 +3383,8 @@ function exitFirstPerson(restore=true){
   fpsAiming=false;
   fpsAimAmount=0;
   fpsWeaponKick=0;
-  document.body.classList.remove('fps-aiming');
+  fpsResetCombatState();
+  document.body.classList.remove('fps-aiming','fps-dead');
   fpsHasSafePosition=false;
   fpsLocomotionBlend=0;
   if(fpsInteractPrompt){
@@ -3538,6 +3540,13 @@ function fpsBulletObjectName(object){
   return 'world';
 }
 
+function fpsRemotePeerFromObject(object){
+  for(let o=object;o;o=o.parent){
+    if(o.userData?.multiplayerRemote&&o.userData?.peerId)return o.userData.peerId;
+  }
+  return null;
+}
+
 function fpsBulletHitAllowed(hit){
   const object=hit?.object;
   if(!object||object.visible===false)return false;
@@ -3564,12 +3573,13 @@ function fpsShowHitMarker(){
 }
 
 function fpsFireSniper(){
-  if(!fpsMode||document.pointerLockElement!==renderer.domElement)return false;
+  if(!fpsMode||!fpsAlive||document.pointerLockElement!==renderer.domElement)return false;
   if(fpsShotCooldown>0||fpsClimbState)return false;
 
   fpsShotCooldown=FPS_FIRE_INTERVAL;
   fpsWeaponKick=1;
   fpsShotsFired++;
+  const shotId=(multiplayerV142?.selfId||'local')+'-'+fpsShotsFired+'-'+Math.round(performance.now());
 
   const origin=camera.position.clone();
   camera.getWorldDirection(fpsBulletDir);
@@ -3592,6 +3602,7 @@ function fpsFireSniper(){
 
   fpsProjectiles.push({
     mesh,tracer,
+    shotId,
     position:origin.clone(),
     previous:origin.clone(),
     velocity:fpsBulletDir.clone().multiplyScalar(FPS_PROJECTILE_SPEED),
@@ -3655,7 +3666,21 @@ function fpsUpdateProjectiles(dt){
       p.mesh.position.copy(impact.point);
       fpsLastImpactObject=fpsBulletObjectName(impact.object);
       fpsSpawnImpact(impact.point);
-      fpsShowHitMarker();
+
+      const remotePeerId=fpsRemotePeerFromObject(impact.object);
+      if(remotePeerId){
+        const remoteState=multiplayerV142?.remoteStatus;
+        if(remoteState?.alive!==false){
+          multiplayerV142?.sendDamage?.(
+            remotePeerId,
+            FPS_DAMAGE_PER_PLAYER_HIT,
+            p.shotId
+          );
+          fpsShowHitMarker();
+          if((Number(remoteState?.hp)||FPS_MAX_HP)<=FPS_DAMAGE_PER_PLAYER_HIT)fpsKills++;
+        }
+      }
+
       fpsRemoveProjectile(p);
       fpsProjectiles.splice(i,1);
       continue;
@@ -3691,7 +3716,7 @@ function fpsUpdateProjectiles(dt){
 }
 
 function fpsUpdateScope(dt){
-  const canAim=fpsMode&&fpsAimHeld&&!fpsClimbState&&document.pointerLockElement===renderer.domElement;
+  const canAim=fpsMode&&fpsAlive&&fpsAimHeld&&!fpsClimbState&&document.pointerLockElement===renderer.domElement;
   fpsAiming=!!canAim;
   const target=fpsAiming?1:0;
   fpsAimAmount+=(target-fpsAimAmount)*Math.min(1,dt*FPS_AIM_SPEED);
@@ -3707,7 +3732,7 @@ function fpsUpdateScope(dt){
   document.body.classList.toggle('fps-aiming',fpsAimAmount>.08);
   if(fpsRealArmsRig){
     // At full scope the optic fills the view; hide the hip-fire weapon silhouette.
-    fpsRealArmsRig.visible=fpsMode&&fpsAimAmount<.88;
+    fpsRealArmsRig.visible=fpsMode&&fpsAlive&&fpsAimAmount<.88;
   }
 
   fpsShotCooldown=Math.max(0,fpsShotCooldown-dt);
@@ -3722,7 +3747,17 @@ function fpsUpdateScope(dt){
 function updateFirstPerson(dt){
   if(!fpsMode)return;
 
+  fpsUpdateCombatState(dt);
   fpsUpdateScope(dt);
+
+  if(!fpsAlive){
+    fpsKeys.clear();
+    fpsAimHeld=false;
+    const deadLookDir=new THREE.Vector3();
+    camera.getWorldDirection(deadLookDir);
+    controls.target.copy(camera.position).addScaledVector(deadLookDir,12);
+    return;
+  }
 
   // V138.3: the red DXF site-boundary guide is useful in overview/top view,
   // but must never be visible inside the first-person walkthrough.
@@ -3730,7 +3765,7 @@ function updateFirstPerson(dt){
 
   // V138 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
   if(!fpsRealArmsRig)prepareFpsRealArmsV138();
-  if(fpsRealArmsRig)fpsRealArmsRig.visible=fpsAimAmount<.88;
+  if(fpsRealArmsRig)fpsRealArmsRig.visible=fpsAlive&&fpsAimAmount<.88;
 
   // Ground-level shadows are the expensive pass in FPS. Update them every
   // second frame instead of forcing a 2048 shadow render every frame.
