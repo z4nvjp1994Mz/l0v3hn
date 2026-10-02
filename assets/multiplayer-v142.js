@@ -234,7 +234,7 @@ function makeRemotePlayer(peerId){
   const axe=new THREE.Group();
   axe.name='V154_REMOTE_AXE_'+peerId.slice(0,8);
   axe.position.set(.12,1.16,-.22);
-  axe.rotation.set(.36,-.03,-.10);
+  axe.rotation.set(.10,-.10,-.28);
   axe.visible=false;
 
   const axeHandle=new THREE.Mesh(
@@ -247,6 +247,7 @@ function makeRemotePlayer(peerId){
 
   const axeHeadRoot=new THREE.Group();
   axeHeadRoot.position.set(0,.015,-.82);
+  axeHeadRoot.rotation.z=.28;
   axe.add(axeHeadRoot);
 
   const axeHead=new THREE.Mesh(
@@ -810,7 +811,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     if(gatlingActive)remote.gCluster.rotation.z+=dt*8.5;
 
     remote.axe.position.set(.12,1.16-.34*crouch,-.22);
-    remote.axe.rotation.set(.36,-.03,-.10);
+    remote.axe.rotation.set(.10,-.10,-.28);
 
     if(axeActive&&remote.meleeType!=='none'){
       remote.meleeTime+=dt;
@@ -826,9 +827,9 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
       if(remote.meleeType==='strong'){
         if(mp<.34){
           const t=easeOut(mp/.34);
-          remote.axe.rotation.x=THREE.MathUtils.lerp(.36,1.34,t);
-          remote.axe.rotation.y=THREE.MathUtils.lerp(-.03,-.01,t);
-          remote.axe.rotation.z=THREE.MathUtils.lerp(-.10,.02,t);
+          remote.axe.rotation.x=THREE.MathUtils.lerp(.10,1.30,t);
+          remote.axe.rotation.y=THREE.MathUtils.lerp(-.10,-.02,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.28,.02,t);
           remote.axe.position.y=THREE.MathUtils.lerp(1.16-.34*crouch,1.48-.34*crouch,t);
           remote.axe.position.z=THREE.MathUtils.lerp(-.22,-.08,t);
           remote.torso.rotation.x=THREE.MathUtils.lerp(0,-.10,t);
@@ -846,9 +847,9 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
           remote.rightArm.rotation.x-=THREE.MathUtils.lerp(.82,1.08,t);
         }else{
           const t=smooth((mp-.72)/.28);
-          remote.axe.rotation.x=THREE.MathUtils.lerp(-1.08,.36,t);
-          remote.axe.rotation.y=THREE.MathUtils.lerp(.03,-.03,t);
-          remote.axe.rotation.z=THREE.MathUtils.lerp(-.18,-.10,t);
+          remote.axe.rotation.x=THREE.MathUtils.lerp(-1.08,.10,t);
+          remote.axe.rotation.y=THREE.MathUtils.lerp(.03,-.10,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.18,-.28,t);
           remote.axe.position.y=THREE.MathUtils.lerp(.91-.34*crouch,1.16-.34*crouch,t);
           remote.axe.position.z=THREE.MathUtils.lerp(-.34,-.22,t);
           remote.torso.rotation.x=THREE.MathUtils.lerp(.15,0,t);
@@ -858,9 +859,9 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
       }else{
         if(mp<.26){
           const t=easeOut(mp/.26);
-          remote.axe.rotation.x=THREE.MathUtils.lerp(.36,.80,t);
-          remote.axe.rotation.y=THREE.MathUtils.lerp(-.03,-.60,t);
-          remote.axe.rotation.z=THREE.MathUtils.lerp(-.10,-.54,t);
+          remote.axe.rotation.x=THREE.MathUtils.lerp(.10,.72,t);
+          remote.axe.rotation.y=THREE.MathUtils.lerp(-.10,-.66,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.28,-.64,t);
           remote.axe.position.x=THREE.MathUtils.lerp(.12,.34,t);
           remote.axe.position.y=THREE.MathUtils.lerp(1.16-.34*crouch,1.36-.34*crouch,t);
           remote.torso.rotation.y=THREE.MathUtils.lerp(0,-.18,t);
@@ -880,9 +881,9 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
           remote.rightArm.rotation.x-=THREE.MathUtils.lerp(.48,.68,t);
         }else{
           const t=smooth((mp-.66)/.34);
-          remote.axe.rotation.x=THREE.MathUtils.lerp(-.58,.36,t);
-          remote.axe.rotation.y=THREE.MathUtils.lerp(.68,-.03,t);
-          remote.axe.rotation.z=THREE.MathUtils.lerp(.28,-.10,t);
+          remote.axe.rotation.x=THREE.MathUtils.lerp(-.58,.10,t);
+          remote.axe.rotation.y=THREE.MathUtils.lerp(.68,-.10,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(.28,-.28,t);
           remote.axe.position.x=THREE.MathUtils.lerp(-.22,.12,t);
           remote.axe.position.y=THREE.MathUtils.lerp(.91-.34*crouch,1.16-.34*crouch,t);
           remote.torso.rotation.y=THREE.MathUtils.lerp(.24,0,t);
@@ -1001,7 +1002,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:161,
+    version:162,
     get selfId(){return localSelfId;},
     join,
     leave,
