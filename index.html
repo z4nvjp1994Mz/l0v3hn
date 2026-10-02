@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V133 TACTICAL ANATOMICAL FPS HANDS</small>
+  <small>GitHub → Netlify · BUILD V134 COMPACT RELAXED FPS FISTS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -53,7 +53,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createTacticalFpsArmsV133 } from './assets/fps-arms-v133.js?v=133';
+import { createCompactFpsArmsV134 } from './assets/fps-arms-v134.js?v=134';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1516,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V133 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V134 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1732,20 +1732,19 @@ function fpsMesh(geometry,material,renderOrder=0){
   return mesh;
 }
 
-function prepareFpsRealArmsV133(){
+function prepareFpsRealArmsV134(){
   if(fpsRealArmsReady&&fpsRealArmsRig)return fpsRealArmsRig;
 
   try{
-    const rig=createTacticalFpsArmsV133();
-    rig.name='FPS_TACTICAL_OVERLAY_RIG_V133';
+    const rig=createCompactFpsArmsV134();
+    rig.name='FPS_COMPACT_OVERLAY_RIG_V134';
     rig.userData.ignoreFpsCollision=true;
     rig.visible=false;
 
-    // V133 geometry is authored directly in overlay-camera scale. Keep it close
-    // to 1:1 so palms/fingers retain natural proportions instead of becoming blocks.
-    rig.scale.setScalar(1.15);
-    rig.rotation.set(-.02,0,0);
-    rig.position.set(0,-.10,-1.05);
+    // Compact authored overlay proportions: no oversized scaling.
+    rig.scale.setScalar(1.00);
+    rig.rotation.set(-.015,0,0);
+    rig.position.set(0,-.095,-1.06);
 
     fpsArmOverlayRoot.add(rig);
 
@@ -1755,14 +1754,14 @@ function prepareFpsRealArmsV133(){
     fpsRealArmsAction=null;
     fpsRealArmsReady=true;
     fpsRealArmsError=null;
-    fpsArmAssetMode='smooth-tactical-hands-v133';
+    fpsArmAssetMode='compact-relaxed-fists-v134';
     fpsRealArmsPromise=Promise.resolve(rig);
 
     if(fpsLeftArmPivot)fpsLeftArmPivot.visible=false;
     if(fpsRightArmPivot)fpsRightArmPivot.visible=false;
     if(fpsMode)fpsRealArmsRig.visible=true;
 
-    console.info('[DaLoc] V133 tactical FPS hands ready',{
+    console.info('[DaLoc] V134 compact FPS fists ready',{
       triangles:rig.userData.triangles||0,
       children:rig.children.length,
       mode:fpsArmAssetMode
@@ -1771,8 +1770,8 @@ function prepareFpsRealArmsV133(){
   }catch(error){
     fpsRealArmsError=error;
     fpsRealArmsReady=false;
-    fpsArmAssetMode='v133-tactical-hand-error';
-    console.error('[DaLoc] V133 tactical FPS hand setup failed',error);
+    fpsArmAssetMode='v134-compact-hand-error';
+    console.error('[DaLoc] V134 FPS hand setup failed',error);
     return null;
   }
 }
@@ -1810,7 +1809,7 @@ function buildFpsCharacterRig(){
   // Arms are a camera-relative first-person viewmodel: always readable at the
   // bottom of frame, independent from pitch/yaw and without entering collision.
   fpsViewModel=new THREE.Group();
-  fpsViewModel.name='FPS_VIEWMODEL_V133';
+  fpsViewModel.name='FPS_VIEWMODEL_V134';
   fpsViewModel.userData.ignoreFpsCollision=true;
   fpsViewModel.visible=false;
   scene.add(fpsViewModel);
@@ -1837,7 +1836,7 @@ function buildFpsCharacterRig(){
     // (-Z), slightly higher and closer to the center. This makes the forearm
     // visually point INTO the scene like an FPS viewmodel instead of toward camera.
     const root=new THREE.Group();
-    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V133':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V133';
+    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V134':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V134';
     root.userData.ignoreFpsCollision=true;
 
     const shoulder=[side*.33,-.41,-.52];
@@ -1994,7 +1993,7 @@ function setFpsRigVisible(visible){
   fpsLeftArmPivot.visible=false;
   fpsRightArmPivot.visible=false;
 
-  if(!fpsRealArmsRig)prepareFpsRealArmsV133();
+  if(!fpsRealArmsRig)prepareFpsRealArmsV134();
   if(fpsRealArmsRig)fpsRealArmsRig.visible=visible;
 }
 
@@ -2028,14 +2027,14 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
   if(fpsRealArmsReady&&fpsRealArmsRig){
     // One coherent skinned-derived mesh: sway the whole arm pair together.
     fpsRealArmsRig.position.set(
-      Math.sin(phase)*.0045*blend,
-      -.10-Math.abs(Math.sin(phase*2))*.0065*blend+(airborne?.008:0),
-      -1.05
+      Math.sin(phase)*.0035*blend,
+      -.095-Math.abs(Math.sin(phase*2))*.0055*blend+(airborne?.007:0),
+      -1.06
     );
     fpsRealArmsRig.rotation.set(
-      -.02+(airborne?.012:0),
+      -.015+(airborne?.010:0),
       0,
-      Math.sin(phase)*.0065*runMul*blend
+      Math.sin(phase)*.0055*runMul*blend
     );
   }else{
     const swing=.018*runMul*blend;
@@ -2487,8 +2486,8 @@ function restoreFpsRenderProfile(){
   }
 }
 
-// V133: build tactical FPS arms synchronously during startup.
-prepareFpsRealArmsV133();
+// V134: build compact relaxed FPS fists synchronously during startup.
+prepareFpsRealArmsV134();
 
 function enterFirstPerson(){
   if(fpsMode){
@@ -2633,8 +2632,8 @@ window.addEventListener('blur',()=>fpsKeys.clear());
 function updateFirstPerson(dt){
   if(!fpsMode)return;
 
-  // V133 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
-  if(!fpsRealArmsRig)prepareFpsRealArmsV133();
+  // V134 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
+  if(!fpsRealArmsRig)prepareFpsRealArmsV134();
   if(fpsRealArmsRig)fpsRealArmsRig.visible=true;
 
   // Ground-level shadows are the expensive pass in FPS. Update them every
@@ -2689,8 +2688,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V133={
-  version:133,
+window.__DALOC_FPS_V134={
+  version:134,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -2709,7 +2708,7 @@ window.__DALOC_FPS_V133={
   get approvedLookPx(){return {x:343.50,y:1492.90};},
   get bodyRigVisible(){return !!fpsBodyRig?.visible;},
   get armAssetMode(){return fpsArmAssetMode;},
-  get armAssetPath(){return 'module:assets/fps-arms-v133.js';},
+  get armAssetPath(){return 'module:assets/fps-arms-v134.js';},
   get realArmsReady(){return fpsRealArmsReady;},
   get overlayVisible(){return !!(fpsMode&&fpsRealArmsReady&&fpsRealArmsRig?.visible);},
   get overlayChildren(){return fpsArmOverlayRoot.children.length;},
