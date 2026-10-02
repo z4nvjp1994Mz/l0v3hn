@@ -2501,6 +2501,112 @@ function fpsSetLookFromCamera(){
   fpsYaw=camera.rotation.y;
 }
 
+function fpsThirdCameraHitAllowed(hit){
+  const object=hit?.object;
+  if(!object||object.visible===false)return false;
+  for(let o=object;o;o=o.parent){
+    if(
+      o.userData?.thirdPersonLocalRoot===true||
+      o.userData?.thirdPersonLocal===true||
+      o.userData?.multiplayerRoot===true||
+      o.userData?.multiplayerRemote===true||
+      o.userData?.fpsProjectile===true||
+      o.userData?.ignoreFpsBullet===true
+    )return false;
+  }
+  const materials=Array.isArray(object.material)?object.material:[object.material];
+  if(materials.length&&materials.every(m=>m&&m.visible===false))return false;
+  return true;
+}
+
+function fpsUpdateThirdPersonCamera(dt=0,{snap=false}={}){
+  if(!fpsMode||fpsViewMode!=='third')return;
+
+  fpsThirdEye.copy(camera.position);
+  camera.getWorldDirection(fpsThirdForward);
+  if(fpsThirdForward.lengthSq()<1e-8)fpsThirdForward.set(0,0,-1);
+  fpsThirdForward.normalize();
+
+  fpsThirdFlatForward.set(fpsThirdForward.x,0,fpsThirdForward.z);
+  if(fpsThirdFlatForward.lengthSq()<1e-8){
+    fpsThirdFlatForward.set(-Math.sin(fpsYaw),0,-Math.cos(fpsYaw));
+  }
+  fpsThirdFlatForward.normalize();
+
+  fpsThirdRight.crossVectors(fpsThirdFlatForward,new THREE.Vector3(0,1,0)).normalize();
+
+  const distance=THREE.MathUtils.lerp(
+    FPS_THIRD_DISTANCE,
+    FPS_THIRD_AIM_DISTANCE,
+    fpsAimAmount
+  );
+  const shoulder=FPS_THIRD_SHOULDER+fpsAimAmount*.16;
+  const height=FPS_THIRD_HEIGHT-fpsCrouchAmount*.28;
+
+  fpsThirdDesired.copy(fpsThirdEye)
+    .addScaledVector(fpsThirdFlatForward,-distance)
+    .addScaledVector(fpsThirdRight,shoulder);
+  fpsThirdDesired.y+=height;
+
+  fpsThirdTarget.copy(fpsThirdEye)
+    .addScaledVector(fpsThirdForward,45);
+
+  fpsThirdRayDir.copy(fpsThirdDesired).sub(fpsThirdEye);
+  const rayDistance=fpsThirdRayDir.length();
+  if(rayDistance>.001){
+    fpsThirdRayDir.multiplyScalar(1/rayDistance);
+    fpsThirdCameraRaycaster.set(fpsThirdEye,fpsThirdRayDir);
+    fpsThirdCameraRaycaster.near=.10;
+    fpsThirdCameraRaycaster.far=rayDistance;
+
+    const roots=world.children.filter(child=>
+      child!==fpsThirdPersonAvatar?.root &&
+      child?.userData?.multiplayerRoot!==true &&
+      child?.name!=='MULTIPLAYER_V142'
+    );
+    const hit=fpsThirdCameraRaycaster
+      .intersectObjects(roots,true)
+      .find(fpsThirdCameraHitAllowed);
+
+    if(hit&&hit.distance<rayDistance){
+      const safeDistance=Math.max(.70,hit.distance-.22);
+      fpsThirdDesired.copy(fpsThirdEye)
+        .addScaledVector(fpsThirdRayDir,safeDistance);
+    }
+  }
+
+  const alpha=snap?1:(1-Math.exp(-Math.max(0,dt)*12));
+  fpsThirdPersonCamera.position.lerp(fpsThirdDesired,alpha);
+  fpsThirdPersonCamera.lookAt(fpsThirdTarget);
+
+  const targetFov=THREE.MathUtils.lerp(52,38,fpsAimAmount);
+  if(Math.abs(fpsThirdPersonCamera.fov-targetFov)>.01){
+    fpsThirdPersonCamera.fov=targetFov;
+    fpsThirdPersonCamera.updateProjectionMatrix();
+  }
+}
+
+function fpsSetViewMode(next,{snap=true}={}){
+  if(!fpsMode)return;
+  fpsViewMode=next==='third'?'third':'first';
+
+  document.body.classList.toggle('fps-third-person',fpsViewMode==='third');
+  if(fpsViewMode==='third'){
+    document.body.classList.remove('fps-aiming');
+    fpsUpdateThirdPersonCamera(0,{snap:true});
+  }
+
+  fpsApplyViewModeVisibility();
+  if(fpsButton){
+    fpsButton.textContent=fpsViewMode==='third'?'FPS Walk: 3P':'FPS Walk: 1P';
+  }
+}
+
+function fpsToggleViewMode(){
+  if(!fpsMode)return;
+  fpsSetViewMode(fpsViewMode==='first'?'third':'first');
+}
+
 function fpsSpawn(){
   // V124: PIN the V122-approved front-gate spawn. This exact point was derived
   // from CAD road 77505/frontPlacement and looked correct in the accepted V122
