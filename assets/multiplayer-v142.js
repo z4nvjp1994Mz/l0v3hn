@@ -1,12 +1,41 @@
 import * as THREE from 'three';
 
 const APP_ID='dalociz-netlify-v142-2026-10';
-const TRYSTERO_CDN='https://esm.run/trystero@0.25.0';
+const TRYSTERO_CDNS=[
+  'https://esm.run/trystero',
+  'https://esm.sh/trystero@0.25.0?bundle',
+  'https://cdn.jsdelivr.net/npm/trystero@0.25.0/+esm'
+];
 let trysteroPromise=null;
+let trysteroSource='';
 
-function loadTrystero(){
-  if(!trysteroPromise)trysteroPromise=import(TRYSTERO_CDN);
-  return trysteroPromise;
+async function loadTrystero(){
+  if(trysteroPromise)return trysteroPromise;
+
+  trysteroPromise=(async()=>{
+    const errors=[];
+    for(const url of TRYSTERO_CDNS){
+      try{
+        const mod=await import(url);
+        if(typeof mod?.joinRoom!=='function'){
+          throw new Error('joinRoom export missing');
+        }
+        trysteroSource=url;
+        return mod;
+      }catch(error){
+        errors.push(url+' -> '+(error?.message||String(error)));
+      }
+    }
+    throw new Error('Không tải được Trystero từ các CDN: '+errors.join(' | '));
+  })();
+
+  try{
+    return await trysteroPromise;
+  }catch(error){
+    trysteroPromise=null;
+    trysteroSource='';
+    throw error;
+  }
 }
 const MAX_REMOTE_PLAYERS=1;
 const SEND_INTERVAL_MS=70;
@@ -284,15 +313,26 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
 
     try{
       const trystero=await loadTrystero();
-      localSelfId=trystero.selfId;
-      status('Đang kết nối room '+roomId,'connecting');
+      localSelfId=trystero.selfId||('local-'+Math.random().toString(36).slice(2,10));
+      status('Đang kết nối room '+roomId+' qua '+trysteroSource,'connecting');
 
       room=trystero.joinRoom(
-        {appId:APP_ID},
+        {
+          appId:APP_ID,
+          trickleIce:true,
+          relayConfig:{redundancy:3}
+        },
         roomId,
-        error=>{
-          lastError=error;
-          status('Không thể thiết lập P2P: '+(error?.message||String(error)),'error');
+        {
+          onJoinError:details=>{
+            const error=details?.error||details;
+            lastError=error;
+            status(
+              'P2P join error: '+(error?.message||String(error))+
+              ' · Nếu 2 mạng không kết nối trực tiếp được thì cần TURN.',
+              'error'
+            );
+          }
         }
       );
       connected=true;
@@ -420,6 +460,7 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
     get roomId(){return roomId;},
     get peerCount(){return remotes.size;},
     get lastError(){return lastError;},
+    get transportSource(){return trysteroSource;},
     get remoteIds(){return [...remotes.keys()];}
   };
 }
