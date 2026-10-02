@@ -36,6 +36,7 @@ export function installFactoryDetailV147({
     floorOrange:new THREE.MeshStandardMaterial({color:0xa57c50,roughness:.92}),
     pallet:new THREE.MeshStandardMaterial({color:0xa5784e,roughness:.92}),
     carton:new THREE.MeshStandardMaterial({color:0xb68b62,roughness:.94}),
+    bin:new THREE.MeshStandardMaterial({color:0x60796a,roughness:.80}),
     bag:new THREE.MeshStandardMaterial({color:0xe0e3dd,roughness:.88}),
     ink:new THREE.MeshStandardMaterial({color:0x5e6578,roughness:.70}),
     lab:new THREE.MeshStandardMaterial({color:0xd6dfdd,roughness:.68}),
@@ -270,7 +271,7 @@ export function installFactoryDetailV147({
         w:.22,h:.42,d:.16
       });
     }
-    instancedBoxes(interior,tools,i=>i,mats.orange,'V147_TOOL_MODULES',idx);
+    instancedBoxes(interior,tools,mats.orange,'V147_TOOL_MODULES',idx);
 
     // Fire/safety point placed deterministically away from the main door.
     const safeX=sx*L*.40;
@@ -501,7 +502,7 @@ export function installFactoryDetailV147({
         rotY:(idx%5)*.12
       });
     }
-    instancedBoxes(interior,props,idx%2?mats.bin||mats.green:mats.carton,'V147_LAYOUT_SIGNATURE_PROPS',idx);
+    instancedBoxes(interior,props,idx%2?mats.bin:mats.carton,'V147_LAYOUT_SIGNATURE_PROPS',idx);
 
     const signature=[
       String(idx+1).padStart(2,'0'),
@@ -545,7 +546,6 @@ export function installFactoryDetailV147({
     if((frame++%8)!==0)return;
 
     for(const rec of records){
-      rec.building?.updateWorldMatrix?.(true,false);
       const building=buildings[rec.index];
       const dx=camera.position.x-building.position.x;
       const dz=camera.position.z-building.position.z;
