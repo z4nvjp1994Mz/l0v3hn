@@ -17,6 +17,80 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
   const cadData=await cadResponse.json();
   if(data.frameSignature!==frameSignature||cadData.frameSignature!==frameSignature) throw new Error('Circulation/CAD coordinate frame mismatch');
   const corridorWarpV91=buildCadCorridorWarpV91({circulation:data,cad:cadData});
+
+  // V139.1: verified FPS road-safe corridors are derived from the authored
+  // circulation centerlines, not from visual mesh names. This prevents any later
+  // decorative/interior mesh from accidentally creating an invisible wall across
+  // a real carriageway.
+  const fpsRoadSafeSegments=[];
+  const primaryPaths=(data.paths||[]).filter(p=>p.widthPx>=14);
+  primaryPaths.forEach((path,pathIndex)=>{
+    const pts=path.pointsPx||[];
+    if(pts.length<2)return;
+    const halfSafe=Math.max(3.2,path.widthPx*.782*.36);
+    for(let i=1;i<pts.length;i++){
+      const qa=corridorWarpV91.warpPx(pts[i-1][0],pts[i-1][1]);
+      const qb=corridorWarpV91.warpPx(pts[i][0],pts[i][1]);
+      const a=mapPx(qa.x,qa.y),b=mapPx(qb.x,qb.y);
+      fpsRoadSafeSegments.push({
+        pathIndex,
+        widthPx:path.widthPx,
+        halfSafe,
+        ax:a.x,az:a.z,
+        bx:b.x,bz:b.z
+      });
+    }
+
+    // Extend both ends of primary roads so the front-gate approach remains
+    // protected even before the first authored centerline sample.
+    const extension=path.widthPx>=20?52:28;
+    const extendEnd=(p0,p1,atStart)=>{
+      const q0=corridorWarpV91.warpPx(p0[0],p0[1]);
+      const q1=corridorWarpV91.warpPx(p1[0],p1[1]);
+      const a=mapPx(q0.x,q0.y),b=mapPx(q1.x,q1.y);
+      const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz)||1;
+      const ux=dx/len,uz=dz/len;
+      if(atStart){
+        fpsRoadSafeSegments.push({
+          pathIndex,widthPx:path.widthPx,halfSafe,
+          ax:a.x-ux*extension,az:a.z-uz*extension,
+          bx:a.x,bz:a.z
+        });
+      }else{
+        fpsRoadSafeSegments.push({
+          pathIndex,widthPx:path.widthPx,halfSafe,
+          ax:b.x,az:b.z,
+          bx:b.x+ux*extension,bz:b.z+uz*extension
+        });
+      }
+    };
+    extendEnd(pts[0],pts[1],true);
+    extendEnd(pts[pts.length-2],pts[pts.length-1],false);
+  });
+
+  function fpsRoadSafeInfo(x,z){
+    let best=null;
+    for(const seg of fpsRoadSafeSegments){
+      const dx=seg.bx-seg.ax,dz=seg.bz-seg.az;
+      const len2=dx*dx+dz*dz||1;
+      const t=Math.max(0,Math.min(1,((x-seg.ax)*dx+(z-seg.az)*dz)/len2));
+      const px=seg.ax+dx*t,pz=seg.az+dz*t;
+      const dist=Math.hypot(x-px,z-pz);
+      if(dist<=seg.halfSafe && (!best||dist<best.distance)){
+        best={
+          pathIndex:seg.pathIndex,
+          widthPx:seg.widthPx,
+          distance:dist,
+          halfSafe:seg.halfSafe
+        };
+      }
+    }
+    return best;
+  }
+  function isInFpsSafeRoadCorridor(x,z){
+    return !!fpsRoadSafeInfo(x,z);
+  }
+
   const group=new THREE.Group(); group.name='CIRCULATION_V53'; group.userData.source=data.source;
   const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   // V104 lightweight diorama surface library. These textures are generated once
@@ -268,7 +342,22 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:121,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,treeAssetMode:'direct-v120-masterplan + direct-v121-boulevard',
-    focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
-  return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
+  window.__DALOC_V53={
+    ready:true,version:139.1,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),
+    newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,
+    cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,
+    treeAssetMode:'direct-v120-masterplan + direct-v121-boulevard',
+    fpsRoadSafeSegments,
+    fpsRoadSafeInfo,
+    isInFpsSafeRoadCorridor,
+    focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}
+  };
+  return {
+    group,
+    plantingCount:planting.length,
+    cadAccessCount:(accessData.accesses||[]).length,
+    fpsRoadSafeSegments,
+    fpsRoadSafeInfo,
+    isInFpsSafeRoadCorridor
+  };
 }
