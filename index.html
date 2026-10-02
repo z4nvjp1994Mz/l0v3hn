@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V145.3-vehicle-first-person-forward-view">
+<meta name="daloc-build" content="V145.4-vehicle-first-person-free-look">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V145.3 VEHICLE 1P FORWARD VIEW FIX</small>
+  <small>GitHub → Netlify · BUILD V145.4 VEHICLE 1P FREE LOOK</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1644,7 +1644,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V145.3 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V145.4 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -3568,12 +3568,12 @@ function fpsUpdateVehicleCamera(dt,{snap=false}={}){
       .addScaledVector(fpsVehicleCamForward,profile.firstForward);
     camera.position.y=vehicle.position.y+profile.firstHeight;
 
-    // V145.3: vehicle models travel along their local +Z axis, while a Three.js
-    // camera looks down local -Z. Matching camera yaw directly to vehicle yaw
-    // therefore looks exactly backward. Add PI so 1P always faces the same
-    // forward direction as the driven vehicle.
-    const forwardCameraYaw=yaw+Math.PI;
-    camera.rotation.set(fpsPitch,forwardCameraYaw,0,'YXZ');
+    // V145.4: fpsYaw follows the vehicle's yaw delta AND mouse movement.
+    // Adding PI converts the vehicle's local +Z travel direction into the
+    // Three.js camera's local -Z view direction, while preserving full
+    // horizontal free-look around the cabin/rider.
+    const freeLookCameraYaw=fpsYaw+Math.PI;
+    camera.rotation.set(fpsPitch,freeLookCameraYaw,0,'YXZ');
     return;
   }
 
@@ -4048,7 +4048,13 @@ document.addEventListener('mousemove',e=>{
   fpsYaw-=e.movementX*.0020;
   fpsPitch-=e.movementY*.0020;
   fpsPitch=THREE.MathUtils.clamp(fpsPitch,-1.38,1.38);
-  camera.rotation.set(fpsPitch,fpsYaw,0,'YXZ');
+
+  // Vehicle 1P uses the same free-look yaw but needs the +PI camera-axis
+  // correction because traffic vehicles are authored facing local +Z.
+  const liveYaw=(fpsVehicleMode&&fpsVehicleViewMode==='first')
+    ?fpsYaw+Math.PI
+    :fpsYaw;
+  camera.rotation.set(fpsPitch,liveYaw,0,'YXZ');
 });
 
 window.addEventListener('keydown',e=>{
@@ -4484,7 +4490,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:145.3,
+  version:145.4,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
