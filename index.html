@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V143.1-multi-strategy-discovery">
+<meta name="daloc-build" content="V143.2-matrix-free-player-hitbox">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V143.1 MULTI-STRATEGY 2P</small>
+  <small>GitHub → Netlify · BUILD V143.2 SAFE PLAYER HITBOX</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -83,7 +83,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=140';
-import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=1431';
+import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=1432';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=1392';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1642,7 +1642,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V143.1 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V143.2 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -3560,7 +3560,11 @@ function fpsBulletHitAllowed(hit){
   const object=hit?.object;
   if(!object||object.visible===false)return false;
   for(let o=object;o;o=o.parent){
-    if(o.userData?.fpsProjectile===true||o.userData?.ignoreFpsBullet===true)return false;
+    if(
+      o.userData?.fpsProjectile===true||
+      o.userData?.ignoreFpsBullet===true||
+      o.userData?.multiplayerRemote===true
+    )return false;
     if(o===fpsProjectileGroup)return false;
   }
   const materials=Array.isArray(object.material)?object.material:[object.material];
@@ -3660,26 +3664,46 @@ function fpsUpdateProjectiles(dt){
 
     fpsBulletDir.copy(fpsBulletNext).sub(p.position);
     const distance=fpsBulletDir.length();
-    let impact=null;
+    let worldImpact=null;
+    let remoteImpact=null;
+
     if(distance>.0001){
       fpsBulletDir.multiplyScalar(1/distance);
+
+      // Static world raycast explicitly ignores multiplayer avatars.
       fpsBulletRaycaster.set(p.position,fpsBulletDir);
       fpsBulletRaycaster.near=.001;
       fpsBulletRaycaster.far=distance;
       const hits=fpsBulletRaycaster.intersectObject(world,true);
-      impact=hits.find(fpsBulletHitAllowed)||null;
+      worldImpact=hits.find(fpsBulletHitAllowed)||null;
+
+      // V143.2: remote players use matrix-free mathematical hitboxes.
+      remoteImpact=multiplayerV142?.raycastRemoteSegment?.(
+        [p.position.x,p.position.y,p.position.z],
+        [fpsBulletNext.x,fpsBulletNext.y,fpsBulletNext.z]
+      )||null;
     }
 
-    if(impact){
-      p.position.copy(impact.point);
-      p.mesh.position.copy(impact.point);
-      fpsLastImpactObject=fpsBulletObjectName(impact.object);
-      fpsSpawnImpact(impact.point);
+    const worldDistance=worldImpact?.distance??Infinity;
+    const remoteDistance=remoteImpact?.distance??Infinity;
+    const hitsRemote=remoteDistance<worldDistance;
 
-      const remotePeerId=fpsRemotePeerFromObject(impact.object);
-      if(remotePeerId){
+    if(hitsRemote||worldImpact){
+      const impactPoint=hitsRemote
+        ?new THREE.Vector3(...remoteImpact.point)
+        :worldImpact.point;
+
+      p.position.copy(impactPoint);
+      p.mesh.position.copy(impactPoint);
+      fpsLastImpactObject=hitsRemote
+        ?('REMOTE_PLAYER_'+remoteImpact.zone)
+        :fpsBulletObjectName(worldImpact.object);
+      fpsSpawnImpact(impactPoint);
+
+      if(hitsRemote){
+        const remotePeerId=remoteImpact.peerId;
         const remoteState=multiplayerV142?.remoteStatus;
-        if(remoteState?.alive!==false){
+        if(remotePeerId&&remoteState?.alive!==false){
           multiplayerV142?.sendDamage?.(
             remotePeerId,
             FPS_DAMAGE_PER_PLAYER_HIT,
