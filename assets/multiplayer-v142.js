@@ -815,7 +815,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
     if(axeActive&&remote.meleeType!=='none'){
       remote.meleeTime+=dt;
-      const duration=remote.meleeType==='strong'?.98:.56;
+      const duration=remote.meleeType==='strong'?.98:.40;
       const mp=clamp(remote.meleeTime/duration,0,1);
       const easeOut=t=>1-Math.pow(1-clamp(t,0,1),3);
       const easeIn=t=>Math.pow(clamp(t,0,1),3);
@@ -1008,7 +1008,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:165,
+    version:166,
     get selfId(){return localSelfId;},
     join,
     leave,
