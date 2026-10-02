@@ -10,6 +10,15 @@ export async function installExteriorForestV78({
   if(data.frameSignature!==frameSignature)throw new Error('V89 coordinate frame mismatch');
 
   const root=new THREE.Group();
+  const doors=[];
+  const doorTmpWorld=new THREE.Vector3();
+
+  function localToWorld(building,local){
+    building.updateWorldMatrix(true,false);
+    doorTmpWorld.copy(local);
+    return building.localToWorld(doorTmpWorld.clone());
+  }
+
   root.name='EXTERIOR_FOREST_V78';
   root.userData={
     version:79,
@@ -118,18 +127,115 @@ export async function installExteriorForestV78({
   ];
   const doorMat=new THREE.MeshStandardMaterial({color:0x4b4d49,roughness:.78});
 
+  function addHouseWall(g,size,pos,mat,name){
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(...size),mat);
+    mesh.position.set(...pos);
+    mesh.name=name;
+    mesh.castShadow=true;
+    mesh.receiveShadow=true;
+    mesh.userData.collider=true;
+    mesh.userData.type='village-house-wall';
+    g.add(mesh);
+    return mesh;
+  }
+
+  function buildHouseShell(g,w,d,bh,wallMat,doorWidth,doorHeight,idx){
+    const t=.18;
+    const gapPad=.06;
+    const leftEdge=-doorWidth*.5-gapPad;
+    const rightEdge=doorWidth*.5+gapPad;
+    const y=bh*.5;
+
+    addHouseWall(g,[t,bh,d],[-w*.5+t*.5,y,0],wallMat,'V168_HOUSE_SIDE_L_'+idx);
+    addHouseWall(g,[t,bh,d],[ w*.5-t*.5,y,0],wallMat,'V168_HOUSE_SIDE_R_'+idx);
+    addHouseWall(g,[w-2*t,bh,t],[0,y,-d*.5+t*.5],wallMat,'V168_HOUSE_REAR_'+idx);
+
+    const leftW=Math.max(.1,leftEdge-(-w*.5+t));
+    if(leftW>.11)addHouseWall(
+      g,[leftW,bh,t],[-w*.5+t+leftW*.5,y,d*.5-t*.5],
+      wallMat,'V168_HOUSE_FRONT_L_'+idx
+    );
+
+    const rightW=Math.max(.1,(w*.5-t)-rightEdge);
+    if(rightW>.11)addHouseWall(
+      g,[rightW,bh,t],[rightEdge+rightW*.5,y,d*.5-t*.5],
+      wallMat,'V168_HOUSE_FRONT_R_'+idx
+    );
+
+    const lintelH=Math.max(.16,bh-doorHeight);
+    addHouseWall(
+      g,[doorWidth+gapPad*2,lintelH,t],
+      [0,doorHeight+lintelH*.5,d*.5-t*.5],
+      wallMat,'V168_HOUSE_FRONT_LINTEL_'+idx
+    );
+  }
+
   for(let i=0;i<houseSites.length;i++){
     const h=houseSites[i],g=new THREE.Group();
-    g.position.set(h.x,-.37,h.z);g.rotation.y=h.rot;g.name='V78_HOUSE_'+i;
+    g.position.set(h.x,-.37,h.z);
+    g.rotation.y=h.rot;
+    g.name='V78_HOUSE_'+i;
+    g.userData={collider:true,type:'village-house',houseIndex:i};
+
     const clear=new THREE.Mesh(new THREE.CylinderGeometry(12*h.scale,13*h.scale,.08,24),clearingMat);
-    clear.position.y=-.03;clear.receiveShadow=true;g.add(clear);
+    clear.position.y=-.03;
+    clear.receiveShadow=true;
+    clear.userData.fpsNonSolid=true;
+    g.add(clear);
+
     const w=rr(6.5,10.0)*h.scale,d=rr(5.4,8.2)*h.scale,bh=rr(4.0,6.2)*h.scale;
-    const body=new THREE.Mesh(new THREE.BoxGeometry(w,bh,d),wallMats[i%wallMats.length]);
-    body.position.y=bh/2;body.castShadow=true;body.receiveShadow=true;g.add(body);
+    const wallMat=wallMats[i%wallMats.length];
+    const doorWidth=.95*h.scale,doorHeight=2.0*h.scale;
+
+    const body=new THREE.Mesh(new THREE.BoxGeometry(w,bh,d),wallMat);
+    body.position.y=bh/2;
+    body.visible=false;
+    body.name='V168_HOUSE_BODY_REFERENCE_'+i;
+    body.userData.fpsNonSolid=true;
+    g.add(body);
+
+    buildHouseShell(g,w,d,bh,wallMat,doorWidth,doorHeight,i);
+    g.userData.fpsDoorShell={L:w,D:d,H:bh,doorXs:[0],doorWidth,doorHeight};
+
     const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*.72,2.6*h.scale,4),roofMats[i%roofMats.length]);
-    roof.rotation.y=Math.PI/4;roof.position.y=bh+1.18*h.scale;roof.castShadow=true;g.add(roof);
-    const door=new THREE.Mesh(new THREE.BoxGeometry(.95*h.scale,2.0*h.scale,.10),doorMat);
-    door.position.set(0,1.0*h.scale,d/2+.06);g.add(door);
+    roof.rotation.y=Math.PI/4;
+    roof.position.y=bh+1.18*h.scale;
+    roof.castShadow=true;
+    roof.userData.fpsNonSolid=true;
+    g.add(roof);
+
+    const pivot=new THREE.Group();
+    pivot.name='V168_HOUSE_DOOR_PIVOT_'+i;
+    pivot.position.set(-doorWidth*.5,0,d*.5+.06);
+    pivot.userData={fpsInteractiveDoor:true,ignoreFpsCollision:true};
+    g.add(pivot);
+
+    const panel=new THREE.Mesh(new THREE.BoxGeometry(doorWidth,doorHeight,.10),doorMat);
+    panel.name='V168_HOUSE_DOOR_PANEL_'+i;
+    panel.position.set(doorWidth*.5,doorHeight*.5,0);
+    panel.userData={fpsInteractiveDoor:true,fpsNonSolid:true};
+    pivot.add(panel);
+
+    doors.push({
+      index:doors.length,
+      source:'village',
+      houseIndex:i,
+      building:g,
+      pivot,
+      panel,
+      width:doorWidth,
+      height:doorHeight,
+      L:w,D:d,H:bh,
+      swingSign:i%2===0?-1:1,
+      openAmount:0,
+      targetOpen:0,
+      isOpen:false,
+      centerLocal:new THREE.Vector3(0,doorHeight*.5,d*.5+.06),
+      outsideLocal:new THREE.Vector3(0,.08,d*.5+1.25),
+      insideLocal:new THREE.Vector3(0,.08,d*.5-1.25),
+      displayName:'nhà dân '+(i+1)
+    });
+
     root.add(g);
   }
 
@@ -212,24 +318,65 @@ export async function installExteriorForestV78({
   root.userData.treeDrawMeshes=treeDrawMeshes;
   root.userData.houseCount=houseSites.length;
 
-  window.__DALOC_V79={
-    ready:true,version:105,group:root,treeAssetMode,
+  function setDoorOpen(index,v){
+    const d=doors[index];
+    if(!d)return false;
+    d.targetOpen=v?1:0;
+    d.isOpen=!!v;
+    return true;
+  }
+
+  function toggleDoor(index){
+    const d=doors[index];
+    if(!d)return false;
+    return setDoorOpen(index,!d.isOpen);
+  }
+
+  function update(dt){
+    const k=Math.min(1,Math.max(0,dt)*8.5);
+    for(const d of doors){
+      d.openAmount+=(d.targetOpen-d.openAmount)*k;
+      if(Math.abs(d.targetOpen-d.openAmount)<.002)d.openAmount=d.targetOpen;
+      d.pivot.rotation.y=d.swingSign*d.openAmount*Math.PI*.49;
+    }
+  }
+
+  function doorWorldInfo(index){
+    const d=doors[index];
+    if(!d)return null;
+    return {
+      center:localToWorld(d.building,d.centerLocal),
+      outside:localToWorld(d.building,d.outsideLocal),
+      inside:localToWorld(d.building,d.insideLocal),
+      openAmount:d.openAmount,
+      isOpen:d.isOpen,
+      width:d.width,
+      source:d.source,
+      displayName:d.displayName
+    };
+  }
+
+  const api={
+    ready:true,version:168,group:root,treeAssetMode,
     treeCount:root.userData.treeCount,
     houseCount:root.userData.houseCount,
-    boundaryPoints:boundary.length
+    boundaryPoints:boundary.length,
+    doors,
+    setDoorOpen,
+    toggleDoor,
+    update,
+    doorWorldInfo
   };
+  window.__DALOC_V79=api;
 
-  console.info('[DaLoc] V105 real Kenney instanced exterior forest installed',{
+  console.info('[DaLoc] V168 exterior forest + interactive village doors installed',{
     trees:root.userData.treeCount,
     assetMode:treeAssetMode,
     treeDrawMeshes,
     houses:root.userData.houseCount,
+    doors:doors.length,
     boundaryPoints:boundary.length
   });
 
-  return {
-    ready:true,version:105,group:root,
-    treeCount:root.userData.treeCount,
-    houseCount:root.userData.houseCount
-  };
+  return api;
 }
