@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V126 NATURAL FPS HAND SILHOUETTE</small>
+  <small>GitHub → Netlify · BUILD V127 REAL SKINNED FPS ARMS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -53,6 +53,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { loadKenneyCharacterAssets, createAnimatedCharacterInstance } from './assets/real-assets-v105.js?v=1051';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1515,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V126 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V127 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1694,6 +1695,11 @@ let fpsLocomotionPhase=0;
 let fpsLocomotionBlend=0;
 let fpsRigTime=0;
 let fpsLastSpawnSource='uninitialized';
+let fpsRealArmsMesh=null;
+let fpsRealArmsPromise=null;
+let fpsRealArmsReady=false;
+let fpsRealArmsError=null;
+let fpsArmAssetMode='procedural-fallback';
 
 function fpsMesh(geometry,material,renderOrder=0){
   const mesh=new THREE.Mesh(geometry,material);
@@ -1702,6 +1708,190 @@ function fpsMesh(geometry,material,renderOrder=0){
   mesh.receiveShadow=false;
   mesh.renderOrder=renderOrder;
   return mesh;
+}
+
+async function prepareFpsRealArmsV127(){
+  if(fpsRealArmsPromise)return fpsRealArmsPromise;
+
+  fpsRealArmsPromise=loadKenneyCharacterAssets()
+    .then(assets=>{
+      const source=createAnimatedCharacterInstance(assets?.male,{
+        name:'FPS_ARM_SOURCE_V127',
+        clip:'holding-both',
+        castShadow:false,
+        receiveShadow:false
+      });
+      if(!source?.model)throw new Error('Kenney male character unavailable');
+
+      // Apply the authored two-hand ready pose before baking arm vertices.
+      source.action?.reset?.();
+      source.action?.play?.();
+      source.mixer?.update?.(1/30);
+      source.model.updateMatrixWorld(true);
+
+      let bodyMesh=null;
+      source.model.traverse(o=>{
+        if(!bodyMesh&&o.isSkinnedMesh&&/body-mesh/i.test(o.name||''))bodyMesh=o;
+      });
+      if(!bodyMesh){
+        source.model.traverse(o=>{if(!bodyMesh&&o.isSkinnedMesh)bodyMesh=o;});
+      }
+      if(!bodyMesh)throw new Error('Skinned body mesh unavailable');
+
+      bodyMesh.updateMatrixWorld(true);
+      bodyMesh.skeleton?.update?.();
+
+      const geometry=bodyMesh.geometry;
+      const posAttr=geometry.attributes.position;
+      const skinIndex=geometry.attributes.skinIndex;
+      const skinWeight=geometry.attributes.skinWeight;
+      const uvAttr=geometry.attributes.uv;
+      if(!posAttr||!skinIndex||!skinWeight){
+        throw new Error('Character skin attributes unavailable');
+      }
+
+      const armBoneIds=new Set();
+      (bodyMesh.skeleton?.bones||[]).forEach((bone,index)=>{
+        if(/^arm-(left|right)$/i.test(bone.name||''))armBoneIds.add(index);
+      });
+      if(armBoneIds.size<2){
+        throw new Error('arm-left/arm-right bones unavailable');
+      }
+
+      function armWeight(vertexIndex){
+        let sum=0;
+        const ids=[
+          skinIndex.getX(vertexIndex),
+          skinIndex.getY(vertexIndex),
+          skinIndex.getZ(vertexIndex),
+          skinIndex.getW(vertexIndex)
+        ];
+        const ws=[
+          skinWeight.getX(vertexIndex),
+          skinWeight.getY(vertexIndex),
+          skinWeight.getZ(vertexIndex),
+          skinWeight.getW(vertexIndex)
+        ];
+        for(let i=0;i<4;i++)if(armBoneIds.has(ids[i]))sum+=ws[i];
+        return sum;
+      }
+
+      const outPos=[];
+      const outUv=[];
+      const temp=new THREE.Vector3();
+      const modelInverse=new THREE.Matrix4()
+        .copy(source.model.matrixWorld)
+        .invert();
+
+      function pushVertex(vertexIndex){
+        if(typeof bodyMesh.getVertexPosition==='function'){
+          bodyMesh.getVertexPosition(vertexIndex,temp);
+        }else{
+          temp.fromBufferAttribute(posAttr,vertexIndex);
+          bodyMesh.applyBoneTransform?.(vertexIndex,temp);
+        }
+        temp.applyMatrix4(bodyMesh.matrixWorld).applyMatrix4(modelInverse);
+        outPos.push(temp.x,temp.y,temp.z);
+        if(uvAttr)outUv.push(uvAttr.getX(vertexIndex),uvAttr.getY(vertexIndex));
+      }
+
+      const indexArray=geometry.index?.array||null;
+      const triCount=indexArray?Math.floor(indexArray.length/3):Math.floor(posAttr.count/3);
+      let keptTriangles=0;
+
+      for(let t=0;t<triCount;t++){
+        const ia=indexArray?indexArray[t*3]:t*3;
+        const ib=indexArray?indexArray[t*3+1]:t*3+1;
+        const ic=indexArray?indexArray[t*3+2]:t*3+2;
+        const wa=armWeight(ia),wb=armWeight(ib),wc=armWeight(ic);
+        const avg=(wa+wb+wc)/3;
+        const strong=(wa>.55?1:0)+(wb>.55?1:0)+(wc>.55?1:0);
+
+        // Keep real arm/hand triangles and the small mixed-weight shoulder seam.
+        if(avg<.36||strong<1)continue;
+        pushVertex(ia);pushVertex(ib);pushVertex(ic);
+        keptTriangles++;
+      }
+
+      if(keptTriangles<20)throw new Error('Arm vertex extraction returned too little geometry');
+
+      const baked=new THREE.BufferGeometry();
+      baked.setAttribute('position',new THREE.Float32BufferAttribute(outPos,3));
+      if(outUv.length===outPos.length/3*2){
+        baked.setAttribute('uv',new THREE.Float32BufferAttribute(outUv,2));
+      }
+      baked.computeVertexNormals();
+      baked.computeBoundingBox();
+
+      // Character forward is +Z; the FPS camera looks toward -Z at yaw=0.
+      baked.rotateY(Math.PI);
+      baked.computeBoundingBox();
+      let box=baked.boundingBox;
+      const size=box.getSize(new THREE.Vector3());
+      const targetWidth=.63;
+      const viewScale=targetWidth/Math.max(.001,size.x);
+      baked.scale(viewScale,viewScale,viewScale);
+      baked.computeBoundingBox();
+      box=baked.boundingBox;
+      const center=box.getCenter(new THREE.Vector3());
+
+      // Put the real arms low in frame and well beyond the near plane.
+      baked.translate(
+        -center.x,
+        -.30-center.y,
+        -.94-center.z
+      );
+      baked.computeBoundingSphere();
+
+      const srcMaterial=Array.isArray(bodyMesh.material)
+        ?bodyMesh.material[0]
+        :bodyMesh.material;
+      const material=srcMaterial?.clone?.()||new THREE.MeshStandardMaterial({
+        color:0xd9a17a,roughness:.86
+      });
+      material.depthTest=false;
+      material.depthWrite=false;
+      material.transparent=false;
+
+      fpsRealArmsMesh=new THREE.Mesh(baked,material);
+      fpsRealArmsMesh.name='FPS_REAL_SKINNED_ARMS_V127';
+      fpsRealArmsMesh.userData.ignoreFpsCollision=true;
+      fpsRealArmsMesh.frustumCulled=false;
+      fpsRealArmsMesh.castShadow=false;
+      fpsRealArmsMesh.receiveShadow=false;
+      fpsRealArmsMesh.renderOrder=1010;
+      fpsRealArmsMesh.visible=false;
+
+      // The camera-relative viewmodel group already handles movement sway.
+      buildFpsCharacterRig();
+      fpsViewModel.add(fpsRealArmsMesh);
+      fpsLeftArmPivot.visible=false;
+      fpsRightArmPivot.visible=false;
+
+      fpsRealArmsReady=true;
+      fpsArmAssetMode='kenney-skinned-arm-bake';
+      if(fpsMode){
+        fpsRealArmsMesh.visible=true;
+        fpsLeftArmPivot.visible=false;
+        fpsRightArmPivot.visible=false;
+      }
+
+      console.info('[DaLoc] V127 real skinned FPS arms ready',{
+        triangles:keptTriangles,
+        armBones:[...armBoneIds],
+        mode:fpsArmAssetMode
+      });
+      return true;
+    })
+    .catch(error=>{
+      fpsRealArmsError=error;
+      fpsRealArmsReady=false;
+      fpsArmAssetMode='procedural-fallback';
+      console.error('[DaLoc] V127 real FPS arm fallback',error);
+      return false;
+    });
+
+  return fpsRealArmsPromise;
 }
 
 function buildFpsCharacterRig(){
@@ -1737,7 +1927,7 @@ function buildFpsCharacterRig(){
   // Arms are a camera-relative first-person viewmodel: always readable at the
   // bottom of frame, independent from pitch/yaw and without entering collision.
   fpsViewModel=new THREE.Group();
-  fpsViewModel.name='FPS_VIEWMODEL_V126';
+  fpsViewModel.name='FPS_VIEWMODEL_V127';
   fpsViewModel.userData.ignoreFpsCollision=true;
   fpsViewModel.visible=false;
   scene.add(fpsViewModel);
@@ -1764,7 +1954,7 @@ function buildFpsCharacterRig(){
     // (-Z), slightly higher and closer to the center. This makes the forearm
     // visually point INTO the scene like an FPS viewmodel instead of toward camera.
     const root=new THREE.Group();
-    root.name=side<0?'FPS_LEFT_ARM_V126':'FPS_RIGHT_ARM_V126';
+    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_V127':'FPS_RIGHT_ARM_FALLBACK_V127';
     root.userData.ignoreFpsCollision=true;
 
     const shoulder=[side*.33,-.41,-.52];
@@ -1917,6 +2107,16 @@ function setFpsRigVisible(visible){
   buildFpsCharacterRig();
   fpsViewModel.visible=visible;
   fpsBodyRig.visible=visible;
+
+  if(fpsRealArmsReady&&fpsRealArmsMesh){
+    fpsRealArmsMesh.visible=visible;
+    fpsLeftArmPivot.visible=false;
+    fpsRightArmPivot.visible=false;
+  }else{
+    fpsLeftArmPivot.visible=visible;
+    fpsRightArmPivot.visible=visible;
+    prepareFpsRealArmsV127();
+  }
 }
 
 function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
@@ -1946,35 +2146,43 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
   fpsViewModel.translateX(sideSway);
   fpsViewModel.translateY(-stepBob+idleBreath);
 
-  const swing=.018*runMul*blend;
-  fpsLeftArmPivot.position.set(
-    strideOpp*swing,
-    strideOpp*.006*blend,
-    0
-  );
-  fpsRightArmPivot.position.set(
-    stride*swing,
-    stride*.006*blend,
-    0
-  );
-  fpsLeftArmPivot.rotation.set(
-    airborne?.025:0,
-    0,
-    .015+Math.sin(phase)*.010*blend
-  );
-  fpsRightArmPivot.rotation.set(
-    airborne?.025:0,
-    0,
-    -.015-Math.sin(phase)*.010*blend
-  );
+  if(fpsRealArmsReady&&fpsRealArmsMesh){
+    // One coherent skinned-derived mesh: sway the whole arm pair together.
+    fpsRealArmsMesh.position.x=Math.sin(phase)*.0045*blend;
+    fpsRealArmsMesh.position.y=-Math.abs(Math.sin(phase*2))*.0065*blend+(airborne?.010:0);
+    fpsRealArmsMesh.rotation.x=(airborne?.018:0);
+    fpsRealArmsMesh.rotation.z=Math.sin(phase)*.008*runMul*blend;
+  }else{
+    const swing=.018*runMul*blend;
+    fpsLeftArmPivot.position.set(
+      strideOpp*swing,
+      strideOpp*.006*blend,
+      0
+    );
+    fpsRightArmPivot.position.set(
+      stride*swing,
+      stride*.006*blend,
+      0
+    );
+    fpsLeftArmPivot.rotation.set(
+      airborne?.025:0,
+      0,
+      .015+Math.sin(phase)*.010*blend
+    );
+    fpsRightArmPivot.rotation.set(
+      airborne?.025:0,
+      0,
+      -.015-Math.sin(phase)*.010*blend
+    );
 
-  const handInertia=Math.sin(phase*2)*.010*blend;
-  fpsLeftHandPivot.rotation.x=-.04+handInertia+(airborne?.025:0);
-  fpsRightHandPivot.rotation.x=-.04-handInertia+(airborne?.025:0);
-  fpsLeftHandPivot.rotation.y=-.11;
-  fpsRightHandPivot.rotation.y=.11;
-  fpsLeftHandPivot.rotation.z=.075;
-  fpsRightHandPivot.rotation.z=-.075;
+    const handInertia=Math.sin(phase*2)*.010*blend;
+    fpsLeftHandPivot.rotation.x=-.04+handInertia+(airborne?.025:0);
+    fpsRightHandPivot.rotation.x=-.04-handInertia+(airborne?.025:0);
+    fpsLeftHandPivot.rotation.y=-.11;
+    fpsRightHandPivot.rotation.y=.11;
+    fpsLeftHandPivot.rotation.z=.075;
+    fpsRightHandPivot.rotation.z=-.075;
+  }
 
   // World-space lower body follows horizontal player position and yaw only.
   fpsBodyRig.position.set(
@@ -2394,6 +2602,10 @@ function restoreFpsRenderProfile(){
   }
 }
 
+// Start loading the real skinned arm asset during normal overview mode so FPS
+// usually enters with the final arm mesh already prepared.
+prepareFpsRealArmsV127();
+
 function enterFirstPerson(){
   if(fpsMode){
     fpsButton?.blur();
@@ -2588,8 +2800,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V126={
-  version:126,
+window.__DALOC_FPS_V127={
+  version:127,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -2607,6 +2819,10 @@ window.__DALOC_FPS_V126={
   get approvedSpawnPx(){return {x:316.17,y:1528.03};},
   get approvedLookPx(){return {x:343.50,y:1492.90};},
   get bodyRigVisible(){return !!fpsBodyRig?.visible;},
+  get armAssetMode(){return fpsArmAssetMode;},
+  get realArmsReady(){return fpsRealArmsReady;},
+  get realArmsError(){return fpsRealArmsError?.message||null;},
+  get realArmsTriangles(){return fpsRealArmsMesh?.geometry?.attributes?.position?.count/3||0;},
   get locomotionBlend(){return Number(fpsLocomotionBlend.toFixed(3));},
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
