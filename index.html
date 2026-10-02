@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V155-axe-animation-overhaul">
+<meta name="daloc-build" content="V156-axe-two-hand-grip">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V155 AXE ANIMATION OVERHAUL</small>
+  <small>GitHub → Netlify · BUILD V156 AXE TWO-HAND GRIP</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -83,13 +83,13 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V155: Axe LMB diagonal downslash · RMB overhead chop</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V156: Axe physically held by two hands · no floating viewmodel</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=154';
+import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=156';
 import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=155';
 import { createPlayerVehicleControllerV145 } from './assets/player-vehicle-v145.js?v=1451';
 import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=155';
@@ -2635,9 +2635,20 @@ function ensureFpsThirdPersonAvatar(){
 }
 
 function fpsApplyWeaponModelVisibility(){
+  const axeActive=fpsActiveWeapon==='axe';
+
   if(fpsSniperViewModel)fpsSniperViewModel.visible=fpsActiveWeapon==='sniper';
   if(fpsGatlingViewModel)fpsGatlingViewModel.visible=fpsActiveWeapon==='gatling';
-  if(fpsAxeViewModel)fpsAxeViewModel.visible=fpsActiveWeapon==='axe';
+  if(fpsAxeViewModel)fpsAxeViewModel.visible=axeActive;
+
+  // V156: generic FPS hands sit at the screen corners and cannot physically
+  // reach the axe shaft. Hide them only for Axe; the axe itself owns a
+  // dedicated two-hand grip rig whose gloves are attached directly to handle.
+  const genericLeft=fpsRealArmsRig?.userData?.leftArm||null;
+  const genericRight=fpsRealArmsRig?.userData?.rightArm||null;
+  if(genericLeft)genericLeft.visible=!axeActive;
+  if(genericRight)genericRight.visible=!axeActive;
+
   if(fpsRealArmsRig)fpsRealArmsRig.userData.weapon=fpsActiveWeapon;
 }
 
@@ -5616,7 +5627,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:155,
+  version:156,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -5746,7 +5757,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:155,
+    version:156,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
