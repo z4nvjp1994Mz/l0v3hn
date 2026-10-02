@@ -1643,7 +1643,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V143.3 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V144 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -4097,6 +4097,8 @@ const fpsApiV139={
   get doorCount(){return factoryInteriorsV84?.doors?.length||0;},
   get factoryArchetypes(){return factoryInteriorsV84?.factoryProfiles?.map?.(p=>({index:p.index,archetype:p.archetype}))||[];},
   get weapon(){return fpsRealArmsRig?.userData?.weapon||'none';},
+  get viewMode(){return fpsViewMode;},
+  toggleViewMode:fpsToggleViewMode,
   get aiming(){return fpsAiming;},
   get aimAmount(){return Number(fpsAimAmount.toFixed(3));},
   get scopeFov(){return Number(camera.fov.toFixed(2));},
@@ -4242,7 +4244,11 @@ let lastFrameTime=performance.now();
 
   fpsUpdateProjectiles(dt);
   visualQualityV102.update();
-  const d=camera.position.distanceTo(controls.target);
+  const activeRenderCamera=(fpsMode&&fpsViewMode==='third')
+    ?fpsThirdPersonCamera
+    :camera;
+  visualQualityV102.setRenderCamera?.(activeRenderCamera);
+  const d=activeRenderCamera.position.distanceTo(controls.target);
   world.traverse(o=>{
     if(o.isSprite) o.visible=d<520;
   });
@@ -4250,7 +4256,7 @@ let lastFrameTime=performance.now();
 
   // V131 dedicated FPS arm pass. Preserve world color, clear only depth, then
   // draw the first-person arms with their own camera and lighting.
-  if(fpsMode&&fpsRealArmsRig?.visible){
+  if(fpsMode&&fpsViewMode==='first'&&fpsRealArmsRig?.visible){
     const previousAutoClear=renderer.autoClear;
     renderer.autoClear=false;
     renderer.clearDepth();
@@ -4264,6 +4270,8 @@ setTimeout(()=>{
 addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight;
   camera.updateProjectionMatrix();
+  fpsThirdPersonCamera.aspect=innerWidth/innerHeight;
+  fpsThirdPersonCamera.updateProjectionMatrix();
   fpsArmOverlayCamera.aspect=innerWidth/innerHeight;
   fpsArmOverlayCamera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
