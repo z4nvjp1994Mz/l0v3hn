@@ -14,6 +14,15 @@ export function installSupportStructuresV55({
   group.userData = { version:55, siteFrameSignature:frameSignature, source:'masterplan-hires.jpg' };
 
   const S = metersPerPixel;
+  const doors=[];
+  const doorTmpWorld=new THREE.Vector3();
+
+  function localToWorld(building,local){
+    building.updateWorldMatrix(true,false);
+    doorTmpWorld.copy(local);
+    return building.localToWorld(doorTmpWorld.clone());
+  }
+
   const mats = {
     wall:new THREE.MeshStandardMaterial({color:0xeeeae0,roughness:.78}),
     wallSide:new THREE.MeshStandardMaterial({color:0xd8d8d1,roughness:.84}),
@@ -64,6 +73,58 @@ export function installSupportStructuresV55({
     band.position.set(0,H*.62,z);g.add(band);
   }
 
+  function addShellBox(g,size,pos,mat,name){
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(...size),mat);
+    mesh.position.set(...pos);
+    mesh.name=name;
+    mesh.castShadow=true;
+    mesh.receiveShadow=true;
+    mesh.userData.collider=true;
+    mesh.userData.type='support-wall';
+    g.add(mesh);
+    return mesh;
+  }
+
+  function buildDoorWallShell(g,L,D,H,wallMat,doorXs,doorWidth,doorHeight,idx){
+    const t=.22;
+    const y=.12+H*.5;
+    addShellBox(g,[t,H,D],[-L*.5+t*.5,y,0],wallMat,'V168_AUX_SIDE_L_'+idx);
+    addShellBox(g,[t,H,D],[ L*.5-t*.5,y,0],wallMat,'V168_AUX_SIDE_R_'+idx);
+    addShellBox(g,[L-2*t,H,t],[0,y,-D*.5+t*.5],wallMat,'V168_AUX_REAR_'+idx);
+
+    const pad=.08;
+    const openings=doorXs
+      .map(x=>({a:x-doorWidth*.5-pad,b:x+doorWidth*.5+pad,x}))
+      .sort((a,b)=>a.a-b.a);
+
+    let cursor=-L*.5+t;
+    for(let i=0;i<openings.length;i++){
+      const op=openings[i];
+      if(op.a>cursor+.04){
+        const w=op.a-cursor;
+        addShellBox(
+          g,[w,H,t],[cursor+w*.5,y,D*.5-t*.5],wallMat,
+          'V168_AUX_FRONT_SEG_'+idx+'_'+i
+        );
+      }
+      const lintelH=Math.max(.18,H-doorHeight-.12);
+      addShellBox(
+        g,[doorWidth+pad*2,lintelH,t],
+        [op.x,.12+doorHeight+lintelH*.5,D*.5-t*.5],
+        wallMat,'V168_AUX_FRONT_LINTEL_'+idx+'_'+i
+      );
+      cursor=Math.max(cursor,op.b);
+    }
+    const end=L*.5-t;
+    if(end>cursor+.04){
+      const w=end-cursor;
+      addShellBox(
+        g,[w,H,t],[cursor+w*.5,y,D*.5-t*.5],wallMat,
+        'V168_AUX_FRONT_SEG_'+idx+'_END'
+      );
+    }
+  }
+
   function addAuxBuilding(rec,idx){
     const [cx,cy,Lpx,Dpx,angleDeg,H,kind]=rec;
     const p=mapPx(cx,cy),L=Lpx*S,D=Dpx*S;
@@ -78,8 +139,22 @@ export function installSupportStructuresV55({
     slab.position.y=.06;slab.receiveShadow=true;g.add(slab);
 
     const wallMat=kind==='admin'?mats.wall:mats.wallSide;
+    const doorCount=L>45?2:1;
+    const doorXs=doorCount===1?[0]:[-L*.27,L*.27];
+    const doorWidth=1.35,doorHeight=2.35;
+
+    // Keep an invisible reference box for modules that still inspect the
+    // original support footprint, but render/collide using a real wall shell
+    // with doorway gaps.
     const body=new THREE.Mesh(new THREE.BoxGeometry(L,H,D),wallMat);
-    body.position.y=H/2+.12;body.castShadow=true;body.receiveShadow=true;g.add(body);
+    body.position.y=H/2+.12;
+    body.visible=false;
+    body.name='V168_AUX_BODY_REFERENCE_'+idx;
+    body.userData.fpsNonSolid=true;
+    g.add(body);
+
+    buildDoorWallShell(g,L,D,H,wallMat,doorXs,doorWidth,doorHeight,idx);
+    g.userData.fpsDoorShell={L,D,H,doorXs:[...doorXs],doorWidth,doorHeight};
 
     const roofMat=kind==='admin'?mats.brown:mats.peach;
     const roof=new THREE.Mesh(new THREE.BoxGeometry(L+.22,.26,D+.22),roofMat);
@@ -98,13 +173,48 @@ export function installSupportStructuresV55({
     addWindowBand(g,L,D,H,true);
     if(L>24) addWindowBand(g,L,D,H,false);
 
-    const doorCount=L>45?2:1;
     for(let i=0;i<doorCount;i++){
-      const x=doorCount===1?0:(i===0?-L*.27:L*.27);
-      const door=new THREE.Mesh(new THREE.BoxGeometry(1.35,2.35,.10),mats.door);
-      door.position.set(x,1.30,D/2+.07);g.add(door);
+      const x=doorXs[i];
+      const pivot=new THREE.Group();
+      pivot.name='V168_AUX_DOOR_PIVOT_'+idx+'_'+i;
+      pivot.position.set(x-doorWidth*.5,0,D*.5+.075);
+      pivot.userData={fpsInteractiveDoor:true,ignoreFpsCollision:true};
+      g.add(pivot);
+
+      const panel=new THREE.Mesh(
+        new THREE.BoxGeometry(doorWidth,doorHeight,.10),
+        mats.door
+      );
+      panel.name='V168_AUX_DOOR_PANEL_'+idx+'_'+i;
+      panel.position.set(doorWidth*.5,.12+doorHeight*.5,0);
+      panel.userData={fpsInteractiveDoor:true,fpsNonSolid:true};
+      pivot.add(panel);
+
       const canopy=new THREE.Mesh(new THREE.BoxGeometry(2.6,.14,1.35),mats.green);
-      canopy.position.set(x,2.85,D/2+.62);g.add(canopy);
+      canopy.position.set(x,2.85,D/2+.62);
+      canopy.userData.fpsNonSolid=true;
+      g.add(canopy);
+
+      doors.push({
+        index:doors.length,
+        source:'support',
+        buildingIndex:idx,
+        building:g,
+        pivot,
+        panel,
+        width:doorWidth,
+        height:doorHeight,
+        L,D,H,
+        kind,
+        swingSign:(idx+i)%2===0?-1:1,
+        openAmount:0,
+        targetOpen:0,
+        isOpen:false,
+        centerLocal:new THREE.Vector3(x,.12+doorHeight*.5,D*.5+.075),
+        outsideLocal:new THREE.Vector3(x,.12,D*.5+1.4),
+        insideLocal:new THREE.Vector3(x,.12,D*.5-1.4),
+        displayName:'nhà phụ '+kind+' '+(idx+1)
+      });
     }
 
     if(L*D>260){
@@ -120,6 +230,44 @@ export function installSupportStructuresV55({
 
   footprints.forEach(addAuxBuilding);
 
+  function setDoorOpen(index,v){
+    const d=doors[index];
+    if(!d)return false;
+    d.targetOpen=v?1:0;
+    d.isOpen=!!v;
+    return true;
+  }
+
+  function toggleDoor(index){
+    const d=doors[index];
+    if(!d)return false;
+    return setDoorOpen(index,!d.isOpen);
+  }
+
+  function update(dt){
+    const k=Math.min(1,Math.max(0,dt)*8.5);
+    for(const d of doors){
+      d.openAmount+=(d.targetOpen-d.openAmount)*k;
+      if(Math.abs(d.targetOpen-d.openAmount)<.002)d.openAmount=d.targetOpen;
+      d.pivot.rotation.y=d.swingSign*d.openAmount*Math.PI*.49;
+    }
+  }
+
+  function doorWorldInfo(index){
+    const d=doors[index];
+    if(!d)return null;
+    return {
+      center:localToWorld(d.building,d.centerLocal),
+      outside:localToWorld(d.building,d.outsideLocal),
+      inside:localToWorld(d.building,d.insideLocal),
+      openAmount:d.openAmount,
+      isOpen:d.isOpen,
+      width:d.width,
+      source:d.source,
+      displayName:d.displayName
+    };
+  }
+
   const updateVisibility=()=>{
     if(!camera||!controls) return;
     group.visible=camera.position.distanceTo(controls.target)<2300;
@@ -127,10 +275,18 @@ export function installSupportStructuresV55({
   controls?.addEventListener('change',updateVisibility);
   updateVisibility();
 
-  window.__DALOC_V55={
-    ready:true,version:55,frameSignature,count:footprints.length,
-    footprints:footprints.map((r,i)=>({id:'V55_AUX_'+String(i+1).padStart(2,'0'),cx:r[0],cy:r[1],Lpx:r[2],Dpx:r[3],angle:r[4],kind:r[6]}))
+  const api={
+    ready:true,version:168,frameSignature,group,count:footprints.length,
+    footprints,
+    doors,
+    setDoorOpen,
+    toggleDoor,
+    update,
+    doorWorldInfo
   };
-  console.info('[DaLoc] V55 support structures installed:',footprints.length);
-  return {group,count:footprints.length,footprints};
+  window.__DALOC_V55=api;
+  console.info('[DaLoc] V168 support structures + interactive doors installed:',{
+    buildings:footprints.length,doors:doors.length
+  });
+  return api;
 }
