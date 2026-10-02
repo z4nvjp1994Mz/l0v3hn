@@ -2166,8 +2166,23 @@ function fpsTreeRootFor(object){
   return null;
 }
 
+function fpsFactoryRootFor(object){
+  for(let o=object;o;o=o.parent){
+    if(o.userData?.type==='factory'||o.userData?.factoryV84)return o;
+  }
+  return null;
+}
+
+function fpsInsideFactoryInterior(object){
+  for(let o=object;o;o=o.parent){
+    if(/^V139_FACTORY_INTERIOR_/i.test(o.name||''))return true;
+  }
+  return false;
+}
+
 function fpsIsWalkableSurface(object){
   for(let o=object;o;o=o.parent){
+    if(o.userData?.fpsNonSolid===true)return true;
     if(o.userData?.walkable===true)return true;
     const layer=String(o.userData?.layer||'').toLowerCase();
     if(['carriageway','sidewalk','greenbelt','curb'].includes(layer))return true;
@@ -2203,6 +2218,7 @@ function refreshFpsStaticColliders(){
   const instanceWorld=new THREE.Matrix4();
   const instancedBatches=new Map();
   const registeredTreeRoots=new Set();
+  const registeredFactoryRoots=new Set();
   const treeWorldPos=new THREE.Vector3();
   const treeWorldScale=new THREE.Vector3();
 
@@ -2233,9 +2249,8 @@ function refreshFpsStaticColliders(){
     return true;
   }
 
-  function registerOrientedCollider(object,geometryBox,matrixWorld){
-    localBox.copy(geometryBox);
-    worldBox.copy(localBox).applyMatrix4(matrixWorld);
+  function registerOrientedLocalBox(object,box,matrixWorld){
+    worldBox.copy(box).applyMatrix4(matrixWorld);
     if(!colliderBoxUseful(worldBox))return;
 
     matrixWorld.decompose(p,q,scale);
@@ -2243,7 +2258,7 @@ function refreshFpsStaticColliders(){
     const collider={
       type:'obb',
       object,
-      localBox:localBox.clone(),
+      localBox:box.clone(),
       inverse:matrixWorld.clone().invert(),
       worldBox:worldBox.clone(),
       localRadius:FPS_PLAYER_RADIUS/planarScale
@@ -2251,6 +2266,51 @@ function refreshFpsStaticColliders(){
     const id=fpsStaticColliders.length;
     fpsStaticColliders.push(collider);
     addToGrid(id,collider.worldBox);
+  }
+
+  function registerOrientedCollider(object,geometryBox,matrixWorld){
+    localBox.copy(geometryBox);
+    registerOrientedLocalBox(object,localBox,matrixWorld);
+  }
+
+  function registerFactoryShellCollider(factoryRoot,body,portal){
+    if(!factoryRoot||!body||registeredFactoryRoots.has(factoryRoot.uuid))return;
+    registeredFactoryRoots.add(factoryRoot.uuid);
+
+    const prm=body.geometry?.parameters;
+    if(!prm)return;
+    const L=portal?.L||prm.width;
+    const D=portal?.D||prm.depth;
+    const H=portal?.H||prm.height;
+    const hx=L*.5,hz=D*.5,hy=H*.5;
+    const t=.32;
+    const doorHalf=1.72;
+
+    // Side walls.
+    registerOrientedLocalBox(body,new THREE.Box3(
+      new THREE.Vector3(-hx,-hy,-hz),
+      new THREE.Vector3(-hx+t,hy,hz)
+    ),body.matrixWorld);
+    registerOrientedLocalBox(body,new THREE.Box3(
+      new THREE.Vector3(hx-t,-hy,-hz),
+      new THREE.Vector3(hx,hy,hz)
+    ),body.matrixWorld);
+
+    // Rear wall.
+    registerOrientedLocalBox(body,new THREE.Box3(
+      new THREE.Vector3(-hx,-hy,-hz),
+      new THREE.Vector3(hx,hy,-hz+t)
+    ),body.matrixWorld);
+
+    // Front wall split around the V139 personnel-door opening.
+    registerOrientedLocalBox(body,new THREE.Box3(
+      new THREE.Vector3(-hx,-hy,hz-t),
+      new THREE.Vector3(-doorHalf,hy,hz)
+    ),body.matrixWorld);
+    registerOrientedLocalBox(body,new THREE.Box3(
+      new THREE.Vector3(doorHalf,-hy,hz-t),
+      new THREE.Vector3(hx,hy,hz)
+    ),body.matrixWorld);
   }
 
   function registerWorldBoxCollider(object,box){
@@ -2320,6 +2380,25 @@ function refreshFpsStaticColliders(){
       return;
     }
 
+    // V139: factory body is no longer one solid collision box. Replace it with
+    // perimeter walls and a real personnel-door gap; keep large interior equipment
+    // collidable but skip decorative facade/roof meshes.
+    const factoryRoot=fpsFactoryRootFor(object);
+    const factoryPortal=factoryRoot?.userData?.factoryV84;
+    if(factoryRoot&&factoryPortal){
+      const prm=object.geometry?.parameters;
+      const isBody=
+        object.geometry?.type==='BoxGeometry' &&
+        prm?.height>4 &&
+        Math.abs((prm?.width||0)-factoryPortal.L)<1.5 &&
+        Math.abs((prm?.depth||0)-factoryPortal.D)<1.5;
+      if(isBody){
+        registerFactoryShellCollider(factoryRoot,object,factoryPortal);
+        return;
+      }
+      if(!fpsInsideFactoryInterior(object))return;
+    }
+
     if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();
     const geometryBox=object.geometry.boundingBox;
     if(!geometryBox||geometryBox.isEmpty())return;
@@ -2360,7 +2439,7 @@ function refreshFpsStaticColliders(){
   }
 
   fpsColliderRevision++;
-  console.info('[DaLoc] V138.5 FPS collision grid: walkable surfaces ignored, tree trunks only',{
+  console.info('[DaLoc] V139 FPS collision grid: factory shell doors + walkable surfaces + trunk-only trees',{
     colliders:fpsStaticColliders.length,
     cells:fpsColliderGrid.size,
     instancedBatches:instancedBatches.size,
