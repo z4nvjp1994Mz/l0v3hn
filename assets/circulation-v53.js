@@ -68,6 +68,32 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     extendEnd(pts[pts.length-2],pts[pts.length-1],false);
   });
 
+  // V139.2: explicit front-gate connector. The approved FPS spawn is offset from
+  // the first main-road centerline sample, so a pure centerline corridor still left
+  // a short vulnerable gap at the entrance. This connector bridges that exact gap
+  // without widening the rest of the road.
+  const widestPrimary=primaryPaths.reduce((best,p)=>!best||p.widthPx>best.widthPx?p:best,null);
+  if(widestPrimary?.pointsPx?.length>=2){
+    const gatePathPx=[
+      [316.17,1528.03],
+      [322.62,1519.74],
+      [343.50,1492.90],
+      widestPrimary.pointsPx[0]
+    ];
+    for(let i=1;i<gatePathPx.length;i++){
+      const qa=corridorWarpV91.warpPx(gatePathPx[i-1][0],gatePathPx[i-1][1]);
+      const qb=corridorWarpV91.warpPx(gatePathPx[i][0],gatePathPx[i][1]);
+      const a=mapPx(qa.x,qa.y),b=mapPx(qb.x,qb.y);
+      fpsRoadSafeSegments.push({
+        pathIndex:'front-gate',
+        widthPx:widestPrimary.widthPx,
+        halfSafe:7.6,
+        ax:a.x,az:a.z,
+        bx:b.x,bz:b.z
+      });
+    }
+  }
+
   function fpsRoadSafeInfo(x,z){
     let best=null;
     for(const seg of fpsRoadSafeSegments){
@@ -343,7 +369,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
   window.__DALOC_V53={
-    ready:true,version:139.1,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),
+    ready:true,version:139.2,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),
     newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,
     cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,
     treeAssetMode:'direct-v120-masterplan + direct-v121-boulevard',
