@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildCadCorridorWarpV91 } from './corridor-warp-v91.js?v=91';
-import { loadKenneyTreeAssets, createStaticInstancedAsset, createPrototypeGroup } from './real-assets-v105.js?v=1051';
+import { loadLushKenneyTreeAssets, createStaticInstancedAsset, createPrototypeGroup } from './real-assets-v105.js?v=119';
 
 // Source pixels determine positions, not visible material colours.
 export async function installCirculationV53({world,mapPx,frameSignature,renderer,camera,controls,showUI=true}) {
@@ -173,10 +173,11 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     }
   });
 
-  // V105: replace the old cylinder/icosahedron roadside tree Groups with actual
-  // vendored Kenney Nature Kit GLBs. The wrapper Groups are preserved so all
+  // V119: keep the Kenney GLB core but add a merged branch network + multi-lobe
+  // broadleaf crown for denser, more natural roadside trees. Wrapper Groups stay
+  // preserved so all
   // later CAD-access/gate/road-safety visibility logic keeps working unchanged.
-  const realTreeAssets=await loadKenneyTreeAssets().catch(error=>{
+  const realTreeAssets=await loadLushKenneyTreeAssets().catch(error=>{
     console.error('[DaLoc] V105 roadside real-tree asset fallback',error);
     return null;
   });
@@ -193,7 +194,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
         name:'V105_ROADSIDE_TREE_'+i,castShadow:true,receiveShadow:true
       });
       if(!visual)return;
-      visual.scale.setScalar(inferredScale*(usePine?.90:1.0));
+      visual.scale.setScalar(inferredScale*(usePine?.90:1.08));
       g.add(visual);
       g.userData.realTreeAssetV105=usePine?'kenney-pine':'kenney-oak';
       upgradedLegacyTrees++;
@@ -228,15 +229,15 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
         const item={
           position:new THREE.Vector3(p.x,.05,p.z),
           rotationY:(i*.61803398875%1)*Math.PI*2,
-          scale:i%6===0?.64:.72
+          scale:i%6===0?.64:.80
         };
         (i%6===0?pine:oak).push(item);
       });
       createStaticInstancedAsset(group,realTreeAssets.oak,oak,{
-        name:'V105_GREENBELT_OAKS',castShadow:true,receiveShadow:true
+        name:'V119_GREENBELT_LUSH_OAKS',castShadow:true,receiveShadow:true
       });
       createStaticInstancedAsset(group,realTreeAssets.pine,pine,{
-        name:'V105_GREENBELT_PINES',castShadow:true,receiveShadow:true
+        name:'V119_GREENBELT_PINES',castShadow:true,receiveShadow:true
       });
     }else{
       const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.13,.20,2.8,8),new THREE.MeshStandardMaterial({color:0x79533b,roughness:1}),planting.length);
@@ -270,7 +271,7 @@ export async function installCirculationV53({world,mapPx,frameSignature,renderer
     document.querySelector('.controls').appendChild(button);
     const review=document.createElement('button');review.id='compare2DV53';review.textContent='Compare 2D';review.onclick=()=>window.open('./road-review-v53.html','_blank','noopener');document.querySelector('.controls').appendChild(review);
   }
-  window.__DALOC_V53={ready:true,version:105,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,treeAssetMode:realTreeAssets?'kenney-glb':'fallback',
+  window.__DALOC_V53={ready:true,version:119,frameSignature,areasPx2:data.areasPx2,layers:Object.keys(data.layers),newGreenbeltTrees:planting.length,cadAccessCount:(accessData.accesses||[]).length,cadCorridorWarp:corridorWarpV91,upgradedLegacyTrees,treeAssetMode:realTreeAssets?'kenney-glb-lush-v119':'fallback',
     focus:(px,py,height=450)=>{const p=mapPx(px,py);controls.target.set(p.x,0,p.z);camera.position.set(p.x+height*.22,height,p.z+height*.30);controls.update();}};
   return {group,plantingCount:planting.length,cadAccessCount:(accessData.accesses||[]).length};
 }
