@@ -166,7 +166,7 @@ export function installSolarRoofZoneV94({
     const root=new THREE.Group();
     root.name='V1471_SOLAR_TWO_STOREY_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     root.userData={
-      version:149,
+      version:150,
       factoryIndex,
       role:'actual-two-storey-solar-industrial-building',
       floors:2,
@@ -188,47 +188,65 @@ export function installSolarRoofZoneV94({
     };
 
     // ---------------------------------------------------------------------
-    // REAL SECOND-FLOOR SLAB
+    // V150 REAL SECOND FLOOR + SINGLE STRAIGHT STAIR OPENING
     // ---------------------------------------------------------------------
-    // Use four slab segments so the internal stair core has a real opening.
-    // This remains decorative/non-solid for FPS until stair-walking is added,
-    // but it is actual level geometry visible from inside the building.
+    // Completely replaces the legacy U-stair geometry. One broad straight
+    // staircase runs continuously from level 1 to level 2. The floor opening
+    // is derived from the exact same stair coordinates used by gameplay.
     const stairSide=factoryIndex%2===0?-1:1;
-    const stairCoreW=Math.min(9.2,Math.max(7.6,L*.09));
-    const stairCoreD=Math.min(12.5,Math.max(10.0,D*.30));
-    const stairCoreX=stairSide*(L*.5-stairCoreW*.62-1.2);
-    const stairCoreZ=D*.20;
-
-    // V147.3: derive the slab opening from the ACTUAL stair footprint rather
-    // than the much larger architectural stairCoreD. The old opening extended
-    // several metres beyond the final upper step, producing the visible void.
-    const flightSteps=10;
-    const totalSteps=flightSteps*2;
-    const stairW=Math.min(3.8,Math.max(3.2,stairCoreW*.42));
-    const run=Math.min(5.8,Math.max(4.8,stairCoreD*.45));
-    const stepD=run/flightSteps;
-    const rise=splitY/totalSteps;
-    const flightOffset=stairW*.58;
-    const landingDepth=Math.max(3.35,stairW*1.18);
-    const topLandingDepth=Math.max(2.85,stairW*.96);
-    const holeHalfW=flightOffset+stairW*.68;
-    const holeRear=run*.5+landingDepth*.58;
-    const holeFront=run*.5+topLandingDepth;
+    const stairWidth=Math.min(4.4,Math.max(3.7,L*.055));
+    const stairRun=Math.min(
+      15.0,
+      Math.max(8.5,D*.42),
+      D*.68
+    );
+    const stairSteps=20;
+    const stairTread=stairRun/stairSteps;
+    const stairRise=splitY/stairSteps;
+    const topLandingDepth=Math.max(3.0,stairWidth*.82);
+    const stairCenterX=stairSide*(L*.5-stairWidth*.5-2.25);
+    const stairBottomZ=Math.min(D*.29,D*.5-3.0);
+    const stairTopZ=stairBottomZ-stairRun;
+    const entryDepth=Math.max(1.8,stairTread*2.7);
 
     const slabT=.26;
     const leftEdge=-L*.46,rightEdge=L*.46;
     const backEdge=-D*.44,frontEdge=D*.44;
-    const holeX0=stairCoreX-holeHalfW;
-    const holeX1=stairCoreX+holeHalfW;
-    const holeZ0=stairCoreZ-holeRear;
-    const holeZ1=stairCoreZ+holeFront;
+
+    // Only the upper part of the stair needs an opening through level 2.
+    // The lower part stays naturally below the slab.
+    const holeX0=stairCenterX-stairWidth*.68;
+    const holeX1=stairCenterX+stairWidth*.68;
+    const holeZ0=Math.max(backEdge+.20,stairTopZ-topLandingDepth-.35);
+    const holeZ1=Math.min(frontEdge-.20,stairTopZ+stairRun*.46);
 
     const slabParts=[
-      {x:(leftEdge+holeX0)/2,z:0,w:Math.max(.2,holeX0-leftEdge),d:frontEdge-backEdge},
-      {x:(holeX1+rightEdge)/2,z:0,w:Math.max(.2,rightEdge-holeX1),d:frontEdge-backEdge},
-      {x:stairCoreX,z:(backEdge+holeZ0)/2,w:Math.max(.2,holeX1-holeX0),d:Math.max(.2,holeZ0-backEdge)},
-      {x:stairCoreX,z:(holeZ1+frontEdge)/2,w:Math.max(.2,holeX1-holeX0),d:Math.max(.2,frontEdge-holeZ1)}
+      {
+        x:(leftEdge+holeX0)/2,
+        z:0,
+        w:Math.max(.2,holeX0-leftEdge),
+        d:frontEdge-backEdge
+      },
+      {
+        x:(holeX1+rightEdge)/2,
+        z:0,
+        w:Math.max(.2,rightEdge-holeX1),
+        d:frontEdge-backEdge
+      },
+      {
+        x:stairCenterX,
+        z:(backEdge+holeZ0)/2,
+        w:Math.max(.2,holeX1-holeX0),
+        d:Math.max(.2,holeZ0-backEdge)
+      },
+      {
+        x:stairCenterX,
+        z:(holeZ1+frontEdge)/2,
+        w:Math.max(.2,holeX1-holeX0),
+        d:Math.max(.2,frontEdge-holeZ1)
+      }
     ];
+
     for(const [i,p] of slabParts.entries()){
       if(p.w<.3||p.d<.3)continue;
       const slab=new THREE.Mesh(
@@ -238,7 +256,7 @@ export function installSolarRoofZoneV94({
       slab.position.set(p.x,splitY,p.z);
       addDetail(
         slab,
-        'V1471_SECOND_FLOOR_SLAB_'+factoryIndex+'_'+i
+        'V150_SECOND_FLOOR_SLAB_'+factoryIndex+'_'+i
       );
     }
 
@@ -300,277 +318,148 @@ export function installSolarRoofZoneV94({
     addEndFacade(-L/2-wallOffset,'LEFT');
 
     // ---------------------------------------------------------------------
-    // INTERNAL U-SHAPED STAIR — ENTIRELY INSIDE THE VERIFIED FOOTPRINT
+    // V150 BRAND-NEW STRAIGHT CLOSED STAIR
     // ---------------------------------------------------------------------
     const stairRoot=new THREE.Group();
-    stairRoot.name='V1471_INTERNAL_STAIR_'+factoryIndex;
-    stairRoot.position.set(stairCoreX,0,stairCoreZ);
+    stairRoot.name='V150_STRAIGHT_STAIR_'+factoryIndex;
     stairRoot.userData={
+      version:150,
       fpsNonSolid:true,
       solarTwoStoreyV147:true,
       factoryIndex,
-      internal:true
+      internal:true,
+      stairType:'single-straight-closed'
     };
     root.add(stairRoot);
 
-    // Flight geometry uses the same dimensions that define the slab opening,
-    // so the visual stair and walkable surface cannot drift apart.
-
-    // V147.5 CLOSED FLIGHT 1:
-    // Each tread is now a solid stepped block from the ground up to its tread
-    // elevation. Adjacent boxes overlap slightly in Z so there are no visible
-    // gaps/open risers between steps.
-    for(let i=0;i<flightSteps;i++){
-      const treadTop=(i+1)*rise;
-      const blockH=Math.max(.18,treadTop);
-      const step=new THREE.Mesh(
-        new THREE.BoxGeometry(stairW,blockH,stepD+.08),
+    // 20 fully closed risers. Every block reaches the floor, so there is no
+    // hollow frame, center wall, pedestal or seam to walk into.
+    for(let i=0;i<stairSteps;i++){
+      const treadTop=(i+1)*stairRise;
+      const block=new THREE.Mesh(
+        new THREE.BoxGeometry(
+          stairWidth,
+          treadTop,
+          stairTread+.07
+        ),
         stairMat
       );
-      step.position.set(
-        -flightOffset,
-        blockH*.5,
-        run*.50-(i+.5)*stepD
+      block.position.set(
+        stairCenterX,
+        treadTop*.5,
+        stairBottomZ-(i+.5)*stairTread
       );
-      markArchitecturalDetail(step,factoryIndex);
-      stairRoot.add(step);
+      markArchitecturalDetail(block,factoryIndex);
+      block.name='V150_STAIR_STEP_'+factoryIndex+'_'+i;
+      stairRoot.add(block);
     }
 
-    // Enlarged half landing: wide enough for a natural 180-degree turn and
-    // visibly connects both flights instead of reading as a tiny shelf.
-    const landingThickness=.22;
-    const landing=new THREE.Mesh(
+    // Ground apron makes the first step visually and physically obvious.
+    const apron=new THREE.Mesh(
       new THREE.BoxGeometry(
-        flightOffset*2+stairW*1.18,
-        landingThickness,
-        landingDepth
+        stairWidth+.50,
+        .12,
+        entryDepth
       ),
       floorSlabMat
     );
-    landing.position.set(
-      0,
-      splitY*.50-landingThickness*.5,
-      -run*.50
+    apron.position.set(
+      stairCenterX,
+      .06,
+      stairBottomZ+entryDepth*.5
     );
-    markArchitecturalDetail(landing,factoryIndex);
-    stairRoot.add(landing);
+    markArchitecturalDetail(apron,factoryIndex);
+    apron.name='V150_STAIR_ENTRY_APRON_'+factoryIndex;
+    stairRoot.add(apron);
 
-    // V147.5 CLOSED FLIGHT 2:
-    // Solid blocks start at the half-landing elevation and rise continuously
-    // toward level 2. This removes the floating-tread appearance completely.
-    for(let i=0;i<flightSteps;i++){
-      const riseAboveLanding=(i+1)*rise;
-      const blockH=Math.max(.18,riseAboveLanding);
-      const step=new THREE.Mesh(
-        new THREE.BoxGeometry(stairW,blockH,stepD+.08),
-        stairMat
-      );
-      step.position.set(
-        flightOffset,
-        splitY*.50+blockH*.5,
-        -run*.50+(i+.5)*stepD
-      );
-      markArchitecturalDetail(step,factoryIndex);
-      stairRoot.add(step);
-    }
-
-    // Solid side cheeks close the staircase silhouette even when viewed from
-    // oblique third-person angles.
-    const cheekT=.12;
-    for(const sideMul of [-1,1]){
-      const cheek1=new THREE.Mesh(
-        new THREE.BoxGeometry(
-          cheekT,
-          splitY*.50,
-          run+.12
-        ),
-        stairWallMat
-      );
-      cheek1.position.set(
-        -flightOffset+sideMul*(stairW*.5+cheekT*.5),
-        splitY*.25,
-        0
-      );
-      markArchitecturalDetail(cheek1,factoryIndex);
-      stairRoot.add(cheek1);
-
-      const cheek2=new THREE.Mesh(
-        new THREE.BoxGeometry(
-          cheekT,
-          splitY*.50,
-          run+.12
-        ),
-        stairWallMat
-      );
-      cheek2.position.set(
-        flightOffset+sideMul*(stairW*.5+cheekT*.5),
-        splitY*.75,
-        0
-      );
-      markArchitecturalDetail(cheek2,factoryIndex);
-      stairRoot.add(cheek2);
-    }
-
-    // Full-size upper landing bridges the last step directly into the
-    // second-floor slab. This closes the multi-metre void visible in V147.2.
-    const topLandingThickness=.22;
+    // Thin top landing only; NO pedestal/wall underneath the walking path.
     const topLanding=new THREE.Mesh(
-      new THREE.BoxGeometry(stairW*1.34,topLandingThickness,topLandingDepth+.18),
+      new THREE.BoxGeometry(
+        stairWidth+.55,
+        .24,
+        topLandingDepth
+      ),
       floorSlabMat
     );
     topLanding.position.set(
-      flightOffset,
-      splitY+.14-topLandingThickness*.5,
-      run*.50+topLandingDepth*.50-.05
+      stairCenterX,
+      splitY+.12,
+      stairTopZ-topLandingDepth*.5+.04
     );
     markArchitecturalDetail(topLanding,factoryIndex);
+    topLanding.name='V150_STAIR_TOP_LANDING_'+factoryIndex;
     stairRoot.add(topLanding);
 
-    // V149 MASSIVE CLOSED STAIR INFILL:
-    // Close every void that previously made the stair read as a hollow frame.
-    const totalStairW=flightOffset*2+stairW;
+    // Lightweight open handrails. These are visual only and never FPS-solid.
+    const railMat=balconyMat;
+    const railHeight=1.02;
+    const postEvery=2;
+    for(const sideMul of [-1,1]){
+      const x=stairCenterX+sideMul*(stairWidth*.5+.10);
 
-    const midLandingPedestal=new THREE.Mesh(
-      new THREE.BoxGeometry(
-        totalStairW+.30,
-        splitY*.50,
-        landingDepth
-      ),
-      stairWallMat
-    );
-    midLandingPedestal.position.set(
-      0,
-      splitY*.25,
-      -run*.50
-    );
-    markArchitecturalDetail(midLandingPedestal,factoryIndex);
-    stairRoot.add(midLandingPedestal);
+      for(let i=0;i<=stairSteps;i+=postEvery){
+        const t=i/stairSteps;
+        const z=THREE.MathUtils.lerp(stairBottomZ,stairTopZ,t);
+        const y=t*splitY;
+        const post=new THREE.Mesh(
+          new THREE.BoxGeometry(.07,railHeight,.07),
+          railMat
+        );
+        post.position.set(x,y+railHeight*.5+.12,z);
+        markArchitecturalDetail(post,factoryIndex);
+        post.name='V150_STAIR_RAIL_POST_'+factoryIndex+'_'+sideMul+'_'+i;
+        stairRoot.add(post);
+      }
 
-    const upperFlightBase=new THREE.Mesh(
-      new THREE.BoxGeometry(
-        stairW,
-        splitY*.50,
-        run+.18
-      ),
-      stairWallMat
-    );
-    upperFlightBase.position.set(
-      flightOffset,
-      splitY*.25,
-      0
-    );
-    markArchitecturalDetail(upperFlightBase,factoryIndex);
-    stairRoot.add(upperFlightBase);
-
-    const topLandingPedestal=new THREE.Mesh(
-      new THREE.BoxGeometry(
-        stairW*1.46,
-        splitY,
-        topLandingDepth+.24
-      ),
-      stairWallMat
-    );
-    topLandingPedestal.position.set(
-      flightOffset,
-      splitY*.50,
-      run*.50+topLandingDepth*.50-.05
-    );
-    markArchitecturalDetail(topLandingPedestal,factoryIndex);
-    stairRoot.add(topLandingPedestal);
-
-    // Solid central spine closes the slot between the two flights.
-    const centerSpine=new THREE.Mesh(
-      new THREE.BoxGeometry(
-        Math.max(.34,flightOffset*2-stairW+.22),
-        splitY,
-        run+landingDepth*.78
-      ),
-      stairWallMat
-    );
-    centerSpine.position.set(
-      0,
-      splitY*.50,
-      -landingDepth*.14
-    );
-    markArchitecturalDetail(centerSpine,factoryIndex);
-    stairRoot.add(centerSpine);
-
-    // Broad side plinths close the visible outer seams at ground level.
-    for(const x of [
-      -flightOffset-stairW*.54,
-      flightOffset+stairW*.54
-    ]){
-      const plinth=new THREE.Mesh(
-        new THREE.BoxGeometry(
-          .22,
-          splitY,
-          run+landingDepth+topLandingDepth
-        ),
-        stairWallMat
-      );
-      plinth.position.set(
-        x,
-        splitY*.50,
-        (topLandingDepth-landingDepth)*.22
-      );
-      markArchitecturalDetail(plinth,factoryIndex);
-      stairRoot.add(plinth);
-    }
-
-    // Side guard at the open edge of the upper landing.
-    for(const xOff of [-stairW*.70,stairW*.70]){
-      const upperRail=new THREE.Mesh(
-        new THREE.BoxGeometry(.08,1.02,topLandingDepth+.06),
-        balconyMat
-      );
-      upperRail.position.set(
-        flightOffset+xOff,
-        splitY+.62,
-        run*.50+topLandingDepth*.50-.05
-      );
-      markArchitecturalDetail(upperRail,factoryIndex);
-      stairRoot.add(upperRail);
-    }
-
-    // Internal stair guard walls / rails stay inside the stair core.
-    for(const x of [-stairW*1.22,stairW*1.22]){
+      const railLength=Math.sqrt(stairRun*stairRun+splitY*splitY);
       const rail=new THREE.Mesh(
-        new THREE.BoxGeometry(.09,splitY*.88,.09),
-        balconyMat
+        new THREE.BoxGeometry(.08,.08,railLength),
+        railMat
       );
-      rail.position.set(x,splitY*.48,0);
+      rail.position.set(
+        x,
+        splitY*.5+railHeight+.12,
+        (stairBottomZ+stairTopZ)*.5
+      );
+      rail.rotation.x=-Math.atan2(splitY,stairRun);
       markArchitecturalDetail(rail,factoryIndex);
+      rail.name='V150_STAIR_HANDRAIL_'+factoryIndex+'_'+sideMul;
       stairRoot.add(rail);
     }
 
-    // Stair core walls stop below ceiling and remain fully inside footprint.
-    for(const x of [-stairCoreW*.52,stairCoreW*.52]){
-      const wall=new THREE.Mesh(
-        new THREE.BoxGeometry(.10,splitY*.90,stairCoreD*.92),
-        stairWallMat
+    // Short guards around the top landing only. No full-height stair walls.
+    for(const sideMul of [-1,1]){
+      const guard=new THREE.Mesh(
+        new THREE.BoxGeometry(
+          .08,
+          1.02,
+          topLandingDepth
+        ),
+        railMat
       );
-      wall.position.set(x,splitY*.45,0);
-      markArchitecturalDetail(wall,factoryIndex);
-      stairRoot.add(wall);
+      guard.position.set(
+        stairCenterX+sideMul*(stairWidth*.5+.10),
+        splitY+.63,
+        stairTopZ-topLandingDepth*.5+.04
+      );
+      markArchitecturalDetail(guard,factoryIndex);
+      guard.name='V150_TOP_GUARD_'+factoryIndex+'_'+sideMul;
+      stairRoot.add(guard);
     }
 
-    // Export a lightweight gameplay descriptor. FPS uses this as two smooth
-    // walkable ramps + landing + second-floor slab instead of 16 hard step
-    // colliders, so climbing stays stable at normal/run speeds.
     stairWalkSurfaces.push({
       factoryIndex,
       building:g,
       splitY,
-      stairCoreX,
-      stairCoreZ,
-      stairCoreW,
-      stairCoreD,
-      stairW,
-      flightOffset,
-      totalStairW,
-      run,
-      stepD,
-      landingDepth,
+      stairWidth,
+      stairRun,
+      stairSteps,
+      stairTread,
+      stairRise,
+      stairCenterX,
+      stairBottomZ,
+      stairTopZ,
+      entryDepth,
       topLandingDepth,
       leftEdge,
       rightEdge,
@@ -648,7 +537,7 @@ export function installSolarRoofZoneV94({
     const solarRoot=new THREE.Group();
     solarRoot.name='V94_SOLAR_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     solarRoot.userData={
-      version:149,
+      version:150,
       factoryIndex,
       role:'solar-roof-pilot-two-storey',
       tableCount:placements.length
@@ -720,12 +609,13 @@ export function installSolarRoofZoneV94({
   }
 
   function walkableHeightAt(worldPosition,currentFeetY=0,{
-    maxStepUp=.72,
-    maxDrop=1.35
+    maxStepUp=.95,
+    maxDrop=1.55
   }={}){
     if(!worldPosition)return null;
+
     let best=null;
-    let bestDelta=Infinity;
+    let bestScore=Infinity;
 
     for(const stair of stairWalkSurfaces){
       const building=stair.building;
@@ -736,25 +626,22 @@ export function installSolarRoofZoneV94({
       walkLocalPoint.copy(worldPosition);
       building.worldToLocal(walkLocalPoint);
 
-      walkFeetPoint.set(worldPosition.x,currentFeetY,worldPosition.z);
+      walkFeetPoint.set(
+        worldPosition.x,
+        currentFeetY,
+        worldPosition.z
+      );
       building.worldToLocal(walkFeetPoint);
       const currentLocalY=walkFeetPoint.y;
 
-      const lx=walkLocalPoint.x-stair.stairCoreX;
-      const lz=walkLocalPoint.z-stair.stairCoreZ;
-      const flightOffset=stair.flightOffset||stair.stairW*.58;
-      const halfW=stair.stairW*.68+.28;
-      const runHalf=stair.run*.5;
+      const lx=walkLocalPoint.x-stair.stairCenterX;
+      const z=walkLocalPoint.z;
+      const captureX=stair.stairWidth*.5+.58;
+      const entryFront=stair.stairBottomZ+stair.entryDepth;
+      const topRear=stair.stairTopZ-stair.topLandingDepth-.30;
 
-      // V147.4 continuity model:
-      // - transition zones deliberately overlap by more than one player radius;
-      // - every matching surface becomes a candidate;
-      // - the candidate closest to the current feet height wins.
-      // This prevents a single frame from selecting "no floor" at flight/landing joins.
-      const transitionMargin=Math.max(.62,(stair.stepD||stair.run/8)*1.55);
       const candidates=[];
-
-      function addCandidate(localHeight,surface,priority=0){
+      const addCandidate=(localHeight,surface,priority=0)=>{
         const delta=localHeight-currentLocalY;
         if(delta>maxStepUp||delta<-maxDrop)return;
         candidates.push({
@@ -763,77 +650,42 @@ export function installSolarRoofZoneV94({
           delta,
           score:Math.abs(delta)+priority
         });
-      }
+      };
 
-      // V149 broad entry catch: approaching the staircase head-on must
-      // acquire the lower flight before the camera/player can pass through the
-      // decorative solid geometry. This covers the complete visible stair width.
-      const entryDepth=Math.max(1.45,stair.stepD*2.4);
+      // One single continuous walking corridor. Before the first tread the
+      // height is zero; through the stair it rises linearly; after the final
+      // tread it becomes the level-2 landing.
       if(
-        Math.abs(lx)<=stair.totalStairW*.56 &&
-        lz>=runHalf-entryDepth &&
-        lz<=runHalf+entryDepth
+        Math.abs(lx)<=captureX &&
+        z>=topRear &&
+        z<=entryFront
       ){
-        const t=THREE.MathUtils.clamp(
-          (runHalf-lz)/Math.max(.01,stair.run),
-          0,
-          1
-        );
-        addCandidate(
-          t*stair.splitY*.5,
-          'flight-1-entry',
-          -.01
-        );
+        if(z>=stair.stairBottomZ){
+          addCandidate(0,'straight-stair-entry',-.02);
+        }else if(z<=stair.stairTopZ){
+          if(currentLocalY>=stair.splitY-1.10){
+            addCandidate(
+              stair.splitY+.14,
+              'straight-stair-top',
+              -.01
+            );
+          }
+        }else{
+          const t=THREE.MathUtils.clamp(
+            (stair.stairBottomZ-z)/
+              Math.max(.01,stair.stairRun),
+            0,
+            1
+          );
+          addCandidate(
+            t*stair.splitY,
+            'straight-stair',
+            -.015
+          );
+        }
       }
 
-      // Flight 1: front -> rear, 0 -> half-floor.
-      if(
-        Math.abs(lx+stair.flightOffset)<=halfW+transitionMargin*.90 &&
-        lz>=-runHalf-transitionMargin &&
-        lz<= runHalf+transitionMargin
-      ){
-        const t=THREE.MathUtils.clamp(
-          (runHalf-lz)/Math.max(.01,stair.run),
-          0,1
-        );
-        addCandidate(t*stair.splitY*.5,'flight-1');
-      }
-
-      // Enlarged half landing overlaps both flight corridors.
-      if(
-        Math.abs(lx)<=stair.totalStairW*.52+transitionMargin*.55 &&
-        Math.abs(lz+runHalf)<=stair.landingDepth*.52+transitionMargin
-      ){
-        addCandidate(stair.splitY*.5,'landing',.005);
-      }
-
-      // Flight 2: rear -> front, half-floor -> second floor.
-      if(
-        Math.abs(lx-stair.flightOffset)<=halfW+transitionMargin*.90 &&
-        lz>=-runHalf-transitionMargin &&
-        lz<= runHalf+transitionMargin
-      ){
-        const t=THREE.MathUtils.clamp(
-          (lz+runHalf)/Math.max(.01,stair.run),
-          0,1
-        );
-        addCandidate(
-          stair.splitY*.5+t*stair.splitY*.5,
-          'flight-2'
-        );
-      }
-
-      // Upper landing overlaps the last metres of flight 2 and the slab edge.
-      if(
-        Math.abs(lx-stair.flightOffset)<=stair.stairW*.96+transitionMargin*.45 &&
-        lz>=runHalf-transitionMargin &&
-        lz<=runHalf+stair.topLandingDepth+transitionMargin &&
-        currentLocalY>=stair.splitY-1.05
-      ){
-        addCandidate(stair.splitY+.14,'top-landing',.004);
-      }
-
-      // Actual second-floor slab. Only acquire it near upper-floor height.
+      // Level 2 outside the stair opening.
       const inFloorRect=
         walkLocalPoint.x>=stair.leftEdge &&
         walkLocalPoint.x<=stair.rightEdge &&
@@ -844,35 +696,37 @@ export function installSolarRoofZoneV94({
         walkLocalPoint.x<=stair.holeX1 &&
         walkLocalPoint.z>=stair.holeZ0 &&
         walkLocalPoint.z<=stair.holeZ1;
+
       if(
         inFloorRect &&
         !inStairHole &&
-        currentLocalY>=stair.splitY-1.05
+        currentLocalY>=stair.splitY-1.10
       ){
-        addCandidate(stair.splitY+.14,'level-2',.006);
+        addCandidate(
+          stair.splitY+.14,
+          'level-2',
+          .006
+        );
       }
 
       if(!candidates.length)continue;
       candidates.sort((a,b)=>a.score-b.score);
       const chosen=candidates[0];
-      const localHeight=chosen.localHeight;
-      const surface=chosen.surface;
 
       walkWorldPoint.set(
         walkLocalPoint.x,
-        localHeight,
+        chosen.localHeight,
         walkLocalPoint.z
       );
       building.localToWorld(walkWorldPoint);
 
-      if(chosen.score<bestDelta){
-        bestDelta=chosen.score;
+      if(chosen.score<bestScore){
+        bestScore=chosen.score;
         best={
           height:walkWorldPoint.y,
           factoryIndex:stair.factoryIndex,
-          surface,
-          localHeight,
-          transitionMargin
+          surface:chosen.surface,
+          localHeight:chosen.localHeight
         };
       }
     }
@@ -888,7 +742,7 @@ export function installSolarRoofZoneV94({
 
   const controller={
     ready:true,
-    version:149,
+    version:150,
     selectedIndices:selectedIndices.slice(),
     factoryCount:panelRoots.length,
     twoStoreyFactoryCount:twoStoreyRoots.length,
@@ -903,7 +757,7 @@ export function installSolarRoofZoneV94({
   };
 
   window.__DALOC_SOLAR_ROOFS_V94=controller;
-  console.info('[DaLoc] V149 massive closed walkable stair installed',{
+  console.info('[DaLoc] V150 brand-new straight stair installed',{
     factories:controller.factoryCount,
     tables:tableCount,
     moduleEquivalent
