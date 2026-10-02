@@ -410,9 +410,9 @@ function makeAxe(materials){
   headRoot.name='FPS_AXE_HEAD_ROOT_V162';
   headRoot.position.set(.02,.015,-.80);
 
-  // V162: rotate ONLY the axe head assembly relative to the handle.
+  // V163: rotate ONLY the axe head assembly in the corrected direction.
   // The handle/grip/IK hands keep their existing lower-right pose.
-  headRoot.rotation.z=.28;
+  headRoot.rotation.z=-.34;
   axe.add(headRoot);
 
   const headBody=mesh(
