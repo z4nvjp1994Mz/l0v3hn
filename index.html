@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V124 FPS HAND ORIENTATION + PINNED SPAWN</small>
+  <small>GitHub → Netlify · BUILD V125 ORGANIC FPS GLOVE HANDS</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1515,7 +1515,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V124 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V125 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1737,7 +1737,7 @@ function buildFpsCharacterRig(){
   // Arms are a camera-relative first-person viewmodel: always readable at the
   // bottom of frame, independent from pitch/yaw and without entering collision.
   fpsViewModel=new THREE.Group();
-  fpsViewModel.name='FPS_VIEWMODEL_V124';
+  fpsViewModel.name='FPS_VIEWMODEL_V125';
   fpsViewModel.userData.ignoreFpsCollision=true;
   fpsViewModel.visible=false;
   scene.add(fpsViewModel);
@@ -1764,7 +1764,7 @@ function buildFpsCharacterRig(){
     // (-Z), slightly higher and closer to the center. This makes the forearm
     // visually point INTO the scene like an FPS viewmodel instead of toward camera.
     const root=new THREE.Group();
-    root.name=side<0?'FPS_LEFT_ARM_V124':'FPS_RIGHT_ARM_V124';
+    root.name=side<0?'FPS_LEFT_ARM_V125':'FPS_RIGHT_ARM_V125';
     root.userData.ignoreFpsCollision=true;
 
     const shoulder=[side*.34,-.40,-.48];
@@ -1800,38 +1800,63 @@ function buildFpsCharacterRig(){
     cuff.position.z=.018;
     hand.add(cuff);
 
+    // V125: organic glove palm. No BoxGeometry is used in the hand anymore.
+    // The flattened ellipsoid reads as a curved palm instead of a square block.
     const palm=fpsMesh(
-      new THREE.BoxGeometry(.095,.070,.145),
+      new THREE.SphereGeometry(.060,14,10),
       gloveMat,1002
     );
-    palm.position.set(0,.012,-.075);
-    palm.rotation.x=-.08;
+    palm.scale.set(.92,.72,1.38);
+    palm.position.set(0,.005,-.080);
+    palm.rotation.x=-.10;
     hand.add(palm);
 
-    const knuckle=fpsMesh(
-      new THREE.BoxGeometry(.090,.028,.090),
-      glovePadMat,1003
-    );
-    knuckle.position.set(0,.050,-.105);
-    hand.add(knuckle);
+    // Separate padded knuckles instead of one rectangular knuckle plate.
+    for(let i=0;i<4;i++){
+      const knuckle=fpsMesh(
+        new THREE.SphereGeometry(.0205,9,7),
+        glovePadMat,1003
+      );
+      knuckle.scale.set(1.00,.68,1.18);
+      knuckle.position.set(
+        (i-1.5)*.023,
+        .044-Math.abs(i-1.5)*.002,
+        -.128
+      );
+      hand.add(knuckle);
+    }
 
     // Compact curled fingers at the front of the glove.
     for(let i=0;i<4;i++){
       const finger=fpsMesh(
-        new THREE.CapsuleGeometry(.018,.040,3,6),
+        new THREE.CapsuleGeometry(.0175,.038,4,7),
         gloveMat,1003
       );
       finger.rotation.x=Math.PI/2;
-      finger.position.set((i-1.5)*.022,-.010,-.155);
+      finger.rotation.z=(i-1.5)*.025;
+      finger.position.set(
+        (i-1.5)*.0225,
+        -.012-Math.abs(i-1.5)*.002,
+        -.157
+      );
       hand.add(finger);
     }
 
-    const thumb=fpsMesh(
-      new THREE.CapsuleGeometry(.020,.045,3,6),
+    // Rounded side pad fills the transition from palm to thumb.
+    const thumbBase=fpsMesh(
+      new THREE.SphereGeometry(.027,9,7),
       gloveMat,1003
     );
-    thumb.rotation.set(Math.PI/2,0,side*.70);
-    thumb.position.set(side*.055,-.012,-.080);
+    thumbBase.scale.set(.92,.78,1.10);
+    thumbBase.position.set(side*.050,-.010,-.078);
+    hand.add(thumbBase);
+
+    const thumb=fpsMesh(
+      new THREE.CapsuleGeometry(.019,.042,4,7),
+      gloveMat,1003
+    );
+    thumb.rotation.set(Math.PI/2,0,side*.66);
+    thumb.position.set(side*.060,-.016,-.092);
     hand.add(thumb);
 
     fpsViewModel.add(root);
@@ -2558,8 +2583,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V124={
-  version:124,
+window.__DALOC_FPS_V125={
+  version:125,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
