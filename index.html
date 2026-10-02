@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V147.1-actual-two-storey-solar-internal-stairs">
+<meta name="daloc-build" content="V147.2-walkable-stairs-motorcycle-camera-fix">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V147.1 ACTUAL 2-STOREY SOLAR + INTERNAL STAIRS</small>
+  <small>GitHub → Netlify · BUILD V147.2 WALKABLE STAIRS + MOTOR 3P CAMERA FIX</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -101,7 +101,7 @@ import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=1051';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=1395';
 import { installFactoryDetailV147 } from './assets/factory-detail-v147.js?v=147';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=1041';
-import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=1471';
+import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=1472';
 import { installVisualQualityV102 } from './assets/visual-quality-v102.js?v=144';
 import { installAtmosphereV106 } from './assets/atmosphere-v106.js?v=106';
 
@@ -1662,7 +1662,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V147.1 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V147.2 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1819,6 +1819,8 @@ let fpsVehicleMode=false;
 let fpsVehicleViewMode='third';
 let fpsVehicleController=null;
 let fpsVehicleLastYaw=0;
+let fpsVehicleOrbitYaw=0;
+let fpsVehicleOrbitPitch=-.12;
 const fpsVehiclePreEnterPosition=new THREE.Vector3();
 let fpsVehicleHasPreEnterPosition=false;
 const fpsVehicleCamera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.10,5000);
@@ -1909,6 +1911,7 @@ let fpsHasSafePosition=false;
 let fpsLastBlockReason='none';
 let fpsLastBlockObject='none';
 let fpsGroundLevel=0;
+let fpsSolarWalkSurface=null;
 let fpsClimbState=null;
 let fpsRoofState=null;
 let fpsCurrentInteraction=null;
@@ -3290,6 +3293,51 @@ function fpsMoveWithCollision(delta){
   }
 }
 
+function fpsUpdateSolarWalkSurface(){
+  if(
+    fpsVehicleMode||
+    fpsClimbState||
+    fpsRoofState||
+    !solarRoofV94?.walkableHeightAt
+  ){
+    fpsSolarWalkSurface=null;
+    return false;
+  }
+
+  const eye=fpsCurrentEyeHeight();
+  const feetY=camera.position.y-eye;
+  const hit=solarRoofV94.walkableHeightAt(
+    camera.position,
+    feetY,
+    {maxStepUp:.76,maxDrop:1.40}
+  );
+
+  if(hit){
+    fpsSolarWalkSurface=hit;
+    fpsGroundLevel=hit.height;
+    if(fpsGrounded){
+      camera.position.y=fpsGroundLevel+eye;
+      fpsVerticalVelocity=0;
+    }
+    return true;
+  }
+
+  // Leaving the stair/level-2 footprint means there is no longer a supporting
+  // surface. Drop naturally instead of remaining suspended at the old floor Y.
+  if(fpsSolarWalkSurface){
+    const oldLevel=fpsGroundLevel;
+    fpsSolarWalkSurface=null;
+    if(oldLevel>.05){
+      fpsGroundLevel=0;
+      if(fpsGrounded){
+        fpsGrounded=false;
+        fpsVerticalVelocity=Math.min(0,fpsVerticalVelocity);
+      }
+    }
+  }
+  return false;
+}
+
 function fpsSetShadowMapSize(size){
   if(!sun?.shadow?.mapSize)return;
   const next=Math.max(512,Math.round(size||1024));
@@ -3595,7 +3643,9 @@ function fpsEnterVehicle(agent){
   fpsVehicleViewMode='third';
   fpsYaw=agent?.vehicle?.rotation?.y||fpsYaw;
   fpsVehicleLastYaw=fpsYaw;
+  fpsVehicleOrbitYaw=fpsYaw;
   fpsPitch=-.12;
+  fpsVehicleOrbitPitch=fpsPitch;
   fpsKeys.clear();
   fpsAimHeld=false;
   fpsAiming=false;
@@ -3714,6 +3764,7 @@ function fpsExitVehicle(){
 
   fpsVehicleHasPreEnterPosition=false;
   fpsGroundLevel=0;
+  fpsSolarWalkSurface=null;
   fpsGrounded=true;
   fpsVerticalVelocity=0;
   fpsCrouchAmount=0;
@@ -3733,9 +3784,33 @@ function fpsExitVehicle(){
 
 function fpsToggleVehicleView(){
   if(!fpsVehicleMode)return false;
-  fpsVehicleViewMode=fpsVehicleViewMode==='first'?'third':'first';
+  const next=fpsVehicleViewMode==='first'?'third':'first';
+
+  if(next==='third'){
+    fpsVehicleOrbitYaw=fpsYaw;
+    fpsVehicleOrbitPitch=fpsPitch;
+  }else{
+    fpsYaw=fpsVehicleOrbitYaw;
+    fpsPitch=fpsVehicleOrbitPitch;
+  }
+
+  fpsVehicleViewMode=next;
+  fpsUpdateVehicleCamera(0,{snap:true});
   if(fpsButton)fpsButton.textContent='FPS Drive: '+(fpsVehicleViewMode==='first'?'1P':'3P');
   return true;
+}
+
+function fpsVehicleCameraHitAllowed(hit){
+  const activeVehicle=fpsVehicleController?.vehicle||null;
+  if(activeVehicle){
+    for(let o=hit?.object;o;o=o.parent){
+      if(
+        o===activeVehicle||
+        o.userData?.playerControlledV145===true
+      )return false;
+    }
+  }
+  return fpsThirdCameraHitAllowed(hit);
 }
 
 function fpsUpdateVehicleCamera(dt,{snap=false}={}){
@@ -3748,7 +3823,11 @@ function fpsUpdateVehicleCamera(dt,{snap=false}={}){
   let yawDelta=yaw-fpsVehicleLastYaw;
   while(yawDelta>Math.PI)yawDelta-=Math.PI*2;
   while(yawDelta<-Math.PI)yawDelta+=Math.PI*2;
-  fpsYaw+=yawDelta;
+
+  // V147.2: 1P and 3P no longer fight over the same yaw variable.
+  // Both follow vehicle steering, but mouse free-look is stored independently.
+  if(fpsVehicleViewMode==='first')fpsYaw+=yawDelta;
+  else fpsVehicleOrbitYaw+=yawDelta;
   fpsVehicleLastYaw=yaw;
 
   const type=ctl.agent?.type||'car';
@@ -3770,7 +3849,8 @@ function fpsUpdateVehicleCamera(dt,{snap=false}={}){
     return;
   }
 
-  const orbitYaw=fpsYaw;
+  const orbitYaw=fpsVehicleOrbitYaw;
+  const orbitPitch=fpsVehicleOrbitPitch;
   const orbitForward=fpsVehicleCamForward.set(Math.sin(orbitYaw),0,Math.cos(orbitYaw)).normalize();
   const distance=profile.distance;
   fpsVehicleCamTarget.copy(vehicle.position);
@@ -3778,7 +3858,7 @@ function fpsUpdateVehicleCamera(dt,{snap=false}={}){
   fpsVehicleCamDesired.copy(fpsVehicleCamTarget)
     .addScaledVector(orbitForward,-distance);
   fpsVehicleCamDesired.y+=profile.cameraHeight+
-    THREE.MathUtils.clamp(-fpsPitch*1.8,-1.0,1.8);
+    THREE.MathUtils.clamp(-orbitPitch*1.8,-1.0,1.8);
 
   const ray=fpsThirdRayDir.copy(fpsVehicleCamDesired).sub(fpsVehicleCamTarget);
   const rayDistance=ray.length();
@@ -3787,15 +3867,21 @@ function fpsUpdateVehicleCamera(dt,{snap=false}={}){
     fpsThirdCameraRaycaster.set(fpsVehicleCamTarget,ray);
     fpsThirdCameraRaycaster.near=.10;
     fpsThirdCameraRaycaster.far=rayDistance;
-    const roots=world.children.filter(child=>child!==vehicle&&child?.name!=='MULTIPLAYER_V142');
-    const hit=fpsThirdCameraRaycaster.intersectObjects(roots,true).find(fpsThirdCameraHitAllowed);
+    // The active vehicle is nested inside the traffic root, so filtering only
+    // world.children could never exclude it. Skip the whole active vehicle/rider
+    // subtree in the hit predicate instead.
+    const roots=world.children.filter(child=>child?.name!=='MULTIPLAYER_V142');
+    const hit=fpsThirdCameraRaycaster
+      .intersectObjects(roots,true)
+      .find(fpsVehicleCameraHitAllowed);
     if(hit&&hit.distance<rayDistance){
       fpsVehicleCamDesired.copy(fpsVehicleCamTarget)
         .addScaledVector(ray,Math.max(1.25,hit.distance-.35));
     }
   }
 
-  const alpha=snap?1:(1-Math.exp(-Math.max(0,dt)*9));
+  const cameraFollowRate=type==='motorcycle'?7.2:9.0;
+  const alpha=snap?1:(1-Math.exp(-Math.max(0,dt)*cameraFollowRate));
   fpsVehicleCamera.position.lerp(fpsVehicleCamDesired,alpha);
   fpsVehicleCamera.lookAt(fpsVehicleCamTarget);
 }
@@ -4261,16 +4347,30 @@ document.addEventListener('pointerlockchange',()=>{
 });
 document.addEventListener('mousemove',e=>{
   if(!fpsMode||document.pointerLockElement!==renderer.domElement)return;
+
+  if(fpsVehicleMode){
+    if(fpsVehicleViewMode==='third'){
+      fpsVehicleOrbitYaw-=e.movementX*.0020;
+      fpsVehicleOrbitPitch-=e.movementY*.0020;
+      fpsVehicleOrbitPitch=THREE.MathUtils.clamp(
+        fpsVehicleOrbitPitch,
+        -.82,
+        .62
+      );
+      return;
+    }
+
+    fpsYaw-=e.movementX*.0020;
+    fpsPitch-=e.movementY*.0020;
+    fpsPitch=THREE.MathUtils.clamp(fpsPitch,-1.38,1.38);
+    camera.rotation.set(fpsPitch,fpsYaw+Math.PI,0,'YXZ');
+    return;
+  }
+
   fpsYaw-=e.movementX*.0020;
   fpsPitch-=e.movementY*.0020;
   fpsPitch=THREE.MathUtils.clamp(fpsPitch,-1.38,1.38);
-
-  // Vehicle 1P uses the same free-look yaw but needs the +PI camera-axis
-  // correction because traffic vehicles are authored facing local +Z.
-  const liveYaw=(fpsVehicleMode&&fpsVehicleViewMode==='first')
-    ?fpsYaw+Math.PI
-    :fpsYaw;
-  camera.rotation.set(fpsPitch,liveYaw,0,'YXZ');
+  camera.rotation.set(fpsPitch,fpsYaw,0,'YXZ');
 });
 
 window.addEventListener('keydown',e=>{
@@ -4652,7 +4752,11 @@ function updateFirstPerson(dt){
   const crouchTarget=fpsCrouching?1:0;
   fpsCrouchAmount+=(crouchTarget-fpsCrouchAmount)*Math.min(1,dt*12);
 
-  // Jump/gravity works on either ground level or the current factory roof level.
+  // V147.2: acquire stair/second-floor support before gravity. The solar
+  // architecture exposes smooth ramp heights instead of hard step colliders.
+  fpsUpdateSolarWalkSurface();
+
+  // Jump/gravity works on ground, solar second floor/stairs, or factory roof.
   const standingEyeY=fpsGroundLevel+fpsCurrentEyeHeight();
   if(!fpsGrounded){
     fpsVerticalVelocity-=FPS_GRAVITY*dt;
@@ -4690,6 +4794,10 @@ function updateFirstPerson(dt){
       :(fpsAiming?FPS_WALK_SPEED*.62:(running?FPS_RUN_SPEED:FPS_WALK_SPEED));
     move.multiplyScalar(moveSpeed*dt);
     fpsMoveWithCollision(move);
+
+    // Re-sample after X/Z changed so the player rises/descends the staircase
+    // in the same frame rather than one frame later.
+    fpsUpdateSolarWalkSurface();
   }
 
   updateFpsCharacterRig(dt,{moving,running});
@@ -4703,7 +4811,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:147.1,
+  version:147.2,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -4713,6 +4821,11 @@ const fpsApiV139={
   get eyeHeight(){return Number(fpsCurrentEyeHeight().toFixed(3));},
   get playerHeight(){return Number(fpsCurrentPlayerHeight().toFixed(3));},
   get groundLevel(){return Number(fpsGroundLevel.toFixed(2));},
+  get solarWalkSurface(){return fpsSolarWalkSurface?{...fpsSolarWalkSurface}:null;},
+  get vehicleOrbit(){return {
+    yaw:Number(fpsVehicleOrbitYaw.toFixed(3)),
+    pitch:Number(fpsVehicleOrbitPitch.toFixed(3))
+  };},
   get climbing(){return !!fpsClimbState;},
   get roofFactory(){return fpsRoofState?.factoryIndex??null;},
   get interaction(){return fpsCurrentInteraction?.type||null;},
@@ -4789,7 +4902,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:147.1,
+    version:147.2,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
