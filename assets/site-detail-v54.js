@@ -65,6 +65,7 @@ export async function installSiteDetailV54({
 
   // ---------- factory-attached detail: never changes the verified footprint ----------
   const detailStats={factories:0,cameras:0,roofFans:0,ladders:0,utilityBoxes:0,dockDoors:0,facadeBands:0,roadDashes:0,edgeLines:0,lamps:0,shrubs:0,hydrants:0};
+  const fpsLadders=[];
 
   buildings.forEach((g,idx)=>{
     const body=g.children.find(o=>o.geometry?.type==='BoxGeometry' && o.position.y>1);
@@ -100,16 +101,46 @@ export async function installSiteDetailV54({
       detailStats.roofFans++;
     }
 
-    // One roof access ladder at the rear corner.
+    // V139: functional roof-access ladder. Geometry remains attached to the
+    // verified factory, but the whole ladder is grouped and exported to FPS.
     const ladderX=L/2-.9, ladderZ=-D/2-.20;
+    const ladderGroup=new THREE.Group();
+    ladderGroup.name='V139_FPS_LADDER_'+String(idx).padStart(2,'0');
+    ladderGroup.userData={
+      fpsLadder:true,
+      ignoreFpsCollision:true,
+      factoryIndex:idx,
+      factoryHeight:H,
+      factoryWidth:L,
+      factoryDepth:D
+    };
+    local.add(ladderGroup);
+
     for(let y=.8;y<H-.4;y+=.58){
       const rung=new THREE.Mesh(new THREE.BoxGeometry(.72,.045,.06),mats.steel);
-      rung.position.set(ladderX,y,ladderZ); local.add(rung);
+      rung.position.set(ladderX,y,ladderZ);
+      rung.name='V139_LADDER_RUNG_'+idx;
+      ladderGroup.add(rung);
     }
     for(const dx of [-.34,.34]){
       const rail=new THREE.Mesh(new THREE.BoxGeometry(.055,H-.8,.055),mats.steel);
-      rail.position.set(ladderX+dx,(H-.8)/2+.4,ladderZ); local.add(rail);
+      rail.position.set(ladderX+dx,(H-.8)/2+.4,ladderZ);
+      rail.name='V139_LADDER_RAIL_'+idx;
+      ladderGroup.add(rail);
     }
+
+    // Coordinates stay local to the building so later safety corrections and
+    // building rotations automatically propagate to interaction points.
+    fpsLadders.push({
+      index:idx,
+      building:g,
+      group:ladderGroup,
+      L,D,H,
+      baseLocal:new THREE.Vector3(ladderX,.10,ladderZ-.82),
+      faceLocal:new THREE.Vector3(ladderX,1.55,ladderZ-.16),
+      topLocal:new THREE.Vector3(ladderX,H+.48,ladderZ-.10),
+      roofLocal:new THREE.Vector3(ladderX-1.25,H+.48,ladderZ+1.35)
+    });
     detailStats.ladders++;
 
     // Utility cabinet + transformer-style technical box attached to rear service side.
@@ -358,9 +389,9 @@ export async function installSiteDetailV54({
   updateDetailVisibility();
 
   window.__DALOC_V54={
-    ready:true,version:104,frameSignature,stats:detailStats,
-    group:root,cadMiniLandscapeLock:true
+    ready:true,version:139,frameSignature,stats:detailStats,
+    group:root,ladders:fpsLadders,cadMiniLandscapeLock:true
   };
   console.info('[DaLoc] V103 asset-first factory/road micro detail ready',detailStats);
-  return {group:root,stats:detailStats};
+  return {ready:true,version:139,group:root,stats:detailStats,ladders:fpsLadders};
 }
