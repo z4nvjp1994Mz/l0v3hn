@@ -815,7 +815,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
     if(axeActive&&remote.meleeType!=='none'){
       remote.meleeTime+=dt;
-      const duration=remote.meleeType==='strong'?.88:.56;
+      const duration=remote.meleeType==='strong'?.98:.56;
       const mp=clamp(remote.meleeTime/duration,0,1);
       const easeOut=t=>1-Math.pow(1-clamp(t,0,1),3);
       const easeIn=t=>Math.pow(clamp(t,0,1),3);
@@ -825,36 +825,42 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
       };
 
       if(remote.meleeType==='strong'){
-        if(mp<.34){
-          const t=easeOut(mp/.34);
-          remote.axe.rotation.x=THREE.MathUtils.lerp(1.42,1.90,t);
-          remote.axe.rotation.y=THREE.MathUtils.lerp(-.03,0,t);
-          remote.axe.rotation.z=THREE.MathUtils.lerp(-.08,.03,t);
-          remote.axe.position.y=THREE.MathUtils.lerp(1.16-.34*crouch,1.48-.34*crouch,t);
-          remote.axe.position.z=THREE.MathUtils.lerp(-.22,-.08,t);
-          remote.torso.rotation.x=THREE.MathUtils.lerp(0,-.10,t);
-          remote.leftArm.rotation.x-=THREE.MathUtils.lerp(0,.72,t);
-          remote.rightArm.rotation.x-=THREE.MathUtils.lerp(0,.82,t);
+        if(mp<.36){
+          const t=easeOut(mp/.36);
+          remote.axe.rotation.x=THREE.MathUtils.lerp(1.42,1.28,t);
+          remote.axe.rotation.y=THREE.MathUtils.lerp(-.03,.92,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.08,.48,t);
+          remote.axe.position.x=THREE.MathUtils.lerp(.12,-.28,t);
+          remote.axe.position.y=THREE.MathUtils.lerp(1.16-.34*crouch,1.32-.34*crouch,t);
+          remote.axe.position.z=THREE.MathUtils.lerp(-.22,-.06,t);
+          remote.torso.rotation.y=THREE.MathUtils.lerp(0,.30,t);
+          remote.torso.rotation.z=THREE.MathUtils.lerp(0,.06,t);
+          remote.leftArm.rotation.x-=THREE.MathUtils.lerp(0,.28,t);
+          remote.rightArm.rotation.x-=THREE.MathUtils.lerp(0,.44,t);
         }else if(mp<.72){
-          const t=easeIn((mp-.34)/.38);
-          remote.axe.rotation.x=THREE.MathUtils.lerp(1.90,.18,t);
-          remote.axe.rotation.y=THREE.MathUtils.lerp(-.02,.03,t);
-          remote.axe.rotation.z=THREE.MathUtils.lerp(.02,-.18,t);
-          remote.axe.position.y=THREE.MathUtils.lerp(1.48-.34*crouch,.91-.34*crouch,t);
-          remote.axe.position.z=THREE.MathUtils.lerp(-.08,-.34,t);
-          remote.torso.rotation.x=THREE.MathUtils.lerp(-.10,.15,t);
-          remote.leftArm.rotation.x-=THREE.MathUtils.lerp(.72,.98,t);
-          remote.rightArm.rotation.x-=THREE.MathUtils.lerp(.82,1.08,t);
+          const t=easeIn((mp-.36)/.36);
+          remote.axe.rotation.x=THREE.MathUtils.lerp(1.28,.84,t);
+          remote.axe.rotation.y=THREE.MathUtils.lerp(.92,-1.06,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(.48,-.42,t);
+          remote.axe.position.x=THREE.MathUtils.lerp(-.28,.54,t);
+          remote.axe.position.y=THREE.MathUtils.lerp(1.32-.34*crouch,1.02-.34*crouch,t);
+          remote.axe.position.z=THREE.MathUtils.lerp(-.06,-.30,t);
+          remote.torso.rotation.y=THREE.MathUtils.lerp(.30,-.38,t);
+          remote.torso.rotation.z=THREE.MathUtils.lerp(.06,-.10,t);
+          remote.leftArm.rotation.x-=THREE.MathUtils.lerp(.28,.58,t);
+          remote.rightArm.rotation.x-=THREE.MathUtils.lerp(.44,.72,t);
         }else{
           const t=smooth((mp-.72)/.28);
-          remote.axe.rotation.x=THREE.MathUtils.lerp(.18,1.42,t);
-          remote.axe.rotation.y=THREE.MathUtils.lerp(.03,-.03,t);
-          remote.axe.rotation.z=THREE.MathUtils.lerp(-.18,-.08,t);
-          remote.axe.position.y=THREE.MathUtils.lerp(.91-.34*crouch,1.16-.34*crouch,t);
-          remote.axe.position.z=THREE.MathUtils.lerp(-.34,-.22,t);
-          remote.torso.rotation.x=THREE.MathUtils.lerp(.15,0,t);
-          remote.leftArm.rotation.x-=THREE.MathUtils.lerp(.98,0,t);
-          remote.rightArm.rotation.x-=THREE.MathUtils.lerp(1.08,0,t);
+          remote.axe.rotation.x=THREE.MathUtils.lerp(.84,1.42,t);
+          remote.axe.rotation.y=THREE.MathUtils.lerp(-1.06,-.03,t);
+          remote.axe.rotation.z=THREE.MathUtils.lerp(-.42,-.08,t);
+          remote.axe.position.x=THREE.MathUtils.lerp(.54,.12,t);
+          remote.axe.position.y=THREE.MathUtils.lerp(1.02-.34*crouch,1.16-.34*crouch,t);
+          remote.axe.position.z=THREE.MathUtils.lerp(-.30,-.22,t);
+          remote.torso.rotation.y=THREE.MathUtils.lerp(-.38,0,t);
+          remote.torso.rotation.z=THREE.MathUtils.lerp(-.10,0,t);
+          remote.leftArm.rotation.x-=THREE.MathUtils.lerp(.58,0,t);
+          remote.rightArm.rotation.x-=THREE.MathUtils.lerp(.72,0,t);
         }
       }else{
         if(mp<.26){
@@ -1002,7 +1008,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:164,
+    version:165,
     get selfId(){return localSelfId;},
     join,
     leave,
