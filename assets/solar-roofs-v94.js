@@ -166,7 +166,7 @@ export function installSolarRoofZoneV94({
     const root=new THREE.Group();
     root.name='V1471_SOLAR_TWO_STOREY_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     root.userData={
-      version:147.4,
+      version:147.5,
       factoryIndex,
       role:'actual-two-storey-solar-industrial-building',
       floors:2,
@@ -315,15 +315,20 @@ export function installSolarRoofZoneV94({
     // Flight geometry uses the same dimensions that define the slab opening,
     // so the visual stair and walkable surface cannot drift apart.
 
-    // Flight 1: ground -> half landing, moving toward rear.
+    // V147.5 CLOSED FLIGHT 1:
+    // Each tread is now a solid stepped block from the ground up to its tread
+    // elevation. Adjacent boxes overlap slightly in Z so there are no visible
+    // gaps/open risers between steps.
     for(let i=0;i<flightSteps;i++){
+      const treadTop=(i+1)*rise;
+      const blockH=Math.max(.18,treadTop);
       const step=new THREE.Mesh(
-        new THREE.BoxGeometry(stairW,.16,stepD+.05),
+        new THREE.BoxGeometry(stairW,blockH,stepD+.08),
         stairMat
       );
       step.position.set(
         -stairW*.62,
-        .20+(i+.5)*rise,
+        blockH*.5,
         run*.50-(i+.5)*stepD
       );
       markArchitecturalDetail(step,factoryIndex);
@@ -345,19 +350,60 @@ export function installSolarRoofZoneV94({
     markArchitecturalDetail(landing,factoryIndex);
     stairRoot.add(landing);
 
-    // Flight 2: half landing -> second floor, returning toward front.
+    // V147.5 CLOSED FLIGHT 2:
+    // Solid blocks start at the half-landing elevation and rise continuously
+    // toward level 2. This removes the floating-tread appearance completely.
     for(let i=0;i<flightSteps;i++){
+      const riseAboveLanding=(i+1)*rise;
+      const blockH=Math.max(.18,riseAboveLanding);
       const step=new THREE.Mesh(
-        new THREE.BoxGeometry(stairW,.16,stepD+.05),
+        new THREE.BoxGeometry(stairW,blockH,stepD+.08),
         stairMat
       );
       step.position.set(
         stairW*.62,
-        splitY*.50+.20+(i+.5)*rise,
+        splitY*.50+blockH*.5,
         -run*.50+(i+.5)*stepD
       );
       markArchitecturalDetail(step,factoryIndex);
       stairRoot.add(step);
+    }
+
+    // Solid side cheeks close the staircase silhouette even when viewed from
+    // oblique third-person angles.
+    const cheekT=.12;
+    for(const sideMul of [-1,1]){
+      const cheek1=new THREE.Mesh(
+        new THREE.BoxGeometry(
+          cheekT,
+          splitY*.50,
+          run+.12
+        ),
+        stairWallMat
+      );
+      cheek1.position.set(
+        -stairW*.62+sideMul*(stairW*.5+cheekT*.5),
+        splitY*.25,
+        0
+      );
+      markArchitecturalDetail(cheek1,factoryIndex);
+      stairRoot.add(cheek1);
+
+      const cheek2=new THREE.Mesh(
+        new THREE.BoxGeometry(
+          cheekT,
+          splitY*.50,
+          run+.12
+        ),
+        stairWallMat
+      );
+      cheek2.position.set(
+        stairW*.62+sideMul*(stairW*.5+cheekT*.5),
+        splitY*.75,
+        0
+      );
+      markArchitecturalDetail(cheek2,factoryIndex);
+      stairRoot.add(cheek2);
     }
 
     // Full-size upper landing bridges the last step directly into the
@@ -504,7 +550,7 @@ export function installSolarRoofZoneV94({
     const solarRoot=new THREE.Group();
     solarRoot.name='V94_SOLAR_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     solarRoot.userData={
-      version:147.4,
+      version:147.5,
       factoryIndex,
       role:'solar-roof-pilot-two-storey',
       tableCount:placements.length
@@ -722,7 +768,7 @@ export function installSolarRoofZoneV94({
 
   const controller={
     ready:true,
-    version:147.4,
+    version:147.5,
     selectedIndices:selectedIndices.slice(),
     factoryCount:panelRoots.length,
     twoStoreyFactoryCount:twoStoreyRoots.length,
@@ -737,7 +783,7 @@ export function installSolarRoofZoneV94({
   };
 
   window.__DALOC_SOLAR_ROOFS_V94=controller;
-  console.info('[DaLoc] V147.4 continuous stair support installed',{
+  console.info('[DaLoc] V147.5 closed-riser stair geometry installed',{
     factories:controller.factoryCount,
     tables:tableCount,
     moduleEquivalent
