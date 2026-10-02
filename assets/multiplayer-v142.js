@@ -262,13 +262,31 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
   let damageAction=null;
   let helloAction=null;
   let connected=false;
+  let activeStrategy='none';
+  let discoveryCandidates=[];
+  let discoverySelectTimer=null;
+  let joinGeneration=0;
   let lastSendAt=0;
   let localStateCache=null;
   let lastError=null;
   const receivedDamageIds=new Set();
 
   const status=(message,kind='info')=>{
-    onStatus?.({message,kind,roomId,peerCount:remotes.size,connected});
+    onStatus?.({
+      message,
+      kind,
+      roomId,
+      peerCount:remotes.size,
+      connected,
+      strategy:activeStrategy,
+      discovery:discoveryCandidates.map(c=>({
+        key:c.strategy.key,
+        label:c.strategy.label,
+        loaded:!!c.mod,
+        peerCount:c.peerIds?.size||0,
+        error:c.error?.message||null
+      }))
+    });
   };
 
   function ensureRemote(peerId){
@@ -288,6 +306,26 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     disposeRemotePlayer(remote);
     remotes.delete(peerId);
     status(remotes.size?'Đang kết nối':'Đang chờ người chơi thứ 2',remotes.size?'connected':'waiting');
+  }
+
+  function closeDiscoveryRooms(exceptRoom=null){
+    if(discoverySelectTimer){
+      clearTimeout(discoverySelectTimer);
+      discoverySelectTimer=null;
+    }
+    for(const candidate of discoveryCandidates){
+      if(!candidate?.room||candidate.room===exceptRoom)continue;
+      try{candidate.room.leave();}catch{}
+      candidate.room=null;
+    }
+  }
+
+  function currentRoomPeers(){
+    try{
+      return Object.keys(room?.getPeers?.()||{});
+    }catch{
+      return [];
+    }
   }
 
   function wireActions(){
@@ -360,6 +398,118 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     };
 
     room.onPeerLeave=peerId=>removeRemote(peerId);
+
+    // Trystero replays active peers when assigning onPeerJoin, but explicitly
+    // replay once as well so a peer found during discovery is never missed.
+    for(const peerId of currentRoomPeers()){
+      ensureRemote(peerId);
+      helloAction.send({v:143,id:localSelfId},{target:peerId}).catch(()=>{});
+      if(localStateCache)stateAction.send(localStateCache,{target:peerId}).catch(()=>{});
+    }
+  }
+
+  function scheduleTransportSelection(generation){
+    if(discoverySelectTimer||generation!==joinGeneration)return;
+    discoverySelectTimer=setTimeout(()=>{
+      discoverySelectTimer=null;
+      if(generation!==joinGeneration||room)return;
+
+      const chosen=STRATEGIES
+        .map(strategy=>discoveryCandidates.find(c=>c.strategy.key===strategy.key))
+        .find(candidate=>candidate?.room&&candidate.peerIds?.size>0);
+
+      if(!chosen)return;
+
+      room=chosen.room;
+      localSelfId=chosen.selfId;
+      activeStrategy=chosen.strategy.key;
+      connected=true;
+
+      closeDiscoveryRooms(room);
+      wireActions();
+      status(
+        'Đã ghép P2 qua '+chosen.strategy.label+
+        ' · peer '+[...chosen.peerIds][0]?.slice(0,6),
+        'connected'
+      );
+    },DISCOVERY_SETTLE_MS);
+  }
+
+  async function openDiscoveryCandidate(strategy,generation){
+    const candidate={
+      strategy,
+      mod:null,
+      url:'',
+      room:null,
+      selfId:'',
+      peerIds:new Set(),
+      error:null
+    };
+    discoveryCandidates.push(candidate);
+
+    try{
+      const loaded=await loadStrategy(strategy);
+      if(generation!==joinGeneration)return candidate;
+
+      candidate.mod=loaded.mod;
+      candidate.url=loaded.url;
+      candidate.selfId=loaded.mod.selfId||(
+        strategy.key+'-'+Math.random().toString(36).slice(2,10)
+      );
+
+      candidate.room=loaded.mod.joinRoom(
+        {
+          appId:APP_ID,
+          trickleIce:true,
+          rtcConfig:RTC_CONFIG,
+          relayConfig:{
+            redundancy:3,
+            warnOnRelayFailure:false
+          }
+        },
+        roomId,
+        {
+          onJoinError:details=>{
+            const error=details?.error||details;
+            candidate.error=error instanceof Error?error:new Error(String(error));
+            lastError=candidate.error;
+            status(
+              strategy.label+' signaling: '+
+              (candidate.error?.message||String(candidate.error)),
+              'waiting'
+            );
+          }
+        }
+      );
+
+      candidate.room.onPeerJoin=peerId=>{
+        if(generation!==joinGeneration||room)return;
+        candidate.peerIds.add(peerId);
+        status(
+          'Đã tìm thấy P2 qua '+strategy.label+' · đang chốt kết nối...',
+          'connecting'
+        );
+        scheduleTransportSelection(generation);
+      };
+
+      candidate.room.onPeerLeave=peerId=>{
+        candidate.peerIds.delete(peerId);
+      };
+
+      status(
+        'Đang tìm P2 · Nostr + MQTT + Torrent · room '+roomId,
+        'waiting'
+      );
+    }catch(error){
+      candidate.error=error;
+      lastError=error;
+      status(
+        strategy.label+' không khả dụng, tiếp tục transport khác',
+        'waiting'
+      );
+    }
+
+    return candidate;
   }
 
   async function join(nextRoomId){
@@ -367,52 +517,53 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     if(!clean)throw new Error('Room code trống');
     leave();
 
+    const generation=++joinGeneration;
     roomId=clean;
     lastError=null;
-    status('Đang tải multiplayer...','connecting');
+    activeStrategy='discovering';
+    connected=true;
+    discoveryCandidates=[];
 
-    try{
-      const trystero=await loadTrystero();
-      localSelfId=trystero.selfId||('local-'+Math.random().toString(36).slice(2,10));
-      status('Đang kết nối room '+roomId+' qua '+trysteroSource,'connecting');
+    status(
+      'Đang tìm P2 qua 3 mạng signaling: Nostr + MQTT + Torrent',
+      'connecting'
+    );
 
-      room=trystero.joinRoom(
-        {
-          appId:APP_ID,
-          trickleIce:true,
-          relayConfig:{redundancy:3}
-        },
-        roomId,
-        {
-          onJoinError:details=>{
-            const error=details?.error||details;
-            lastError=error;
-            status(
-              'P2P join error: '+(error?.message||String(error))+
-              ' · Nếu 2 mạng không kết nối trực tiếp được thì cần TURN.',
-              'error'
-            );
-          }
-        }
-      );
-      connected=true;
-      wireActions();
-      status('Đang chờ người chơi thứ 2','waiting');
-      return true;
-    }catch(error){
-      lastError=error;
+    const results=await Promise.allSettled(
+      STRATEGIES.map(strategy=>openDiscoveryCandidate(strategy,generation))
+    );
+
+    if(generation!==joinGeneration)return false;
+
+    const available=discoveryCandidates.filter(c=>c.room);
+    if(!available.length){
       connected=false;
-      room=null;
-      status('Lỗi multiplayer: '+(error?.message||String(error)),'error');
+      activeStrategy='none';
+      const errors=results
+        .filter(r=>r.status==='rejected')
+        .map(r=>r.reason?.message||String(r.reason));
+      lastError=new Error(errors.join(' | ')||'Không mở được signaling transport');
+      status('Không mở được signaling transport','error');
       return false;
     }
+
+    status(
+      'Room '+roomId+' · 1/2 · đang chờ P2 qua '+
+      available.map(c=>c.strategy.label).join(' + '),
+      'waiting'
+    );
+    return true;
   }
 
   function leave(){
+    joinGeneration++;
+    closeDiscoveryRooms();
     if(room){
       try{room.leave();}catch{}
     }
     room=null;
+    discoveryCandidates=[];
+    activeStrategy='none';
     stateAction=null;
     shotAction=null;
     damageAction=null;
@@ -532,7 +683,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:143,
+    version:143.1,
     get selfId(){return localSelfId;},
     join,
     leave,
@@ -544,7 +695,15 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     get roomId(){return roomId;},
     get peerCount(){return remotes.size;},
     get lastError(){return lastError;},
-    get transportSource(){return trysteroSource;},
+    get transportSource(){return activeStrategy;},
+    get discoveryStatus(){
+      return discoveryCandidates.map(c=>({
+        strategy:c.strategy.label,
+        loaded:!!c.mod,
+        peerCount:c.peerIds?.size||0,
+        error:c.error?.message||null
+      }));
+    },
     get remoteStatus(){
       const remote=remotes.values().next().value;
       return remote?{
