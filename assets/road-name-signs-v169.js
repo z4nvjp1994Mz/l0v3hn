@@ -1,0 +1,254 @@
+import * as THREE from 'three';
+
+// V169: Road-name wayfinding authored directly from the user's annotated
+// 1616x2048 masterplan. Every coordinate below is source-image pixels.
+// mapPx() remains the only world-coordinate transform.
+export function installRoadNameSignsV169({
+  world,
+  mapPx,
+  warpPx=null,
+  frameSignature,
+  renderer=null
+}){
+  if(!world)throw new Error('V169 road signs: world required');
+  if(typeof mapPx!=='function')throw new Error('V169 road signs: mapPx required');
+
+  const root=new THREE.Group();
+  root.name='ROAD_NAME_SIGNS_V169';
+  root.userData={
+    version:169,
+    frameSignature,
+    source:'user-annotated-masterplan-1616x2048'
+  };
+  world.add(root);
+
+  const routes=[
+    {
+      id:'dai-phat-1',name:'ĐẠI PHÁT 1',sourceColor:'#ff3939',
+      pointsPx:[[1077,775],[1378,732]]
+    },
+    {
+      id:'dai-phat-2',name:'ĐẠI PHÁT 2',sourceColor:'#f0ff00',
+      pointsPx:[[686,1052],[869,810],[1034,779]]
+    },
+    {
+      id:'dai-phat-3',name:'ĐẠI PHÁT 3',sourceColor:'#18ff00',
+      pointsPx:[[363,1476],[656,1088]]
+    },
+    {
+      id:'lien-hoa-1',name:'LIÊN HOA 1',sourceColor:'#1200ff',
+      pointsPx:[[758,568],[1002,742]]
+    },
+    {
+      id:'lien-hoa-2',name:'LIÊN HOA 2',sourceColor:'#111111',
+      pointsPx:[[1103,818],[1271,933],[1389,986]]
+    },
+    {
+      id:'que-vien-1',name:'QUẾ VIÊN 1',sourceColor:'#c318c5',
+      pointsPx:[[421,882],[640,1043]]
+    },
+    {
+      id:'que-vien-2',name:'QUẾ VIÊN 2',sourceColor:'#00fff0',
+      pointsPx:[[707,1093],[887,1225]]
+    }
+  ];
+  const routeById=new Map(routes.map(r=>[r.id,r]));
+
+  // Two verified junctions derived from the converging colored route endpoints.
+  // postPx is intentionally offset into roadside/green space, not road center.
+  const posts=[
+    {
+      id:'junction-west',
+      junctionPx:[672,1069],
+      postPx:[692,1049],
+      blades:[
+        {routeId:'que-vien-1',targetPx:[421,882]},
+        {routeId:'dai-phat-2',targetPx:[1034,779]},
+        {routeId:'que-vien-2',targetPx:[887,1225]},
+        {routeId:'dai-phat-3',targetPx:[363,1476]}
+      ]
+    },
+    {
+      id:'junction-east',
+      junctionPx:[1054,779],
+      postPx:[1064,757],
+      blades:[
+        {routeId:'lien-hoa-1',targetPx:[758,568]},
+        {routeId:'dai-phat-1',targetPx:[1378,732]},
+        {routeId:'lien-hoa-2',targetPx:[1389,986]},
+        {routeId:'dai-phat-2',targetPx:[686,1052]}
+      ]
+    }
+  ];
+
+  const mats={
+    pole:new THREE.MeshStandardMaterial({color:0x3e4743,roughness:.62,metalness:.40}),
+    base:new THREE.MeshStandardMaterial({color:0xb9bcb5,roughness:.94}),
+    sign:new THREE.MeshStandardMaterial({color:0x154f3c,roughness:.62,metalness:.03})
+  };
+
+  const textureCache=new Map();
+
+  function warped(px,py){
+    if(typeof warpPx==='function'){
+      const q=warpPx(px,py);
+      if(q&&Number.isFinite(q.x)&&Number.isFinite(q.y))return [q.x,q.y];
+    }
+    return [px,py];
+  }
+
+  function worldAt(px,py){
+    const [x,y]=warped(px,py);
+    return mapPx(x,y);
+  }
+
+  function signTexture(label){
+    if(textureCache.has(label))return textureCache.get(label);
+
+    const canvas=document.createElement('canvas');
+    canvas.width=1024;
+    canvas.height=256;
+    const ctx=canvas.getContext('2d');
+
+    ctx.fillStyle='#154f3c';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.strokeStyle='#ffffff';
+    ctx.lineWidth=14;
+    ctx.strokeRect(12,12,canvas.width-24,canvas.height-24);
+
+    ctx.fillStyle='#ffffff';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.font='900 106px Arial, sans-serif';
+    ctx.fillText(label,canvas.width/2,canvas.height/2+4);
+
+    const tex=new THREE.CanvasTexture(canvas);
+    tex.colorSpace=THREE.SRGBColorSpace;
+    tex.anisotropy=Math.min(8,renderer?.capabilities?.getMaxAnisotropy?.()||4);
+    tex.needsUpdate=true;
+    textureCache.set(label,tex);
+    return tex;
+  }
+
+  function makeTextFace(label,width,height,z,back=false){
+    const mat=new THREE.MeshBasicMaterial({
+      map:signTexture(label),
+      transparent:false,
+      side:THREE.FrontSide,
+      toneMapped:false
+    });
+    const plane=new THREE.Mesh(new THREE.PlaneGeometry(width-.10,height-.10),mat);
+    plane.position.set(width*.5+.20,0,z);
+    if(back)plane.rotation.y=Math.PI;
+    plane.userData.fpsNonSolid=true;
+    return plane;
+  }
+
+  function bladeWidth(label){
+    return Math.max(3.35,Math.min(4.60,2.45+label.length*.135));
+  }
+
+  function makeBlade(label,height,angle,postIndex,bladeIndex){
+    const g=new THREE.Group();
+    g.name='V169_SIGN_BLADE_'+postIndex+'_'+bladeIndex;
+    g.position.y=height;
+    g.rotation.y=angle;
+    g.userData.fpsNonSolid=true;
+
+    const width=bladeWidth(label);
+    const h=.62;
+    const thickness=.14;
+
+    const board=new THREE.Mesh(new THREE.BoxGeometry(width,h,thickness),mats.sign);
+    board.position.x=width*.5+.20;
+    board.castShadow=true;
+    board.receiveShadow=true;
+    board.userData.fpsNonSolid=true;
+    g.add(board);
+
+    const front=makeTextFace(label,width,h,thickness*.5+.004,false);
+    const back=makeTextFace(label,width,h,-thickness*.5-.004,true);
+    g.add(front,back);
+
+    // Small reflective end-cap makes the pointing direction legible at night/far view.
+    const cap=new THREE.Mesh(
+      new THREE.BoxGeometry(.12,h*.78,thickness+.025),
+      new THREE.MeshStandardMaterial({
+        color:0xf4f6ee,roughness:.42,emissive:0x202820,emissiveIntensity:.08
+      })
+    );
+    cap.position.x=width+.20;
+    cap.userData.fpsNonSolid=true;
+    g.add(cap);
+
+    return g;
+  }
+
+  function directionAngle(fromPx,targetPx){
+    const a=worldAt(fromPx[0],fromPx[1]);
+    const b=worldAt(targetPx[0],targetPx[1]);
+    const dx=b.x-a.x,dz=b.z-a.z;
+    return Math.atan2(-dz,dx);
+  }
+
+  function makePost(post,postIndex){
+    const p=worldAt(post.postPx[0],post.postPx[1]);
+    const g=new THREE.Group();
+    g.name='V169_WAYFINDING_POST_'+postIndex;
+    g.position.set(p.x,.04,p.z);
+    g.userData={
+      fpsNonSolid:true,
+      roadWayfinding:true,
+      postId:post.id,
+      sourcePx:{x:post.postPx[0],y:post.postPx[1]}
+    };
+    root.add(g);
+
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(.30,.36,.18,12),mats.base);
+    base.position.y=.09;
+    base.receiveShadow=true;
+    base.userData.fpsNonSolid=true;
+    g.add(base);
+
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.085,.11,5.10,12),mats.pole);
+    pole.position.y=2.64;
+    pole.castShadow=true;
+    pole.userData.fpsNonSolid=true;
+    g.add(pole);
+
+    const heights=[2.48,3.12,3.76,4.40];
+    post.blades.forEach((blade,i)=>{
+      const route=routeById.get(blade.routeId);
+      if(!route)return;
+      const angle=directionAngle(post.junctionPx,blade.targetPx);
+      const mesh=makeBlade(route.name,heights[i]||4.4,angle,postIndex,i);
+      mesh.userData.routeId=route.id;
+      mesh.userData.routeName=route.name;
+      g.add(mesh);
+    });
+
+    return g;
+  }
+
+  const postGroups=posts.map(makePost);
+
+  const api={
+    ready:true,
+    version:169,
+    group:root,
+    routes,
+    posts,
+    postGroups,
+    setVisible(v){root.visible=!!v;},
+    get visible(){return root.visible;}
+  };
+
+  window.__DALOC_ROAD_SIGNS_V169=api;
+  console.info('[DaLoc] V169 named-road wayfinding signs installed',{
+    routes:routes.map(r=>r.name),
+    posts:postGroups.length,
+    frameSignature
+  });
+  return api;
+}
