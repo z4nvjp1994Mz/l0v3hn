@@ -194,7 +194,7 @@ function makeArm(side,materials){
   return arm;
 }
 
-export function createShapedFpsArmsV138(){
+export function createThickerFpsArmsV138(){
   const root=new THREE.Group();
   root.name='FPS_THICKER_ARMS_V138';
 
