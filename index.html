@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V138.3 FPS HIDE RED BOUNDARY</small>
+  <small>GitHub → Netlify · BUILD V138.4 RETRACTED FPS ARMS</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -53,7 +53,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=1382';
+import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=1384';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1516,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V138.3 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V138.4 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1762,7 +1762,7 @@ function prepareFpsRealArmsV138(){
     // Keep the V137 hand framing; proportions are corrected inside the arm module.
     rig.scale.setScalar(1.00);
     rig.rotation.set(-.01,0,0);
-    rig.position.set(0,-.12,-1.08);
+    rig.position.set(0,-.145,-1.08);
 
     fpsArmOverlayRoot.add(rig);
 
