@@ -247,7 +247,7 @@ function makeRemotePlayer(peerId){
 
   const axeHeadRoot=new THREE.Group();
   axeHeadRoot.position.set(0,.015,-.82);
-  axeHeadRoot.rotation.z=.28;
+  axeHeadRoot.rotation.z=-.50;
   axe.add(axeHeadRoot);
 
   const axeHead=new THREE.Mesh(
@@ -1002,7 +1002,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:162,
+    version:163,
     get selfId(){return localSelfId;},
     join,
     leave,
