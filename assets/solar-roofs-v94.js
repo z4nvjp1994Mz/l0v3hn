@@ -11,6 +11,10 @@ export function installSolarRoofZoneV94({
 
   const panelRoots=[];
   const twoStoreyRoots=[];
+  const stairWalkSurfaces=[];
+  const walkLocalPoint=new THREE.Vector3();
+  const walkFeetPoint=new THREE.Vector3();
+  const walkWorldPoint=new THREE.Vector3();
   let tableCount=0;
   let moduleEquivalent=0;
 
@@ -360,6 +364,29 @@ export function installSolarRoofZoneV94({
       stairRoot.add(wall);
     }
 
+    // Export a lightweight gameplay descriptor. FPS uses this as two smooth
+    // walkable ramps + landing + second-floor slab instead of 16 hard step
+    // colliders, so climbing stays stable at normal/run speeds.
+    stairWalkSurfaces.push({
+      factoryIndex,
+      building:g,
+      splitY,
+      stairCoreX,
+      stairCoreZ,
+      stairCoreW,
+      stairCoreD,
+      stairW,
+      run,
+      leftEdge,
+      rightEdge,
+      backEdge,
+      frontEdge,
+      holeX0,
+      holeX1,
+      holeZ0,
+      holeZ1
+    });
+
     // Ground-floor entrance canopy. No external stairs or balcony.
     const entranceX=-stairSide*L*.22;
     const canopy=new THREE.Mesh(new THREE.BoxGeometry(5.2,.18,1.65),sunshadeMat);
@@ -497,8 +524,110 @@ export function installSolarRoofZoneV94({
     moduleEquivalent+=placements.length*8;
   }
 
+  function walkableHeightAt(worldPosition,currentFeetY=0,{
+    maxStepUp=.72,
+    maxDrop=1.35
+  }={}){
+    if(!worldPosition)return null;
+    let best=null;
+    let bestDelta=Infinity;
+
+    for(const stair of stairWalkSurfaces){
+      const building=stair.building;
+      if(!building?.visible)continue;
+
+      building.updateWorldMatrix(true,false);
+
+      walkLocalPoint.copy(worldPosition);
+      building.worldToLocal(walkLocalPoint);
+
+      walkFeetPoint.set(worldPosition.x,currentFeetY,worldPosition.z);
+      building.worldToLocal(walkFeetPoint);
+      const currentLocalY=walkFeetPoint.y;
+
+      const lx=walkLocalPoint.x-stair.stairCoreX;
+      const lz=walkLocalPoint.z-stair.stairCoreZ;
+      const halfW=stair.stairW*.56+.18;
+      const runHalf=stair.run*.5;
+      let localHeight=null;
+      let surface='';
+
+      // Flight 1: front -> rear, 0 -> half-floor.
+      if(
+        Math.abs(lx+stair.stairW*.62)<=halfW &&
+        lz>=-runHalf-.25 && lz<=runHalf+.25
+      ){
+        const t=THREE.MathUtils.clamp((runHalf-lz)/Math.max(.01,stair.run),0,1);
+        localHeight=t*stair.splitY*.5;
+        surface='flight-1';
+      }
+
+      // Half landing.
+      if(
+        Math.abs(lx)<=stair.stairW*1.28 &&
+        Math.abs(lz+runHalf)<=.92
+      ){
+        localHeight=stair.splitY*.5;
+        surface='landing';
+      }
+
+      // Flight 2: rear -> front, half-floor -> second floor.
+      if(
+        Math.abs(lx-stair.stairW*.62)<=halfW &&
+        lz>=-runHalf-.25 && lz<=runHalf+.25
+      ){
+        const t=THREE.MathUtils.clamp((lz+runHalf)/Math.max(.01,stair.run),0,1);
+        localHeight=stair.splitY*.5+t*stair.splitY*.5;
+        surface='flight-2';
+      }
+
+      // Actual second-floor slab. Only acquire it when already near upper-floor
+      // height; this prevents a player walking underneath from snapping upward.
+      const inFloorRect=
+        walkLocalPoint.x>=stair.leftEdge &&
+        walkLocalPoint.x<=stair.rightEdge &&
+        walkLocalPoint.z>=stair.backEdge &&
+        walkLocalPoint.z<=stair.frontEdge;
+      const inStairHole=
+        walkLocalPoint.x>=stair.holeX0 &&
+        walkLocalPoint.x<=stair.holeX1 &&
+        walkLocalPoint.z>=stair.holeZ0 &&
+        walkLocalPoint.z<=stair.holeZ1;
+      if(
+        inFloorRect &&
+        !inStairHole &&
+        currentLocalY>=stair.splitY-.90
+      ){
+        localHeight=stair.splitY+0.14;
+        surface='level-2';
+      }
+
+      if(localHeight===null)continue;
+
+      const delta=localHeight-currentLocalY;
+      if(delta>maxStepUp||delta<-maxDrop)continue;
+
+      walkWorldPoint.set(walkLocalPoint.x,localHeight,walkLocalPoint.z);
+      building.localToWorld(walkWorldPoint);
+
+      if(Math.abs(delta)<bestDelta){
+        bestDelta=Math.abs(delta);
+        best={
+          height:walkWorldPoint.y,
+          factoryIndex:stair.factoryIndex,
+          surface,
+          localHeight
+        };
+      }
+    }
+
+    return best;
+  }
+
   function setVisible(on){
-    panelRoots.forEach(r=>r.visible=!!on);
+    const visible=!!on;
+    panelRoots.forEach(r=>r.visible=visible);
+    twoStoreyRoots.forEach(r=>r.visible=visible);
   }
 
   const controller={
@@ -512,6 +641,8 @@ export function installSolarRoofZoneV94({
     moduleEquivalent,
     roots:panelRoots,
     architectureRoots:twoStoreyRoots,
+    stairWalkSurfaces,
+    walkableHeightAt,
     setVisible
   };
 
