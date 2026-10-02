@@ -64,6 +64,7 @@ function makeLabelSprite(text){
   });
   const sprite=new THREE.Sprite(material);
   sprite.scale.set(2.6,.65,1);
+  sprite.userData.ignoreFpsBullet=true;
   sprite.userData.disposeMultiplayer=()=>{
     texture.dispose();
     material.dispose();
@@ -176,6 +177,8 @@ function makeRemotePlayer(peerId){
     targetPitch:0,
     targetCrouch:0,
     targetAim:0,
+    targetHp:100,
+    targetAlive:true,
     lastPacketAt:performance.now(),
     previousPos:new THREE.Vector3(),
     velocity:new THREE.Vector3(),
@@ -212,7 +215,7 @@ function makeRemoteTracer(scene,origin,dir){
   return line;
 }
 
-export function installMultiplayerV142({scene,world,onStatus}={}){
+export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
   const root=new THREE.Group();
   root.name='MULTIPLAYER_V142';
   root.userData.ignoreFpsCollision=true;
@@ -225,11 +228,13 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
   let localSelfId='loading';
   let stateAction=null;
   let shotAction=null;
+  let damageAction=null;
   let helloAction=null;
   let connected=false;
   let lastSendAt=0;
   let localStateCache=null;
   let lastError=null;
+  const receivedDamageIds=new Set();
 
   const status=(message,kind='info')=>{
     onStatus?.({message,kind,roomId,peerCount:remotes.size,connected});
@@ -257,6 +262,7 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
   function wireActions(){
     stateAction=room.makeAction('fps-state');
     shotAction=room.makeAction('fps-shot');
+    damageAction=room.makeAction('fps-damage');
     helloAction=room.makeAction('hello');
 
     stateAction.onMessage=(data,{peerId})=>{
@@ -270,6 +276,8 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
       remote.targetPitch=Number(data.pitch)||0;
       remote.targetCrouch=clamp(Number(data.crouch)||0,0,1);
       remote.targetAim=clamp(Number(data.aim)||0,0,1);
+      remote.targetHp=clamp(Number.isFinite(Number(data.hp))?Number(data.hp):100,0,100);
+      remote.targetAlive=data.alive!==false;
       remote.active=!!data.active;
       remote.lastPacketAt=performance.now();
 
@@ -286,6 +294,27 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
       if(!Array.isArray(data.o)||!Array.isArray(data.d))return;
       const fx=makeRemoteTracer(scene,data.o,data.d);
       effects.push(fx);
+    };
+
+    damageAction.onMessage=(data,{peerId})=>{
+      if(!data||peerId===localSelfId)return;
+      if(data.target&&data.target!==localSelfId)return;
+      const amount=clamp(Number(data.amount)||0,0,100);
+      if(amount<=0)return;
+      const shotId=String(data.shotId||peerId+'-'+performance.now());
+      const dedupeKey=peerId+'::'+shotId;
+      if(receivedDamageIds.has(dedupeKey))return;
+      receivedDamageIds.add(dedupeKey);
+      if(receivedDamageIds.size>128){
+        const first=receivedDamageIds.values().next().value;
+        if(first)receivedDamageIds.delete(first);
+      }
+      onDamage?.({
+        amount,
+        sourcePeerId:peerId,
+        shotId,
+        receivedAt:performance.now()
+      });
     };
 
     helloAction.onMessage=(data,{peerId})=>{
@@ -355,6 +384,7 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
     room=null;
     stateAction=null;
     shotAction=null;
+    damageAction=null;
     helloAction=null;
     connected=false;
     for(const remote of remotes.values())disposeRemotePlayer(remote);
@@ -373,6 +403,8 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
       pitch:state.pitch||0,
       crouch:clamp(state.crouch||0,0,1),
       aim:clamp(state.aim||0,0,1),
+      hp:clamp(Number(state.hp??100),0,100),
+      alive:state.alive!==false,
       weapon:'sniper'
     };
     localStateCache=packet;
@@ -387,9 +419,23 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
 
   function sendShot({origin,dir,aim=0}={}){
     if(!connected||!shotAction||!Array.isArray(origin)||!Array.isArray(dir))return;
-    shotAction.send({v:142,o:origin,d:dir,aim:clamp(aim,0,1)}).catch(error=>{
+    shotAction.send({v:143,o:origin,d:dir,aim:clamp(aim,0,1)}).catch(error=>{
       lastError=error;
     });
+  }
+
+  function sendDamage(targetPeerId,amount=50,shotId=''){
+    if(!connected||!damageAction||!targetPeerId)return false;
+    const packet={
+      v:143,
+      target:targetPeerId,
+      amount:clamp(Number(amount)||0,0,100),
+      shotId:String(shotId||('shot-'+performance.now()))
+    };
+    damageAction.send(packet,{target:targetPeerId}).catch(error=>{
+      lastError=error;
+    });
+    return true;
   }
 
   function updateRemote(remote,dt){
@@ -410,6 +456,7 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
     remote.root.rotation.y+=dyaw*Math.min(1,dt*12);
 
     const crouch=remote.targetCrouch;
+    const alive=remote.targetAlive!==false;
     remote.torso.position.y=1.22-.34*crouch;
     remote.head.position.y=1.82-.52*crouch;
     remote.tag.position.y=2.28-.52*crouch;
@@ -428,6 +475,11 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
 
     remote.rifle.rotation.x=-.08-remote.targetAim*.12;
     remote.rifle.position.y=1.18-.34*crouch+remote.targetAim*.12;
+
+    // V143 death pose: remote remains visible but collapses sideways until respawn.
+    const deathTarget=alive?0:-Math.PI*.48;
+    remote.root.rotation.z+= (deathTarget-remote.root.rotation.z)*Math.min(1,dt*7);
+    remote.rifle.visible=alive;
   }
 
   function update(dt){
@@ -456,11 +508,21 @@ export function installMultiplayerV142({scene,world,onStatus}={}){
     update,
     updateLocal,
     sendShot,
+    sendDamage,
     get connected(){return connected;},
     get roomId(){return roomId;},
     get peerCount(){return remotes.size;},
     get lastError(){return lastError;},
     get transportSource(){return trysteroSource;},
+    get remoteStatus(){
+      const remote=remotes.values().next().value;
+      return remote?{
+        peerId:remote.peerId,
+        hp:remote.targetHp,
+        alive:remote.targetAlive,
+        active:remote.active
+      }:null;
+    },
     get remoteIds(){return [...remotes.keys()];}
   };
 }
