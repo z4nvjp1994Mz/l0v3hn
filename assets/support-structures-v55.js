@@ -136,7 +136,11 @@ export function installSupportStructuresV55({
     group.add(g);
 
     const slab=new THREE.Mesh(new THREE.BoxGeometry(L+.18,.12,D+.18),mats.concrete);
-    slab.position.y=.06;slab.receiveShadow=true;g.add(slab);
+    slab.position.y=.06;
+    slab.receiveShadow=true;
+    slab.name='V168_AUX_WALKABLE_SLAB_'+idx;
+    slab.userData={walkable:true,fpsNonSolid:true};
+    g.add(slab);
 
     const wallMat=kind==='admin'?mats.wall:mats.wallSide;
     const doorCount=L>45?2:1;
