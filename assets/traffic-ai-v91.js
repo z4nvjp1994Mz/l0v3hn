@@ -1662,6 +1662,11 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     scheduleJunctions(dt);
 
     for(const agent of agents){
+      // V145: player-controlled or parked hijacked vehicles are no longer owned by traffic AI.
+      // Keeping manualControl=true after exit prevents the traffic route solver from snapping
+      // the parked vehicle back onto its previous route.
+      if(agent.manualControl===true)continue;
+
       if(agent.service&&agent.service.phase!=='cruise'){
         updateServiceAgent(agent,dt);
         continue;
