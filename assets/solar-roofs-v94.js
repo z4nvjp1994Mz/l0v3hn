@@ -211,10 +211,13 @@ export function installSolarRoofZoneV94({
     ];
     for(const [i,p] of slabParts.entries()){
       if(p.w<.3||p.d<.3)continue;
+      const slab=new THREE.Mesh(
+        new THREE.BoxGeometry(p.w,slabT,p.d),
+        floorSlabMat
+      );
+      slab.position.set(p.x,splitY,p.z);
       addDetail(
-        Object.assign(new THREE.Mesh(new THREE.BoxGeometry(p.w,slabT,p.d),floorSlabMat),{
-          position:new THREE.Vector3(p.x,splitY,p.z)
-        }),
+        slab,
         'V1471_SECOND_FLOOR_SLAB_'+factoryIndex+'_'+i
       );
     }
