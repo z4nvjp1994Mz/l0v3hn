@@ -209,6 +209,30 @@ export function createThirdPersonPlayerV144(){
   axeWedge.position.set(.17,.015,.015);
   axeHeadRoot.add(axeWedge);
 
+  // Grip anchors are defined in AXE-LOCAL space and converted back into the
+  // player root every frame. Hands therefore follow the animated axe exactly.
+  const axeUpperGripLocal=new THREE.Vector3(0,-.01,-.30);
+  const axeLowerGripLocal=new THREE.Vector3(0,-.01,.10);
+  const axeGripWorld=new THREE.Vector3();
+  const axeGripRoot=new THREE.Vector3();
+
+  function placeArmHandOnAxeGrip(arm,side,localGrip){
+    root.updateMatrixWorld(true);
+    axe.updateMatrixWorld(true);
+
+    axeGripWorld.copy(localGrip);
+    axe.localToWorld(axeGripWorld);
+    axeGripRoot.copy(axeGripWorld);
+    root.worldToLocal(axeGripRoot);
+
+    // Hand local coordinates in the arm are (-side*.18,-.34,-.405).
+    arm.position.set(
+      axeGripRoot.x+side*.18,
+      axeGripRoot.y+.34,
+      axeGripRoot.z+.405
+    );
+  }
+
   let phase=0;
   let locomotion=0;
   let gatlingSpin=0;
@@ -349,6 +373,18 @@ export function createThirdPersonPlayerV144(){
           rightArm.rotation.x-=THREE.MathUtils.lerp(.68,0,t);
         }
       }
+    }
+
+    if(axeActive){
+      // Left hand grips high on the wooden shaft; right hand grips the lower
+      // black/wood section. Both positions inherit the axe's live animation.
+      placeArmHandOnAxeGrip(leftArm,-1,axeUpperGripLocal);
+      placeArmHandOnAxeGrip(rightArm,1,axeLowerGripLocal);
+    }else{
+      leftArm.position.x=-.31;
+      leftArm.position.z=-.02;
+      rightArm.position.x=.31;
+      rightArm.position.z=-.02;
     }
 
     const deathTarget=alive?0:-Math.PI*.48;
