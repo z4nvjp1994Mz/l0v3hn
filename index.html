@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V154-axe-melee-40-80">
+<meta name="daloc-build" content="V155-axe-animation-overhaul">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V154 AXE MELEE 40 + 80 DAMAGE</small>
+  <small>GitHub → Netlify · BUILD V155 AXE ANIMATION OVERHAUL</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -83,7 +83,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V154: 1 Sniper · 2 Gatling · 3 Axe · LMB 40 · RMB 80</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V155: Axe LMB diagonal downslash · RMB overhead chop</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1990,8 +1990,8 @@ const FPS_AXE_NORMAL_DAMAGE=40;
 const FPS_AXE_STRONG_DAMAGE=80;
 const FPS_AXE_NORMAL_DURATION=.56;
 const FPS_AXE_STRONG_DURATION=.88;
-const FPS_AXE_NORMAL_IMPACT=.47;
-const FPS_AXE_STRONG_IMPACT=.56;
+const FPS_AXE_NORMAL_IMPACT=.50;
+const FPS_AXE_STRONG_IMPACT=.59;
 const FPS_AXE_NORMAL_REACH=2.45;
 const FPS_AXE_STRONG_REACH=2.75;
 const fpsAmmo={
@@ -4985,39 +4985,67 @@ function fpsUpdateMelee(dt){
   const p=fpsMeleeProgress();
 
   if(fpsAxeViewModel){
+    const easeOut=t=>1-Math.pow(1-THREE.MathUtils.clamp(t,0,1),3);
+    const easeIn=t=>Math.pow(THREE.MathUtils.clamp(t,0,1),3);
+    const smooth=t=>{
+      t=THREE.MathUtils.clamp(t,0,1);
+      return t*t*(3-2*t);
+    };
+
     if(a.type==='strong'){
-      if(p<.28){
-        const t=p/.28;
-        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(.18,-1.28,t);
-        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.24,-.04,t);
-        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(-.16,.03,t);
-      }else if(p<.68){
-        const t=(p-.28)/.40;
-        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(-1.28,.94,t);
-        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.04,-.44,t);
-        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(.03,-.28,t);
+      // RMB: raise the axe OVERHEAD first, then chop vertically DOWN.
+      // Positive X lifts the head with this axe orientation; negative X chops down.
+      if(p<.34){
+        const t=easeOut(p/.34);
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(.18,1.34,t);
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(-.12,-.02,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.24,.02,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.12,.02,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(-.16,.18,t);
+        fpsAxeViewModel.position.z=THREE.MathUtils.lerp(-.20,-.08,t);
+      }else if(p<.72){
+        const t=easeIn((p-.34)/.38);
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(1.34,-1.12,t);
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(-.02,.03,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(.02,-.18,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.02,.03,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(.18,-.34,t);
+        fpsAxeViewModel.position.z=THREE.MathUtils.lerp(-.08,-.30,t);
       }else{
-        const t=(p-.68)/.32;
-        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(.94,.18,t);
-        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.44,-.24,t);
-        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(-.28,-.16,t);
+        const t=smooth((p-.72)/.28);
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(-1.12,.18,t);
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(.03,-.12,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.18,-.24,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.03,.12,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(-.34,-.16,t);
+        fpsAxeViewModel.position.z=THREE.MathUtils.lerp(-.30,-.20,t);
       }
     }else{
-      if(p<.22){
-        const t=p/.22;
-        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(-.12,-.92,t);
-        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.24,-.46,t);
-        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.12,.23,t);
-      }else if(p<.62){
-        const t=(p-.22)/.40;
-        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(-.92,1.02,t);
-        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.46,-.12,t);
-        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.23,-.10,t);
+      // LMB: compact diagonal slash from UPPER-RIGHT to LOWER-LEFT.
+      if(p<.26){
+        const t=easeOut(p/.26);
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(.18,.78,t);
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(-.12,-.70,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.24,-.66,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.12,.30,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(-.16,.08,t);
+        fpsAxeViewModel.position.z=THREE.MathUtils.lerp(-.20,-.12,t);
+      }else if(p<.66){
+        const t=easeIn((p-.26)/.40);
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(.78,-.62,t);
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(-.70,.72,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.66,.30,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(.30,-.18,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(.08,-.30,t);
+        fpsAxeViewModel.position.z=THREE.MathUtils.lerp(-.12,-.27,t);
       }else{
-        const t=(p-.62)/.38;
-        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(1.02,-.12,t);
-        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(-.12,-.24,t);
-        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(-.10,.12,t);
+        const t=smooth((p-.66)/.34);
+        fpsAxeViewModel.rotation.x=THREE.MathUtils.lerp(-.62,.18,t);
+        fpsAxeViewModel.rotation.y=THREE.MathUtils.lerp(.72,-.12,t);
+        fpsAxeViewModel.rotation.z=THREE.MathUtils.lerp(.30,-.24,t);
+        fpsAxeViewModel.position.x=THREE.MathUtils.lerp(-.18,.12,t);
+        fpsAxeViewModel.position.y=THREE.MathUtils.lerp(-.30,-.16,t);
+        fpsAxeViewModel.position.z=THREE.MathUtils.lerp(-.27,-.20,t);
       }
     }
   }
@@ -5533,7 +5561,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:154,
+  version:155,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -5663,7 +5691,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:154,
+    version:155,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
