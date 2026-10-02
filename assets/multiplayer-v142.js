@@ -324,7 +324,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
     room.onPeerJoin=peerId=>{
       ensureRemote(peerId);
-      helloAction.send({v:142,id:localSelfId},{target:peerId}).catch(()=>{});
+      helloAction.send({v:143,id:localSelfId},{target:peerId}).catch(()=>{});
       if(localStateCache)stateAction.send(localStateCache,{target:peerId}).catch(()=>{});
     };
 
@@ -396,7 +396,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
   function updateLocal(state){
     if(!connected||!stateAction||!state)return;
     const packet={
-      v:142,
+      v:143,
       active:!!state.active,
       p:[state.x||0,state.y||0,state.z||0],
       yaw:state.yaw||0,
@@ -501,7 +501,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:142,
+    version:143,
     get selfId(){return localSelfId;},
     join,
     leave,
