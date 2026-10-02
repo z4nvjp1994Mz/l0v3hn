@@ -2347,8 +2347,8 @@ function fpsApplyViewModeVisibility(){
   buildFpsCharacterRig();
   ensureFpsThirdPersonAvatar();
 
-  const sessionVisible=fpsMode&&fpsAlive;
-  const first=sessionVisible&&fpsViewMode==='first';
+  const sessionVisible=fpsMode;
+  const first=sessionVisible&&fpsAlive&&fpsViewMode==='first';
   const third=sessionVisible&&fpsViewMode==='third';
 
   if(fpsViewModel)fpsViewModel.visible=first;
@@ -3485,6 +3485,8 @@ function enterFirstPerson(){
   };
   fpsBaseFov=camera.fov;
   fpsMode=true;
+  fpsViewMode='first';
+  document.body.classList.remove('fps-third-person');
   fpsKeys.clear();
   fpsVerticalVelocity=0;
   fpsLocomotionPhase=0;
@@ -3512,7 +3514,7 @@ function enterFirstPerson(){
   document.body.classList.add('fps-mode');
   hideCadBoundaryForFps();
   fpsButton?.classList.add('active');
-  if(fpsButton)fpsButton.textContent='FPS Walk: On';
+  if(fpsButton)fpsButton.textContent='FPS Walk: 1P';
   fpsButton?.blur(); // Space must never reactivate the focused UI button.
   document.getElementById('v3')?.classList.remove('active');
   document.getElementById('vt')?.classList.remove('active');
@@ -3543,12 +3545,15 @@ function enterFirstPerson(){
   controls.target.copy(spawn.look);
   setFpsRigVisible(true);
   updateFpsCharacterRig(0,{moving:false,running:false});
+  fpsSetViewMode('first',{snap:true});
   renderer.domElement.requestPointerLock?.();
 }
 
 function exitFirstPerson(restore=true){
   if(!fpsMode)return;
   fpsMode=false;
+  fpsViewMode='first';
+  document.body.classList.remove('fps-third-person');
   fpsKeys.clear();
   fpsVerticalVelocity=0;
   fpsGrounded=true;
@@ -3573,6 +3578,7 @@ function exitFirstPerson(restore=true){
   if(fpsViewModel)fpsViewModel.visible=false;
   if(fpsBodyRig)fpsBodyRig.visible=false;
   if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
+  if(fpsThirdPersonAvatar?.root)fpsThirdPersonAvatar.root.visible=false;
   document.body.classList.remove('fps-mode');
   fpsButton?.classList.remove('active');
   if(fpsButton)fpsButton.textContent='FPS Walk';
@@ -3663,6 +3669,13 @@ window.addEventListener('keydown',e=>{
     e.preventDefault();
     e.stopPropagation();
     if(!e.repeat)exitFirstPerson(true);
+    return;
+  }
+
+  if(e.code==='KeyV'){
+    e.preventDefault();
+    e.stopPropagation();
+    if(!e.repeat)fpsToggleViewMode();
     return;
   }
 
@@ -3935,17 +3948,21 @@ function fpsUpdateScope(dt){
   fpsAimAmount+=(target-fpsAimAmount)*Math.min(1,dt*FPS_AIM_SPEED);
   if(Math.abs(fpsAimAmount-target)<.001)fpsAimAmount=target;
 
+  const third=fpsViewMode==='third';
   const ease=fpsAimAmount*fpsAimAmount*(3-2*fpsAimAmount);
-  const targetFov=THREE.MathUtils.lerp(fpsBaseFov,FPS_SCOPE_FOV,ease);
+  const targetFov=third
+    ?fpsBaseFov
+    :THREE.MathUtils.lerp(fpsBaseFov,FPS_SCOPE_FOV,ease);
   if(Math.abs(camera.fov-targetFov)>.001){
     camera.fov=targetFov;
     camera.updateProjectionMatrix();
   }
 
-  document.body.classList.toggle('fps-aiming',fpsAimAmount>.08);
+  // 1P uses the circular sniper scope. 3P keeps the crosshair and performs
+  // shoulder-camera zoom instead.
+  document.body.classList.toggle('fps-aiming',!third&&fpsAimAmount>.08);
   if(fpsRealArmsRig){
-    // At full scope the optic fills the view; hide the hip-fire weapon silhouette.
-    fpsRealArmsRig.visible=fpsMode&&fpsAlive&&fpsAimAmount<.88;
+    fpsRealArmsRig.visible=fpsMode&&fpsAlive&&!third&&fpsAimAmount<.88;
   }
 
   fpsShotCooldown=Math.max(0,fpsShotCooldown-dt);
@@ -3966,6 +3983,9 @@ function updateFirstPerson(dt){
   if(!fpsAlive){
     fpsKeys.clear();
     fpsAimHeld=false;
+    updateFpsCharacterRig(dt,{moving:false,running:false});
+    fpsApplyViewModeVisibility();
+    fpsUpdateThirdPersonCamera(dt);
     const deadLookDir=new THREE.Vector3();
     camera.getWorldDirection(deadLookDir);
     controls.target.copy(camera.position).addScaledVector(deadLookDir,12);
@@ -3978,7 +3998,7 @@ function updateFirstPerson(dt){
 
   // V138 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
   if(!fpsRealArmsRig)prepareFpsRealArmsV138();
-  if(fpsRealArmsRig)fpsRealArmsRig.visible=fpsAlive&&fpsAimAmount<.88;
+  fpsApplyViewModeVisibility();
 
   // Ground-level shadows are the expensive pass in FPS. Update them every
   // second frame instead of forcing a 2048 shadow render every frame.
@@ -3994,6 +4014,7 @@ function updateFirstPerson(dt){
     fpsUpdateClimb(dt);
     fpsUpdateInteractionPrompt();
     updateFpsCharacterRig(dt,{moving:climbingMoving,running:false});
+    fpsUpdateThirdPersonCamera(dt);
     const climbLookDir=new THREE.Vector3();
     camera.getWorldDirection(climbLookDir);
     controls.target.copy(camera.position).addScaledVector(climbLookDir,12);
@@ -4049,6 +4070,7 @@ function updateFirstPerson(dt){
   }
 
   updateFpsCharacterRig(dt,{moving,running});
+  fpsUpdateThirdPersonCamera(dt);
   fpsUpdateInteractionPrompt();
 
   // Keep shadow/light tracking compatible with the existing lightweight renderer.
