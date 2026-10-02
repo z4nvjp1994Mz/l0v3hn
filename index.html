@@ -3176,6 +3176,12 @@ window.addEventListener('keydown',e=>{
 },true);
 
 window.addEventListener('keyup',e=>{
+  if(fpsMode&&e.code==='Escape'){
+    e.preventDefault();
+    e.stopPropagation();
+    exitFirstPerson(true);
+    return;
+  }
   if(fpsMode&&e.code==='Space'){
     e.preventDefault();
     e.stopPropagation();
