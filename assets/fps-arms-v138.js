@@ -351,9 +351,9 @@ function makeAxeGripArm(side,materials,gripZ){
   // Shoulder anchors stay fixed near the lower corners of the camera-space
   // rig. Only elbow/wrist solve toward the animated axe handle.
   const shoulder=new THREE.Vector3(
-    side*.255,
-    -.585,
-    .385
+    .20+side*.22,
+    -.700,
+    .480
   );
   const targetLocal=new THREE.Vector3(
     .020,
@@ -643,10 +643,10 @@ export function createThickerFpsArmsV138(){
 
     // Bend the elbow outward and slightly down. The shoulder remains fixed,
     // so no "arm stump" can be dragged through the center of the screen.
-    elbow.copy(d.shoulder).lerp(gripRoot,.72);
-    elbow.x+=d.side*.055;
-    elbow.y-=.040;
-    elbow.z+=.045;
+    elbow.copy(d.shoulder).lerp(gripRoot,.78);
+    elbow.x+=d.side*.028;
+    elbow.y-=.030;
+    elbow.z+=.060;
 
     foreDir.copy(gripRoot).sub(elbow).normalize();
     cuffStart.copy(gripRoot).addScaledVector(foreDir,-.078);
@@ -670,7 +670,7 @@ export function createThickerFpsArmsV138(){
     d.hand.quaternion.copy(axeQ).multiply(d.baseHandQ);
   }
 
-  root.userData.source='v158-sniper+gatling+compact-axe-ik-viewmodels';
+  root.userData.source='v159-sniper+gatling+right-biased-deep-axe-ik';
   root.userData.weapon='sniper';
   root.userData.sniper=sniper;
   root.userData.gatling=gatling;
