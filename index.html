@@ -2335,16 +2335,50 @@ function buildFpsCharacterRig(){
   fpsRightLegPivot=right.hip;fpsRightKneePivot=right.knee;
 }
 
-function setFpsRigVisible(visible){
+function ensureFpsThirdPersonAvatar(){
+  if(fpsThirdPersonAvatar)return fpsThirdPersonAvatar;
+  fpsThirdPersonAvatar=createThirdPersonPlayerV144();
+  fpsThirdPersonAvatar.root.visible=false;
+  world.add(fpsThirdPersonAvatar.root);
+  return fpsThirdPersonAvatar;
+}
+
+function fpsApplyViewModeVisibility(){
   buildFpsCharacterRig();
-  fpsViewModel.visible=visible;
-  fpsBodyRig.visible=visible;
+  ensureFpsThirdPersonAvatar();
+
+  const sessionVisible=fpsMode&&fpsAlive;
+  const first=sessionVisible&&fpsViewMode==='first';
+  const third=sessionVisible&&fpsViewMode==='third';
+
+  if(fpsViewModel)fpsViewModel.visible=first;
+  if(fpsBodyRig)fpsBodyRig.visible=first;
 
   fpsLeftArmPivot.visible=false;
   fpsRightArmPivot.visible=false;
 
   if(!fpsRealArmsRig)prepareFpsRealArmsV138();
-  if(fpsRealArmsRig)fpsRealArmsRig.visible=visible;
+  if(fpsRealArmsRig){
+    fpsRealArmsRig.visible=first&&fpsAimAmount<.88;
+  }
+  if(fpsThirdPersonAvatar?.root){
+    fpsThirdPersonAvatar.root.visible=third;
+  }
+}
+
+function setFpsRigVisible(visible){
+  buildFpsCharacterRig();
+  ensureFpsThirdPersonAvatar();
+
+  if(!visible){
+    if(fpsViewModel)fpsViewModel.visible=false;
+    if(fpsBodyRig)fpsBodyRig.visible=false;
+    if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
+    if(fpsThirdPersonAvatar?.root)fpsThirdPersonAvatar.root.visible=false;
+    return;
+  }
+
+  fpsApplyViewModeVisibility();
 }
 
 function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
@@ -2445,6 +2479,20 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
     fpsLeftKneePivot.rotation.x=Math.max(0,-stride)*.42*blend*runMul;
     fpsRightKneePivot.rotation.x=Math.max(0,-strideOpp)*.42*blend*runMul;
   }
+
+  const third=ensureFpsThirdPersonAvatar();
+  third.update(dt,{
+    x:camera.position.x,
+    y:camera.position.y-fpsCurrentEyeHeight()+.02,
+    z:camera.position.z,
+    yaw:fpsYaw,
+    pitch:fpsPitch,
+    crouch:fpsCrouchAmount,
+    aim:fpsAimAmount,
+    moving,
+    running,
+    alive:fpsAlive
+  });
 }
 
 function fpsSetLookFromCamera(){
