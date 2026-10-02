@@ -197,6 +197,38 @@ function makeRemotePlayer(peerId){
   rifle.add(scope);
   root.add(rifle);
 
+  const gatling=new THREE.Group();
+  gatling.name='V152_REMOTE_GATLING_'+peerId.slice(0,8);
+  gatling.position.set(.11,1.17,-.31);
+  gatling.rotation.set(-.07,0,-.07);
+  gatling.visible=false;
+
+  const gReceiver=new THREE.Mesh(new THREE.BoxGeometry(.22,.16,.44),mats.weapon);
+  gReceiver.position.z=-.08;
+  gatling.add(gReceiver);
+
+  const gDrum=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,.16,14),mats.weapon);
+  gDrum.rotation.z=Math.PI/2;
+  gDrum.position.set(-.16,-.05,-.04);
+  gatling.add(gDrum);
+
+  const gCluster=new THREE.Group();
+  gCluster.name='V152_REMOTE_GATLING_BARRELS';
+  gCluster.position.set(0,.015,-.30);
+  gatling.add(gCluster);
+  for(let i=0;i<6;i++){
+    const a=i*Math.PI*2/6;
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(.013,.014,.72,8),mats.metal);
+    b.rotation.x=Math.PI/2;
+    b.position.set(Math.cos(a)*.065,Math.sin(a)*.065,-.36);
+    gCluster.add(b);
+  }
+  const gMuzzle=new THREE.Mesh(new THREE.CylinderGeometry(.05,.045,.10,12),mats.weapon);
+  gMuzzle.rotation.x=Math.PI/2;
+  gMuzzle.position.set(0,.015,-1.05);
+  gatling.add(gMuzzle);
+  root.add(gatling);
+
   const tag=makeLabelSprite('P2 · '+peerId.slice(0,5).toUpperCase());
   tag.position.set(0,2.28,0);
   root.add(tag);
@@ -211,12 +243,13 @@ function makeRemotePlayer(peerId){
   });
 
   return {
-    peerId,root,torso,head,leftArm,rightArm,leftLeg,rightLeg,rifle,tag,
+    peerId,root,torso,head,leftArm,rightArm,leftLeg,rightLeg,rifle,gatling,gCluster,tag,
     targetPos:new THREE.Vector3(),
     targetYaw:0,
     targetPitch:0,
     targetCrouch:0,
     targetAim:0,
+    targetWeapon:'sniper',
     targetHp:100,
     targetAlive:true,
     lastPacketAt:performance.now(),
@@ -363,6 +396,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
       remote.targetPitch=Number(data.pitch)||0;
       remote.targetCrouch=clamp(Number(data.crouch)||0,0,1);
       remote.targetAim=clamp(Number(data.aim)||0,0,1);
+      remote.targetWeapon=data.weapon==='gatling'?'gatling':'sniper';
       remote.targetHp=clamp(Number.isFinite(Number(data.hp))?Number(data.hp):100,0,100);
       remote.targetAlive=data.alive!==false;
       remote.active=!!data.active;
@@ -605,7 +639,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
       aim:clamp(state.aim||0,0,1),
       hp:clamp(Number(state.hp??100),0,100),
       alive:state.alive!==false,
-      weapon:'sniper'
+      weapon:state.weapon==='gatling'?'gatling':'sniper'
     };
     localStateCache=packet;
 
@@ -617,9 +651,15 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     });
   }
 
-  function sendShot({origin,dir,aim=0}={}){
+  function sendShot({origin,dir,aim=0,weapon='sniper'}={}){
     if(!connected||!shotAction||!Array.isArray(origin)||!Array.isArray(dir))return;
-    shotAction.send({v:143,o:origin,d:dir,aim:clamp(aim,0,1)}).catch(error=>{
+    shotAction.send({
+      v:152,
+      o:origin,
+      d:dir,
+      aim:clamp(aim,0,1),
+      weapon:weapon==='gatling'?'gatling':'sniper'
+    }).catch(error=>{
       lastError=error;
     });
   }
@@ -677,11 +717,16 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
     remote.rifle.rotation.x=-.08-remote.targetAim*.12;
     remote.rifle.position.y=1.18-.34*crouch+remote.targetAim*.12;
+    remote.gatling.position.y=1.17-.34*crouch;
+
+    const gatlingActive=remote.targetWeapon==='gatling';
+    if(gatlingActive)remote.gCluster.rotation.z+=dt*8.5;
 
     // V143 death pose: remote remains visible but collapses sideways until respawn.
     const deathTarget=alive?0:-Math.PI*.48;
     remote.root.rotation.z+= (deathTarget-remote.root.rotation.z)*Math.min(1,dt*7);
-    remote.rifle.visible=alive;
+    remote.rifle.visible=alive&&!gatlingActive;
+    remote.gatling.visible=alive&&gatlingActive;
   }
 
   function raycastRemoteSegment(start,end){
@@ -769,7 +814,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:143.3,
+    version:152,
     get selfId(){return localSelfId;},
     join,
     leave,
@@ -797,7 +842,8 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
         peerId:remote.peerId,
         hp:remote.targetHp,
         alive:remote.targetAlive,
-        active:remote.active
+        active:remote.active,
+        weapon:remote.targetWeapon
       }:null;
     },
     get remoteIds(){return [...remotes.keys()];}
