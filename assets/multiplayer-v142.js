@@ -135,22 +135,31 @@ function makeRemotePlayer(peerId){
   neck.position.y=1.58;
   root.add(neck);
 
+  // V143.3: compact weapon-holding arm pose.
+  // Previous hands sat around y=.57 and looked like an extra pair of feet.
   const leftArm=new THREE.Group();
   const rightArm=new THREE.Group();
-  leftArm.position.set(-.34,1.45,-.03);
-  rightArm.position.set(.34,1.45,-.03);
+  leftArm.position.set(-.31,1.46,-.02);
+  rightArm.position.set(.31,1.46,-.02);
   root.add(leftArm,rightArm);
 
   for(const [arm,side] of [[leftArm,-1],[rightArm,1]]){
-    const upper=new THREE.Mesh(new THREE.BoxGeometry(.16,.52,.18),mats.shirtDark);
-    upper.position.y=-.25;
+    const upper=new THREE.Mesh(new THREE.BoxGeometry(.15,.36,.17),mats.shirtDark);
+    upper.position.set(-side*.035,-.14,-.055);
+    upper.rotation.set(-.58,0,side*.16);
     arm.add(upper);
-    const fore=new THREE.Mesh(new THREE.BoxGeometry(.14,.46,.16),mats.shirt);
-    fore.position.set(side*.05,-.64,-.10);
-    fore.rotation.x=-.46;
+
+    // Forearm bends inward toward the rifle instead of hanging down.
+    const fore=new THREE.Mesh(new THREE.BoxGeometry(.135,.34,.15),mats.shirt);
+    fore.position.set(-side*.115,-.31,-.245);
+    fore.rotation.set(-1.02,0,-side*.18);
     arm.add(fore);
-    const hand=new THREE.Mesh(new THREE.SphereGeometry(.105,10,8),mats.glove);
-    hand.position.set(side*.05,-.88,-.20);
+
+    // Small flattened glove around the weapon grip/fore-end.
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(.09,12,9),mats.glove);
+    hand.position.set(-side*.18,-.34,-.405);
+    hand.scale.set(.82,.70,1.05);
+    hand.name='V1433_REMOTE_GLOVE_'+(side<0?'L':'R');
     arm.add(hand);
   }
 
@@ -651,8 +660,8 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     remote.torso.position.y=1.22-.34*crouch;
     remote.head.position.y=1.82-.52*crouch;
     remote.tag.position.y=2.28-.52*crouch;
-    remote.leftArm.position.y=1.45-.34*crouch;
-    remote.rightArm.position.y=1.45-.34*crouch;
+    remote.leftArm.position.y=1.46-.34*crouch;
+    remote.rightArm.position.y=1.46-.34*crouch;
     remote.leftLeg.position.y=.93-.16*crouch;
     remote.rightLeg.position.y=.93-.16*crouch;
 
@@ -661,8 +670,10 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     const stride=Math.sin(remote.phase)*(moving?.48:0);
     remote.leftLeg.rotation.x=stride;
     remote.rightLeg.rotation.x=-stride;
-    remote.leftArm.rotation.x=-stride*.35;
-    remote.rightArm.rotation.x=stride*.35;
+    // Weapon-holding arms stay around the rifle; only a tiny locomotion bob remains.
+    const armBob=moving?Math.sin(remote.phase*2)*.025:0;
+    remote.leftArm.rotation.x=armBob-remote.targetAim*.035;
+    remote.rightArm.rotation.x=-armBob-remote.targetAim*.035;
 
     remote.rifle.rotation.x=-.08-remote.targetAim*.12;
     remote.rifle.position.y=1.18-.34*crouch+remote.targetAim*.12;
@@ -758,7 +769,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:143.2,
+    version:143.3,
     get selfId(){return localSelfId;},
     join,
     leave,
