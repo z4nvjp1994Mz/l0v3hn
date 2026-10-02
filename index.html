@@ -1704,6 +1704,14 @@ const fpsLastSafePosition=new THREE.Vector3();
 let fpsHasSafePosition=false;
 let fpsLastBlockReason='none';
 let fpsLastBlockObject='none';
+let fpsGroundLevel=0;
+let fpsClimbState=null;
+let fpsRoofState=null;
+let fpsCurrentInteraction=null;
+const fpsInteractionTmp=new THREE.Vector3();
+const fpsInteractionTmp2=new THREE.Vector3();
+const FPS_INTERACT_DISTANCE=3.4;
+const FPS_LADDER_SPEED=3.4;
 
 // V124 corrected FPS first-person body/viewmodel.
 let fpsViewModel=null;
@@ -2729,6 +2737,14 @@ function enterFirstPerson(){
   fpsLocomotionBlend=0;
   fpsRigTime=0;
   fpsGrounded=true;
+  fpsGroundLevel=0;
+  fpsClimbState=null;
+  fpsRoofState=null;
+  fpsCurrentInteraction=null;
+  if(fpsInteractPrompt){
+    fpsInteractPrompt.classList.remove('active');
+    fpsInteractPrompt.textContent='';
+  }
   controls.enabled=false;
   document.body.classList.add('fps-mode');
   hideCadBoundaryForFps();
@@ -2773,8 +2789,16 @@ function exitFirstPerson(restore=true){
   fpsKeys.clear();
   fpsVerticalVelocity=0;
   fpsGrounded=true;
+  fpsGroundLevel=0;
+  fpsClimbState=null;
+  fpsRoofState=null;
+  fpsCurrentInteraction=null;
   fpsHasSafePosition=false;
   fpsLocomotionBlend=0;
+  if(fpsInteractPrompt){
+    fpsInteractPrompt.classList.remove('active');
+    fpsInteractPrompt.textContent='';
+  }
   if(fpsViewModel)fpsViewModel.visible=false;
   if(fpsBodyRig)fpsBodyRig.visible=false;
   if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
