@@ -3515,7 +3515,7 @@ function updateFirstPerson(dt){
 
   // V138 hard guarantee: embedded overlay arms stay visible for the whole FPS session.
   if(!fpsRealArmsRig)prepareFpsRealArmsV138();
-  if(fpsRealArmsRig)fpsRealArmsRig.visible=true;
+  if(fpsRealArmsRig)fpsRealArmsRig.visible=fpsAimAmount<.88;
 
   // Ground-level shadows are the expensive pass in FPS. Update them every
   // second frame instead of forcing a 2048 shadow render every frame.
