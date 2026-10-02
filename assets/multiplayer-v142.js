@@ -1,42 +1,73 @@
 import * as THREE from 'three';
 
-const APP_ID='dalociz-netlify-v142-2026-10';
-const TRYSTERO_CDNS=[
-  'https://esm.run/trystero',
-  'https://esm.sh/trystero@0.25.0?bundle',
-  'https://cdn.jsdelivr.net/npm/trystero@0.25.0/+esm'
+const APP_ID='dalociz-netlify-v1431-2026-10';
+const DISCOVERY_SETTLE_MS=1200;
+
+const STRATEGIES=[
+  {
+    key:'nostr',
+    label:'Nostr',
+    urls:[
+      'https://esm.sh/trystero@0.25.0?bundle',
+      'https://esm.run/trystero',
+      'https://cdn.jsdelivr.net/npm/trystero@0.25.0/+esm'
+    ]
+  },
+  {
+    key:'mqtt',
+    label:'MQTT',
+    urls:[
+      'https://esm.sh/@trystero-p2p/mqtt@0.25.0?bundle',
+      'https://cdn.jsdelivr.net/npm/@trystero-p2p/mqtt@0.25.0/+esm'
+    ]
+  },
+  {
+    key:'torrent',
+    label:'Torrent',
+    urls:[
+      'https://esm.sh/@trystero-p2p/torrent@0.25.0?bundle',
+      'https://cdn.jsdelivr.net/npm/@trystero-p2p/torrent@0.25.0/+esm'
+    ]
+  }
 ];
-let trysteroPromise=null;
-let trysteroSource='';
 
-async function loadTrystero(){
-  if(trysteroPromise)return trysteroPromise;
+const strategyLoads=new Map();
 
-  trysteroPromise=(async()=>{
+async function loadStrategy(strategy){
+  if(strategyLoads.has(strategy.key))return strategyLoads.get(strategy.key);
+
+  const promise=(async()=>{
     const errors=[];
-    for(const url of TRYSTERO_CDNS){
+    for(const url of strategy.urls){
       try{
         const mod=await import(url);
-        if(typeof mod?.joinRoom!=='function'){
-          throw new Error('joinRoom export missing');
-        }
-        trysteroSource=url;
-        return mod;
+        if(typeof mod?.joinRoom!=='function')throw new Error('joinRoom export missing');
+        return {mod,url,strategy};
       }catch(error){
         errors.push(url+' -> '+(error?.message||String(error)));
       }
     }
-    throw new Error('Không tải được Trystero từ các CDN: '+errors.join(' | '));
+    throw new Error(strategy.label+' load failed: '+errors.join(' | '));
   })();
 
+  strategyLoads.set(strategy.key,promise);
   try{
-    return await trysteroPromise;
+    return await promise;
   }catch(error){
-    trysteroPromise=null;
-    trysteroSource='';
+    strategyLoads.delete(strategy.key);
     throw error;
   }
 }
+
+const RTC_CONFIG={
+  iceServers:[
+    {urls:'stun:stun.l.google.com:19302'},
+    {urls:'stun:stun1.l.google.com:19302'},
+    {urls:'stun:stun.cloudflare.com:3478'}
+  ],
+  iceCandidatePoolSize:6
+};
+
 const MAX_REMOTE_PLAYERS=1;
 const SEND_INTERVAL_MS=70;
 const REMOTE_TIMEOUT_MS=6500;
