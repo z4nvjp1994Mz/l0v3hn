@@ -410,9 +410,9 @@ function makeAxe(materials){
   headRoot.name='FPS_AXE_HEAD_ROOT_V162';
   headRoot.position.set(.02,.015,-.80);
 
-  // V163: rotate ONLY the axe head assembly in the corrected direction.
+  // V164: head stays neutral; whole weapon root makes local-Z handle vertical.
   // The handle/grip/IK hands keep their existing lower-right pose.
-  headRoot.rotation.z=-.34;
+  headRoot.rotation.z=0;
   axe.add(headRoot);
 
   const headBody=mesh(
