@@ -26,7 +26,7 @@ body.fps-mode #fpsInteractPrompt.active{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V139.2 FRONT-GATE ROAD SAFE</small>
+  <small>GitHub → Netlify · BUILD V139.3 FACTORY ACCESS SAFE</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -66,7 +66,7 @@ import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=1051';
 import { installSiteSafetyV98 } from './assets/site-safety-v98.js?v=98';
-import { installFactoryAccessV99 } from './assets/factory-access-v99.js?v=100';
+import { installFactoryAccessV99 } from './assets/factory-access-v99.js?v=1393';
 import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=1051';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=139';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=1041';
@@ -1523,7 +1523,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V139.2 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V139.3 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -2470,6 +2470,20 @@ function fpsOnVerifiedRoad(position){
   return !!fpsRoadSafeInfo(position);
 }
 
+function fpsFactoryAccessSafeInfo(position){
+  if(!position||fpsGroundLevel>.05||fpsClimbState||fpsRoofState)return null;
+  const api=v99AccessResult||window.__DALOC_FACTORY_ACCESS_V99;
+  return api?.fpsAccessSafeInfo?.(position.x,position.z)||null;
+}
+
+function fpsOnFactoryAccess(position){
+  return !!fpsFactoryAccessSafeInfo(position);
+}
+
+function fpsOnVerifiedGroundRoute(position){
+  return fpsOnVerifiedRoad(position)||fpsOnFactoryAccess(position);
+}
+
 function fpsNearbyColliderIds(position){
   // Every collider was inserted into ALL cells touched by its radius-expanded box,
   // so the player's current cell alone is sufficient. No Set allocation per test.
@@ -2479,10 +2493,10 @@ function fpsNearbyColliderIds(position){
 }
 
 function fpsStaticBlocked(position){
-  // V139.1 hard guarantee: inside the verified center corridor of a real road,
-  // decorative/static meshes may never create an invisible wall. Traffic still
-  // collides separately in fpsVehicleBlocked().
-  if(fpsOnVerifiedRoad(position))return false;
+  // V139.3 hard guarantee: verified road center corridors AND authored V99
+  // factory access/driveway corridors are walkable. Only static/decorative
+  // blockers are bypassed here; doors and traffic are checked afterwards.
+  if(fpsOnVerifiedGroundRoute(position))return false;
 
   const feetY=position.y-FPS_EYE_HEIGHT;
   const headY=feetY+FPS_PLAYER_HEIGHT;
@@ -3192,6 +3206,9 @@ const fpsApiV139={
   get lastBlockObject(){return fpsLastBlockObject;},
   get roadSafeInfo(){return fpsRoadSafeInfo(camera.position);},
   get onVerifiedRoad(){return fpsOnVerifiedRoad(camera.position);},
+  get factoryAccessSafeInfo(){return fpsFactoryAccessSafeInfo(camera.position);},
+  get onFactoryAccess(){return fpsOnFactoryAccess(camera.position);},
+  get onVerifiedGroundRoute(){return fpsOnVerifiedGroundRoute(camera.position);},
   get currentPosition(){return {
     x:Number(camera.position.x.toFixed(2)),
     y:Number(camera.position.y.toFixed(2)),
