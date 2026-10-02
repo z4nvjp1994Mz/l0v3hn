@@ -8,25 +8,25 @@ const STRATEGIES=[
     key:'nostr',
     label:'Nostr',
     urls:[
-      'https://esm.sh/trystero@0.25.0?bundle',
+      'https://esm.sh/trystero@0.25.4?bundle',
       'https://esm.run/trystero',
-      'https://cdn.jsdelivr.net/npm/trystero@0.25.0/+esm'
+      'https://cdn.jsdelivr.net/npm/trystero@0.25.4/+esm'
     ]
   },
   {
     key:'mqtt',
     label:'MQTT',
     urls:[
-      'https://esm.sh/@trystero-p2p/mqtt@0.25.0?bundle',
-      'https://cdn.jsdelivr.net/npm/@trystero-p2p/mqtt@0.25.0/+esm'
+      'https://esm.sh/@trystero-p2p/mqtt@0.25.4?bundle',
+      'https://cdn.jsdelivr.net/npm/@trystero-p2p/mqtt@0.25.4/+esm'
     ]
   },
   {
     key:'torrent',
     label:'Torrent',
     urls:[
-      'https://esm.sh/@trystero-p2p/torrent@0.25.0?bundle',
-      'https://cdn.jsdelivr.net/npm/@trystero-p2p/torrent@0.25.0/+esm'
+      'https://esm.sh/@trystero-p2p/torrent@0.25.4?bundle',
+      'https://cdn.jsdelivr.net/npm/@trystero-p2p/torrent@0.25.4/+esm'
     ]
   }
 ];
