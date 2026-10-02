@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V147.4-continuous-stair-support">
+<meta name="daloc-build" content="V147.5-closed-solid-stairs">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V147.4 CONTINUOUS STAIR SUPPORT</small>
+  <small>GitHub → Netlify · BUILD V147.5 CLOSED SOLID STAIRS</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -101,7 +101,7 @@ import { installPedestriansV84 } from './assets/pedestrians-v84.js?v=1051';
 import { installFactoryInteriorsV84 } from './assets/factory-interiors-v84.js?v=1395';
 import { installFactoryDetailV147 } from './assets/factory-detail-v147.js?v=147';
 import { installDualEntranceGatesV93 } from './assets/main-gates-v93.js?v=1041';
-import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=1474';
+import { installSolarRoofZoneV94 } from './assets/solar-roofs-v94.js?v=1475';
 import { installVisualQualityV102 } from './assets/visual-quality-v102.js?v=144';
 import { installAtmosphereV106 } from './assets/atmosphere-v106.js?v=106';
 
@@ -1662,7 +1662,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V147.4 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V147.5 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -4834,7 +4834,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:147.4,
+  version:147.5,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -4926,7 +4926,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:147.4,
+    version:147.5,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
