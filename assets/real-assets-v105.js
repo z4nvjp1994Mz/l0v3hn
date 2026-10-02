@@ -289,6 +289,23 @@ export async function loadKenneyCharacterAssets(){
   };
 }
 
+
+export async function loadKenneyFpsArmsAssetV129(){
+  const [arms,male]=await Promise.all([
+    loadGLTF('./models/kenney/fps-arms-male-a.glb'),
+    loadGLTF('./models/kenney/character-male-a.glb')
+  ]);
+  const full=buildPrototype(male,1.73);
+  return {
+    scene:arms.scene,
+    animations:arms.animations||[],
+    targetHeight:1.73,
+    normalizationSourceHeight:full.sourceHeight,
+    centerVertically:true,
+    armOnlyV129:true
+  };
+}
+
 export function createAnimatedCharacterInstance(prototype,{
   name='V105_KENNEY_CHARACTER',
   clip='walk',
@@ -303,7 +320,9 @@ export function createAnimatedCharacterInstance(prototype,{
   model.updateMatrixWorld(true);
   let box=new THREE.Box3().setFromObject(model);
   let size=box.getSize(new THREE.Vector3());
-  const scale=prototype.targetHeight/Math.max(.001,size.y);
+  const normalizationHeight=
+    prototype.normalizationSourceHeight||size.y;
+  const scale=prototype.targetHeight/Math.max(.001,normalizationHeight);
   model.scale.setScalar(scale);
   model.updateMatrixWorld(true);
 
@@ -311,7 +330,8 @@ export function createAnimatedCharacterInstance(prototype,{
   const center=box.getCenter(new THREE.Vector3());
   model.position.x-=center.x;
   model.position.z-=center.z;
-  model.position.y-=box.min.y;
+  if(prototype.centerVertically)model.position.y-=center.y;
+  else model.position.y-=box.min.y;
   model.updateMatrixWorld(true);
 
   model.traverse(o=>{
