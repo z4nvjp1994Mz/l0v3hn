@@ -2719,6 +2719,200 @@ function restoreFpsRenderProfile(){
 // V138: build shorter thicker FPS arms synchronously during startup.
 prepareFpsRealArmsV138();
 
+function fpsBuildingPoint(building,local){
+  if(!building||!local)return null;
+  building.updateWorldMatrix(true,false);
+  return building.localToWorld(local.clone());
+}
+
+function fpsDistanceToPoint(point){
+  return point?camera.position.distanceTo(point):Infinity;
+}
+
+function fpsFindNearestInteraction(){
+  let best=null;
+  let bestDist=FPS_INTERACT_DISTANCE;
+
+  // Interactive factory doors.
+  for(const d of factoryInteriorsV84?.doors||[]){
+    const info=factoryInteriorsV84?.doorWorldInfo?.(d.index);
+    if(!info?.center)continue;
+    const dist=fpsDistanceToPoint(info.center);
+    if(dist<bestDist){
+      bestDist=dist;
+      best={type:'door',door:d,info,dist};
+    }
+  }
+
+  // Roof ladders. When already on a roof, only offer the matching ladder top.
+  for(const ladder of v54DetailResult?.ladders||window.__DALOC_V54?.ladders||[]){
+    if(fpsRoofState&&ladder.index!==fpsRoofState.factoryIndex)continue;
+    const local=fpsRoofState?ladder.roofLocal:ladder.baseLocal;
+    const point=fpsBuildingPoint(ladder.building,local);
+    const dist=fpsDistanceToPoint(point);
+    if(dist<bestDist){
+      bestDist=dist;
+      best={type:'ladder',ladder,point,fromTop:!!fpsRoofState,dist};
+    }
+  }
+  return best;
+}
+
+function fpsUpdateInteractionPrompt(){
+  if(!fpsInteractPrompt)return;
+  if(fpsClimbState){
+    fpsCurrentInteraction=null;
+    fpsInteractPrompt.textContent='THANG · W leo lên · S leo xuống · E rời thang';
+    fpsInteractPrompt.classList.add('active');
+    return;
+  }
+
+  fpsCurrentInteraction=fpsFindNearestInteraction();
+  if(!fpsCurrentInteraction){
+    fpsInteractPrompt.textContent='';
+    fpsInteractPrompt.classList.remove('active');
+    return;
+  }
+
+  if(fpsCurrentInteraction.type==='door'){
+    const d=fpsCurrentInteraction.door;
+    const profile=factoryInteriorsV84?.factoryProfiles?.find?.(p=>p.index===d.factoryIndex);
+    const label=profile?.archetype?(' · '+profile.archetype.replaceAll('-',' ')):'';
+    fpsInteractPrompt.textContent=d.isOpen
+      ?('E · Đóng cửa xưởng '+(d.factoryIndex+1)+label)
+      :('E · Mở cửa / vào xưởng '+(d.factoryIndex+1)+label);
+  }else{
+    fpsInteractPrompt.textContent=fpsCurrentInteraction.fromTop
+      ?'E · Bám thang để xuống mặt đất'
+      :'E · Leo thang lên mái xưởng';
+  }
+  fpsInteractPrompt.classList.add('active');
+}
+
+function fpsFinishLadderBottom(){
+  const state=fpsClimbState;
+  if(!state)return;
+  camera.position.set(state.baseWorld.x,FPS_EYE_HEIGHT,state.baseWorld.z);
+  fpsGroundLevel=0;
+  fpsGrounded=true;
+  fpsVerticalVelocity=0;
+  fpsRoofState=null;
+  fpsClimbState=null;
+  fpsLastSafePosition.copy(camera.position);
+  fpsHasSafePosition=true;
+}
+
+function fpsFinishLadderTop(){
+  const state=fpsClimbState;
+  if(!state)return;
+  camera.position.set(
+    state.roofWorld.x,
+    state.roofWorld.y+FPS_EYE_HEIGHT,
+    state.roofWorld.z
+  );
+  fpsGroundLevel=state.roofWorld.y;
+  fpsGrounded=true;
+  fpsVerticalVelocity=0;
+  fpsRoofState={
+    factoryIndex:state.ladder.index,
+    building:state.ladder.building,
+    ladder:state.ladder,
+    L:state.ladder.L,
+    D:state.ladder.D,
+    roofY:state.roofWorld.y
+  };
+  fpsClimbState=null;
+  fpsLastSafePosition.copy(camera.position);
+  fpsHasSafePosition=true;
+}
+
+function fpsStartLadder(ladder,fromTop=false){
+  if(!ladder?.building)return false;
+  const baseWorld=fpsBuildingPoint(ladder.building,ladder.baseLocal);
+  const faceWorld=fpsBuildingPoint(ladder.building,ladder.faceLocal);
+  const roofWorld=fpsBuildingPoint(ladder.building,ladder.roofLocal);
+  if(!baseWorld||!faceWorld||!roofWorld)return false;
+
+  fpsClimbState={
+    ladder,
+    baseWorld,
+    faceWorld,
+    roofWorld,
+    minY:FPS_EYE_HEIGHT,
+    maxY:roofWorld.y+FPS_EYE_HEIGHT
+  };
+  fpsRoofState=null;
+  fpsGrounded=false;
+  fpsVerticalVelocity=0;
+
+  camera.position.x=baseWorld.x;
+  camera.position.z=baseWorld.z;
+  camera.position.y=fromTop?fpsClimbState.maxY:fpsClimbState.minY;
+
+  fpsInteractionTmp.copy(faceWorld);
+  fpsInteractionTmp.y=camera.position.y;
+  camera.lookAt(fpsInteractionTmp);
+  fpsSetLookFromCamera();
+  return true;
+}
+
+function fpsUpdateClimb(dt){
+  const state=fpsClimbState;
+  if(!state)return false;
+
+  let dir=0;
+  if(fpsKeys.has('KeyW'))dir+=1;
+  if(fpsKeys.has('KeyS'))dir-=1;
+
+  camera.position.x=THREE.MathUtils.lerp(camera.position.x,state.baseWorld.x,Math.min(1,dt*10));
+  camera.position.z=THREE.MathUtils.lerp(camera.position.z,state.baseWorld.z,Math.min(1,dt*10));
+  camera.position.y+=dir*FPS_LADDER_SPEED*dt;
+
+  if(camera.position.y>=state.maxY-.03){
+    fpsFinishLadderTop();
+    return true;
+  }
+  if(camera.position.y<=state.minY+.03&&dir<0){
+    fpsFinishLadderBottom();
+    return true;
+  }
+
+  camera.position.y=THREE.MathUtils.clamp(camera.position.y,state.minY,state.maxY);
+  return true;
+}
+
+function fpsRoofPositionAllowed(position){
+  if(!fpsRoofState?.building)return true;
+  fpsInteractionTmp.copy(position);
+  fpsRoofState.building.worldToLocal(fpsInteractionTmp);
+  return (
+    Math.abs(fpsInteractionTmp.x)<=fpsRoofState.L*.5-.72 &&
+    Math.abs(fpsInteractionTmp.z)<=fpsRoofState.D*.5-.72
+  );
+}
+
+function fpsActivateInteraction(){
+  if(fpsClimbState){
+    const mid=(fpsClimbState.minY+fpsClimbState.maxY)*.5;
+    if(camera.position.y>=mid)fpsFinishLadderTop();
+    else fpsFinishLadderBottom();
+    return true;
+  }
+
+  const interaction=fpsFindNearestInteraction();
+  if(!interaction)return false;
+
+  if(interaction.type==='door'){
+    factoryInteriorsV84?.toggleDoor?.(interaction.door.index);
+    return true;
+  }
+
+  if(interaction.type==='ladder'){
+    return fpsStartLadder(interaction.ladder,interaction.fromTop);
+  }
+  return false;
+}
+
 function enterFirstPerson(){
   if(fpsMode){
     fpsButton?.blur();
