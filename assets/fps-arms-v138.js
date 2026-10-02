@@ -301,19 +301,19 @@ function makeGatling(materials){
 
 function makeAxeGripArm(side,materials,gripZ){
   const arm=new THREE.Group();
-  arm.name=side<0?'FPS_AXE_LEFT_IK_ARM_V157':'FPS_AXE_RIGHT_IK_ARM_V157';
+  arm.name=side<0?'FPS_AXE_LEFT_IK_ARM_V158':'FPS_AXE_RIGHT_IK_ARM_V158';
   arm.visible=false;
 
   const upper=makeDynamicSegment(
-    .078,.062,
+    .070,.057,
     materials.sleeve,
-    'FPS_AXE_IK_UPPER_V157',
+    'FPS_AXE_IK_UPPER_V158',
     18
   );
   const fore=makeDynamicSegment(
-    .062,.048,
-    materials.sleeveDark,
-    'FPS_AXE_IK_FOREARM_V157',
+    .057,.047,
+    materials.sleeve,
+    'FPS_AXE_IK_FOREARM_V158',
     18
   );
   const cuff=makeDynamicSegment(
@@ -327,15 +327,15 @@ function makeAxeGripArm(side,materials,gripZ){
   // Rounded root cap prevents any flat/cut sleeve end from becoming visible
   // during a fast slash.
   const shoulderCap=mesh(
-    new THREE.SphereGeometry(.078,14,10),
+    new THREE.SphereGeometry(.070,14,10),
     materials.sleeve,
-    'FPS_AXE_IK_SHOULDER_CAP_V157'
+    'FPS_AXE_IK_SHOULDER_CAP_V158'
   );
-  shoulderCap.scale.set(1.0,.82,1.0);
+  shoulderCap.scale.set(1.0,.78,1.0);
   arm.add(shoulderCap);
 
   const hand=makeHand(side,materials);
-  hand.name=side<0?'FPS_AXE_LEFT_IK_HAND_V157':'FPS_AXE_RIGHT_IK_HAND_V157';
+  hand.name=side<0?'FPS_AXE_LEFT_IK_HAND_V158':'FPS_AXE_RIGHT_IK_HAND_V158';
   hand.scale.set(1.05,1.05,1.05);
   arm.add(hand);
 
@@ -351,9 +351,9 @@ function makeAxeGripArm(side,materials,gripZ){
   // Shoulder anchors stay fixed near the lower corners of the camera-space
   // rig. Only elbow/wrist solve toward the animated axe handle.
   const shoulder=new THREE.Vector3(
-    side*.355,
-    -.410,
-    .285
+    side*.255,
+    -.585,
+    .385
   );
   const targetLocal=new THREE.Vector3(
     .020,
@@ -643,13 +643,13 @@ export function createThickerFpsArmsV138(){
 
     // Bend the elbow outward and slightly down. The shoulder remains fixed,
     // so no "arm stump" can be dragged through the center of the screen.
-    elbow.copy(d.shoulder).lerp(gripRoot,.53);
-    elbow.x+=d.side*.125;
-    elbow.y-=.018;
-    elbow.z+=.030;
+    elbow.copy(d.shoulder).lerp(gripRoot,.72);
+    elbow.x+=d.side*.055;
+    elbow.y-=.040;
+    elbow.z+=.045;
 
     foreDir.copy(gripRoot).sub(elbow).normalize();
-    cuffStart.copy(gripRoot).addScaledVector(foreDir,-.095);
+    cuffStart.copy(gripRoot).addScaledVector(foreDir,-.078);
 
     placeDynamicSegment(d.upper,d.shoulder,elbow);
     placeDynamicSegment(d.fore,elbow,cuffStart);
@@ -670,7 +670,7 @@ export function createThickerFpsArmsV138(){
     d.hand.quaternion.copy(axeQ).multiply(d.baseHandQ);
   }
 
-  root.userData.source='v157-sniper+gatling+axe-ik-viewmodels';
+  root.userData.source='v158-sniper+gatling+compact-axe-ik-viewmodels';
   root.userData.weapon='sniper';
   root.userData.sniper=sniper;
   root.userData.gatling=gatling;
