@@ -946,6 +946,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function signalQueueDemand(junction,routeId){
     let count=0,weighted=0;
     for(const agent of agents){
+      if(agent.manualControl===true)continue;
       if(agent.route.id!==routeId)continue;
       if(agent.service&&agent.service.phase!=='cruise')continue;
       const js=junction.routeS[routeId];
@@ -1278,6 +1279,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
     if(!svc)return true;
     const mergeS=svc.resumeS;
     for(const other of agents){
+      if(other.manualControl===true)continue;
       if(other===agent||other.route!==agent.route)continue;
       if(other.service&&other.service.phase!=='cruise')continue;
       const gap=Math.abs(other.s-mergeS);
@@ -1419,6 +1421,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function junctionConflictOccupants(junction,except=null){
     const found=[];
     for(const other of agents){
+      if(other.manualControl===true)continue;
       if(other===except)continue;
       if(other.service&&other.service.phase!=='cruise')continue;
       if(junction.routeS[other.route.id]===undefined)continue;
@@ -1439,6 +1442,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
   function approachLeader(candidate,junction){
     const mySigned=junctionSigned(candidate,junction);
     for(const other of agents){
+      if(other.manualControl===true)continue;
       if(other===candidate||other.route!==candidate.route||other.dir!==candidate.dir)continue;
       if(other.service&&other.service.phase!=='cruise')continue;
       const signed=junctionSigned(other,junction);
@@ -1454,6 +1458,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
   function updateJunctionWaits(dt){
     for(const agent of agents){
+      if(agent.manualControl===true)continue;
       for(const junction of junctions){
         const js=junction.routeS[agent.route.id];
         if(js===undefined)continue;
@@ -1493,6 +1498,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       const trial=THREE.MathUtils.clamp(js+owner.dir*offset,0,owner.route.total);
       let clear=true;
       for(const other of agents){
+        if(other.manualControl===true)continue;
         if(other===owner||other.route!==owner.route)continue;
         if(other.service&&other.service.phase!=='cruise')continue;
         if(Math.abs(other.s-trial)<Math.max(18,(other.length+owner.length)*.7)){
@@ -1683,6 +1689,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       let junctionStopDistance=Infinity;
       let serviceStopDistance=Infinity;
       for(const other of agents){
+        if(other.manualControl===true)continue;
         if(other===agent||other.route!==agent.route||other.dir!==agent.dir)continue;
         if(other.service&&other.service.phase!=='cruise')continue;
 
