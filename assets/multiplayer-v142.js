@@ -270,6 +270,28 @@ function makeRemotePlayer(peerId){
   axeWedge.position.set(.17,.015,.015);
   axeHeadRoot.add(axeWedge);
 
+  const axeUpperGripLocal=new THREE.Vector3(0,-.01,-.30);
+  const axeLowerGripLocal=new THREE.Vector3(0,-.01,.10);
+  const axeGripWorld=new THREE.Vector3();
+  const axeGripRoot=new THREE.Vector3();
+
+  function placeRemoteArmHandOnAxeGrip(arm,side,localGrip){
+    root.updateMatrixWorld(true);
+    axe.updateMatrixWorld(true);
+
+    axeGripWorld.copy(localGrip);
+    axe.localToWorld(axeGripWorld);
+    axeGripRoot.copy(axeGripWorld);
+    root.worldToLocal(axeGripRoot);
+
+    // Remote hand local coordinates are also (-side*.18,-.34,-.405).
+    arm.position.set(
+      axeGripRoot.x+side*.18,
+      axeGripRoot.y+.34,
+      axeGripRoot.z+.405
+    );
+  }
+
   root.add(axe);
 
   const tag=makeLabelSprite('P2 · '+peerId.slice(0,5).toUpperCase());
@@ -876,6 +898,16 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
       }
     }
 
+    if(axeActive){
+      placeRemoteArmHandOnAxeGrip(leftArm,-1,axeUpperGripLocal);
+      placeRemoteArmHandOnAxeGrip(rightArm,1,axeLowerGripLocal);
+    }else{
+      leftArm.position.x=-.31;
+      leftArm.position.z=-.02;
+      rightArm.position.x=.31;
+      rightArm.position.z=-.02;
+    }
+
     // V143 death pose: remote remains visible but collapses sideways until respawn.
     const deathTarget=alive?0:-Math.PI*.48;
     remote.root.rotation.z+= (deathTarget-remote.root.rotation.z)*Math.min(1,dt*7);
@@ -969,7 +1001,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:155,
+    version:156,
     get selfId(){return localSelfId;},
     join,
     leave,
