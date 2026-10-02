@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V128 LIVE SKINNED FPS ARMS</small>
+  <small>GitHub → Netlify · BUILD V129 DEDICATED ARM-ONLY GLB</small>
   <h1>Đa Lộc Industrial Cluster</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -53,7 +53,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { loadKenneyCharacterAssets, createAnimatedCharacterInstance } from './assets/real-assets-v105.js?v=1051';
+import { loadKenneyFpsArmsAssetV129, createAnimatedCharacterInstance } from './assets/real-assets-v105.js?v=129';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=121';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=1041';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
@@ -1516,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V128 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V129 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1713,20 +1713,19 @@ function fpsMesh(geometry,material,renderOrder=0){
   return mesh;
 }
 
-async function prepareFpsRealArmsV128(){
+async function prepareFpsRealArmsV129(){
   if(fpsRealArmsPromise)return fpsRealArmsPromise;
 
-  fpsRealArmsPromise=loadKenneyCharacterAssets()
-    .then(assets=>{
-      const source=createAnimatedCharacterInstance(assets?.male,{
-        name:'FPS_ARM_SOURCE_V128',
+  fpsRealArmsPromise=loadKenneyFpsArmsAssetV129()
+    .then(asset=>{
+      const source=createAnimatedCharacterInstance(asset,{
+        name:'FPS_ARM_ONLY_SOURCE_V129',
         clip:'holding-both',
         castShadow:false,
         receiveShadow:false
       });
-      if(!source?.model)throw new Error('Kenney male character unavailable');
+      if(!source?.model)throw new Error('Dedicated FPS arm GLB unavailable');
 
-      // Put the real rig into the authored two-arm ready pose.
       source.action?.reset?.();
       source.action?.play?.();
       source.mixer?.update?.(1/60);
@@ -1740,77 +1739,14 @@ async function prepareFpsRealArmsV128(){
       if(!bodyMesh){
         source.model.traverse(o=>{if(!bodyMesh&&o.isSkinnedMesh)bodyMesh=o;});
       }
-      if(!bodyMesh)throw new Error('Skinned body mesh unavailable');
+      if(!bodyMesh)throw new Error('Arm-only SkinnedMesh unavailable');
 
-      const geometry=bodyMesh.geometry;
-      const skinIndex=geometry.attributes.skinIndex;
-      const skinWeight=geometry.attributes.skinWeight;
-      const indexArray=geometry.index?.array||null;
-      if(!skinIndex||!skinWeight||!indexArray){
-        throw new Error('Character skin/index attributes unavailable');
-      }
-
-      const armBoneIds=new Set();
-      (bodyMesh.skeleton?.bones||[]).forEach((bone,index)=>{
-        if(/^arm-(left|right)$/i.test(bone.name||''))armBoneIds.add(index);
-      });
-      if(armBoneIds.size<2){
-        throw new Error('arm-left/arm-right bones unavailable');
-      }
-
-      function armWeight(vertexIndex){
-        let sum=0;
-        const ids=[
-          skinIndex.getX(vertexIndex),
-          skinIndex.getY(vertexIndex),
-          skinIndex.getZ(vertexIndex),
-          skinIndex.getW(vertexIndex)
-        ];
-        const ws=[
-          skinWeight.getX(vertexIndex),
-          skinWeight.getY(vertexIndex),
-          skinWeight.getZ(vertexIndex),
-          skinWeight.getW(vertexIndex)
-        ];
-        for(let i=0;i<4;i++)if(armBoneIds.has(ids[i]))sum+=ws[i];
-        return sum;
-      }
-
-      // Keep the ORIGINAL skinned geometry and skeleton. Only replace the index
-      // buffer, so the GPU still performs exactly the same bone deformation as the
-      // real character model. This avoids the V127 CPU vertex-bake failure path.
-      const kept=[];
-      const triCount=Math.floor(indexArray.length/3);
-      for(let t=0;t<triCount;t++){
-        const ia=indexArray[t*3],ib=indexArray[t*3+1],ic=indexArray[t*3+2];
-        const wa=armWeight(ia),wb=armWeight(ib),wc=armWeight(ic);
-        const avg=(wa+wb+wc)/3;
-        const strong=(wa>.50?1:0)+(wb>.50?1:0)+(wc>.50?1:0);
-        if(avg<.30||strong<1)continue;
-        kept.push(ia,ib,ic);
-      }
-      if(kept.length<60){
-        throw new Error('Arm triangle filter returned too little geometry');
-      }
-
-      const filtered=geometry.clone();
-      const IndexType=geometry.attributes.position.count>65535?Uint32Array:Uint16Array;
-      filtered.setIndex(new THREE.BufferAttribute(new IndexType(kept),1));
-      filtered.computeBoundingSphere();
-      bodyMesh.geometry=filtered;
-
-      // Hide every other mesh (head, accessories). The body SkinnedMesh remains
-      // alive but its index now contains only arm/hand polygons.
       source.model.traverse(o=>{
         if(!o.isMesh)return;
-        if(o!==bodyMesh){
-          o.visible=false;
-          return;
-        }
         const mats=Array.isArray(o.material)?o.material:[o.material];
         const cloned=mats.map(mat=>{
           const m=mat?.clone?.()||new THREE.MeshStandardMaterial({
-            color:0xd8a07a,roughness:.86
+            color:0xd7a07a,roughness:.86
           });
           m.depthTest=false;
           m.depthWrite=false;
@@ -1824,15 +1760,15 @@ async function prepareFpsRealArmsV128(){
         o.renderOrder=1010;
       });
 
-      source.wrapper.name='FPS_REAL_SKINNED_ARMS_V128';
+      source.wrapper.name='FPS_DEDICATED_ARM_ONLY_V129';
       source.wrapper.userData.ignoreFpsCollision=true;
       source.wrapper.visible=false;
 
-      // Normalized Kenney character is ~1.73 m. Scale/offset the whole live rig
-      // into camera space; the holding-both pose supplies the real arm silhouette.
-      source.wrapper.rotation.y=Math.PI;
-      source.wrapper.scale.setScalar(.66);
-      source.wrapper.position.set(0,-.78,-1.25);
+      // Arm-only model already uses the original character skeleton/weights.
+      // Keep it slightly below center like a normal unarmed FPS ready pose.
+      source.wrapper.rotation.set(-.08,Math.PI,0);
+      source.wrapper.scale.setScalar(.72);
+      source.wrapper.position.set(0,-.31,-1.16);
 
       buildFpsCharacterRig();
       fpsViewModel.add(source.wrapper);
@@ -1843,15 +1779,16 @@ async function prepareFpsRealArmsV128(){
       fpsRealArmsAction=source.action;
       fpsRealArmsReady=true;
       fpsRealArmsError=null;
-      fpsArmAssetMode='kenney-live-skinned-arms-v128';
+      fpsArmAssetMode='dedicated-arm-only-glb-v129';
 
+      // The old primitive glove is permanently disabled in V129.
       fpsLeftArmPivot.visible=false;
       fpsRightArmPivot.visible=false;
       if(fpsMode)fpsRealArmsRig.visible=true;
 
-      console.info('[DaLoc] V128 live skinned FPS arms ready',{
-        triangles:kept.length/3,
-        armBones:[...armBoneIds],
+      console.info('[DaLoc] V129 dedicated arm-only FPS GLB ready',{
+        triangles:bodyMesh.geometry?.index?.count/3||0,
+        clip:source.clip,
         mode:fpsArmAssetMode
       });
       return true;
@@ -1859,11 +1796,12 @@ async function prepareFpsRealArmsV128(){
     .catch(error=>{
       fpsRealArmsError=error;
       fpsRealArmsReady=false;
-      fpsArmAssetMode='procedural-fallback-error';
+      fpsArmAssetMode='arm-only-glb-error-hidden';
       if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
-      if(fpsLeftArmPivot)fpsLeftArmPivot.visible=fpsMode;
-      if(fpsRightArmPivot)fpsRightArmPivot.visible=fpsMode;
-      console.error('[DaLoc] V128 real FPS arm fallback',error);
+      // Never show the old grotesque procedural hands again.
+      if(fpsLeftArmPivot)fpsLeftArmPivot.visible=false;
+      if(fpsRightArmPivot)fpsRightArmPivot.visible=false;
+      console.error('[DaLoc] V129 FPS arm-only asset failed',error);
       return false;
     });
 
@@ -1903,7 +1841,7 @@ function buildFpsCharacterRig(){
   // Arms are a camera-relative first-person viewmodel: always readable at the
   // bottom of frame, independent from pitch/yaw and without entering collision.
   fpsViewModel=new THREE.Group();
-  fpsViewModel.name='FPS_VIEWMODEL_V128';
+  fpsViewModel.name='FPS_VIEWMODEL_V129';
   fpsViewModel.userData.ignoreFpsCollision=true;
   fpsViewModel.visible=false;
   scene.add(fpsViewModel);
@@ -1930,7 +1868,7 @@ function buildFpsCharacterRig(){
     // (-Z), slightly higher and closer to the center. This makes the forearm
     // visually point INTO the scene like an FPS viewmodel instead of toward camera.
     const root=new THREE.Group();
-    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_V128':'FPS_RIGHT_ARM_FALLBACK_V128';
+    root.name=side<0?'FPS_LEFT_ARM_FALLBACK_DISABLED_V129':'FPS_RIGHT_ARM_FALLBACK_DISABLED_V129';
     root.userData.ignoreFpsCollision=true;
 
     const shoulder=[side*.33,-.41,-.52];
@@ -2084,18 +2022,17 @@ function setFpsRigVisible(visible){
   fpsViewModel.visible=visible;
   fpsBodyRig.visible=visible;
 
+  // V129 never renders the old procedural glove, even on asset failure.
+  fpsLeftArmPivot.visible=false;
+  fpsRightArmPivot.visible=false;
+
   if(fpsRealArmsReady&&fpsRealArmsRig){
     fpsRealArmsRig.visible=visible;
-    fpsLeftArmPivot.visible=false;
-    fpsRightArmPivot.visible=false;
     return;
   }
 
-  // Do not flash the old capsule hand while the real GLB is loading.
-  const fallback=fpsArmAssetMode==='procedural-fallback-error';
-  fpsLeftArmPivot.visible=visible&&fallback;
-  fpsRightArmPivot.visible=visible&&fallback;
-  prepareFpsRealArmsV128();
+  if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
+  prepareFpsRealArmsV129();
 }
 
 function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
@@ -2128,14 +2065,14 @@ function updateFpsCharacterRig(dt,{moving=false,running=false}={}){
   if(fpsRealArmsReady&&fpsRealArmsRig){
     // One coherent skinned-derived mesh: sway the whole arm pair together.
     fpsRealArmsRig.position.set(
-      Math.sin(phase)*.0045*blend,
-      -.78-Math.abs(Math.sin(phase*2))*.0065*blend+(airborne?.010:0),
-      -1.25
+      Math.sin(phase)*.0040*blend,
+      -.31-Math.abs(Math.sin(phase*2))*.0060*blend+(airborne?.008:0),
+      -1.16
     );
     fpsRealArmsRig.rotation.set(
-      airborne?.018:0,
+      -.08+(airborne?.016:0),
       Math.PI,
-      Math.sin(phase)*.008*runMul*blend
+      Math.sin(phase)*.0065*runMul*blend
     );
   }else{
     const swing=.018*runMul*blend;
@@ -2589,7 +2526,7 @@ function restoreFpsRenderProfile(){
 
 // Start loading the real skinned arm asset during normal overview mode so FPS
 // usually enters with the final arm mesh already prepared.
-prepareFpsRealArmsV128();
+prepareFpsRealArmsV129();
 
 function enterFirstPerson(){
   if(fpsMode){
@@ -2786,8 +2723,8 @@ function updateFirstPerson(dt){
   controls.target.copy(camera.position).addScaledVector(lookDir,12);
 }
 
-window.__DALOC_FPS_V128={
-  version:128,
+window.__DALOC_FPS_V129={
+  version:129,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -2806,6 +2743,7 @@ window.__DALOC_FPS_V128={
   get approvedLookPx(){return {x:343.50,y:1492.90};},
   get bodyRigVisible(){return !!fpsBodyRig?.visible;},
   get armAssetMode(){return fpsArmAssetMode;},
+  get armAssetPath(){return './assets/models/kenney/fps-arms-male-a.glb';},
   get realArmsReady(){return fpsRealArmsReady;},
   get realArmsError(){return fpsRealArmsError?.message||null;},
   get realArmsTriangles(){return fpsRealArmsMesh?.geometry?.index?.count/3||0;},
