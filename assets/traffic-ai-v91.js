@@ -1399,6 +1399,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       (agent.type==='container'?8:agent.type==='cargo'?6:4);
 
     for(const other of agents){
+      if(other.manualControl===true)continue;
       if(other===agent||other.route!==agent.route||other.dir!==agent.dir)continue;
       if(other.service&&other.service.phase!=='cruise')continue;
 
@@ -1557,6 +1558,11 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
       if(junction.owner){
         const owner=junction.owner;
 
+        if(owner.manualControl===true){
+          releaseJunction(junction,owner);
+          continue;
+        }
+
         if(owner.service&&owner.service.phase!=='cruise'){
           releaseJunction(junction,owner);
           continue;
@@ -1604,6 +1610,7 @@ export async function installTrafficAIV91({world,mapPx,frameSignature,factoryAcc
 
       const candidates=[];
       for(const candidate of agents){
+        if(candidate.manualControl===true)continue;
         if(candidate.service&&candidate.service.phase!=='cruise')continue;
         const js=junction.routeS[candidate.route.id];
         if(js===undefined)continue;
