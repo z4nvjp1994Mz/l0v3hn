@@ -166,7 +166,7 @@ export function installSolarRoofZoneV94({
     const root=new THREE.Group();
     root.name='V1471_SOLAR_TWO_STOREY_FACTORY_'+String(factoryIndex+1).padStart(2,'0');
     root.userData={
-      version:147.1,
+      version:147.3,
       factoryIndex,
       role:'actual-two-storey-solar-industrial-building',
       floors:2,
@@ -199,13 +199,28 @@ export function installSolarRoofZoneV94({
     const stairCoreX=stairSide*(L*.5-stairCoreW*.62-1.2);
     const stairCoreZ=D*.20;
 
+    // V147.3: derive the slab opening from the ACTUAL stair footprint rather
+    // than the much larger architectural stairCoreD. The old opening extended
+    // several metres beyond the final upper step, producing the visible void.
+    const flightSteps=8;
+    const totalSteps=flightSteps*2;
+    const stairW=Math.min(2.2,stairCoreW*.38);
+    const run=Math.min(3.9,stairCoreD*.39);
+    const stepD=run/flightSteps;
+    const rise=splitY/totalSteps;
+    const landingDepth=Math.max(2.55,stairW*1.28);
+    const topLandingDepth=Math.max(2.15,stairW*1.08);
+    const holeHalfW=stairW*1.45;
+    const holeRear=run*.5+landingDepth*.58;
+    const holeFront=run*.5+topLandingDepth;
+
     const slabT=.26;
     const leftEdge=-L*.46,rightEdge=L*.46;
     const backEdge=-D*.44,frontEdge=D*.44;
-    const holeX0=stairCoreX-stairCoreW*.55;
-    const holeX1=stairCoreX+stairCoreW*.55;
-    const holeZ0=stairCoreZ-stairCoreD*.55;
-    const holeZ1=stairCoreZ+stairCoreD*.55;
+    const holeX0=stairCoreX-holeHalfW;
+    const holeX1=stairCoreX+holeHalfW;
+    const holeZ0=stairCoreZ-holeRear;
+    const holeZ1=stairCoreZ+holeFront;
 
     const slabParts=[
       {x:(leftEdge+holeX0)/2,z:0,w:Math.max(.2,holeX0-leftEdge),d:frontEdge-backEdge},
@@ -297,12 +312,8 @@ export function installSolarRoofZoneV94({
     };
     root.add(stairRoot);
 
-    const totalSteps=16;
-    const flightSteps=8;
-    const stairW=Math.min(2.2,stairCoreW*.38);
-    const run=Math.min(3.9,stairCoreD*.39);
-    const stepD=run/flightSteps;
-    const rise=splitY/totalSteps;
+    // Flight geometry uses the same dimensions that define the slab opening,
+    // so the visual stair and walkable surface cannot drift apart.
 
     // Flight 1: ground -> half landing, moving toward rear.
     for(let i=0;i<flightSteps;i++){
@@ -319,11 +330,18 @@ export function installSolarRoofZoneV94({
       stairRoot.add(step);
     }
 
+    // Enlarged half landing: wide enough for a natural 180-degree turn and
+    // visibly connects both flights instead of reading as a tiny shelf.
+    const landingThickness=.22;
     const landing=new THREE.Mesh(
-      new THREE.BoxGeometry(stairW*2.45,.18,1.55),
+      new THREE.BoxGeometry(stairW*2.72,landingThickness,landingDepth),
       floorSlabMat
     );
-    landing.position.set(0,splitY*.50,-run*.52);
+    landing.position.set(
+      0,
+      splitY*.50-landingThickness*.5,
+      -run*.50
+    );
     markArchitecturalDetail(landing,factoryIndex);
     stairRoot.add(landing);
 
@@ -340,6 +358,36 @@ export function installSolarRoofZoneV94({
       );
       markArchitecturalDetail(step,factoryIndex);
       stairRoot.add(step);
+    }
+
+    // Full-size upper landing bridges the last step directly into the
+    // second-floor slab. This closes the multi-metre void visible in V147.2.
+    const topLandingThickness=.22;
+    const topLanding=new THREE.Mesh(
+      new THREE.BoxGeometry(stairW*1.34,topLandingThickness,topLandingDepth+.18),
+      floorSlabMat
+    );
+    topLanding.position.set(
+      stairW*.62,
+      splitY+.14-topLandingThickness*.5,
+      run*.50+topLandingDepth*.50-.05
+    );
+    markArchitecturalDetail(topLanding,factoryIndex);
+    stairRoot.add(topLanding);
+
+    // Side guard at the open edge of the upper landing.
+    for(const xOff of [-stairW*.70,stairW*.70]){
+      const upperRail=new THREE.Mesh(
+        new THREE.BoxGeometry(.08,1.02,topLandingDepth+.06),
+        balconyMat
+      );
+      upperRail.position.set(
+        stairW*.62+xOff,
+        splitY+.62,
+        run*.50+topLandingDepth*.50-.05
+      );
+      markArchitecturalDetail(upperRail,factoryIndex);
+      stairRoot.add(upperRail);
     }
 
     // Internal stair guard walls / rails stay inside the stair core.
@@ -377,6 +425,8 @@ export function installSolarRoofZoneV94({
       stairCoreD,
       stairW,
       run,
+      landingDepth,
+      topLandingDepth,
       leftEdge,
       rightEdge,
       backEdge,
@@ -562,10 +612,10 @@ export function installSolarRoofZoneV94({
         surface='flight-1';
       }
 
-      // Half landing.
+      // Half landing matches the enlarged physical platform.
       if(
-        Math.abs(lx)<=stair.stairW*1.28 &&
-        Math.abs(lz+runHalf)<=.92
+        Math.abs(lx)<=stair.stairW*1.38 &&
+        Math.abs(lz+runHalf)<=stair.landingDepth*.52
       ){
         localHeight=stair.splitY*.5;
         surface='landing';
@@ -579,6 +629,17 @@ export function installSolarRoofZoneV94({
         const t=THREE.MathUtils.clamp((lz+runHalf)/Math.max(.01,stair.run),0,1);
         localHeight=stair.splitY*.5+t*stair.splitY*.5;
         surface='flight-2';
+      }
+
+      // Upper landing bridges the second flight to the floor slab.
+      if(
+        Math.abs(lx-stair.stairW*.62)<=stair.stairW*.76 &&
+        lz>=runHalf-.12 &&
+        lz<=runHalf+stair.topLandingDepth+.12 &&
+        currentLocalY>=stair.splitY-.90
+      ){
+        localHeight=stair.splitY+.14;
+        surface='top-landing';
       }
 
       // Actual second-floor slab. Only acquire it when already near upper-floor
@@ -647,7 +708,7 @@ export function installSolarRoofZoneV94({
   };
 
   window.__DALOC_SOLAR_ROOFS_V94=controller;
-  console.info('[DaLoc] V147.1 actual two-storey solar industrial zone installed',{
+  console.info('[DaLoc] V147.3 corrected stair landings + floor connection installed',{
     factories:controller.factoryCount,
     tables:tableCount,
     moduleEquivalent
