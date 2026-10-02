@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V144-third-person-toggle">
+<meta name="daloc-build" content="V145-drivable-traffic-cars">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -52,7 +52,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V144 FPS + THIRD PERSON</small>
+  <small>GitHub → Netlify · BUILD V145 FPS + THIRD PERSON + DRIVABLE CARS</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -76,7 +76,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · V đổi 1P/3P · WASD · Shift chạy · Ctrl crouch · RMB aim · LMB bắn · 2 hit = die · Space nhảy · E tương tác · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · V đổi camera · WASD · Shift chạy · Ctrl crouch · RMB aim · LMB bắn · Space nhảy/handbrake · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V84: detailed factory interiors + factory/yard/sidewalk pedestrian navigation</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -84,6 +84,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createThickerFpsArmsV138 } from './assets/fps-arms-v138.js?v=140';
 import { createThirdPersonPlayerV144 } from './assets/fps-third-person-v144.js?v=144';
+import { createPlayerVehicleControllerV145 } from './assets/player-vehicle-v145.js?v=145';
 import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=1433';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=1392';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
@@ -1643,7 +1644,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V144 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V145 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1795,6 +1796,16 @@ let fpsSavedView=null;
 let fpsVerticalVelocity=0;
 let fpsGrounded=true;
 let fpsSavedCadBoundaryVisibility=null;
+let fpsVehicleMode=false;
+let fpsVehicleViewMode='third';
+let fpsVehicleController=null;
+const fpsVehicleCamera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.10,5000);
+const fpsVehicleCamTarget=new THREE.Vector3();
+const fpsVehicleCamDesired=new THREE.Vector3();
+const fpsVehicleCamForward=new THREE.Vector3();
+const fpsVehicleCamRight=new THREE.Vector3();
+const fpsVehicleCollisionProbe=new THREE.Vector3();
+const fpsVehicleExitProbe=new THREE.Vector3();
 
 function hideCadBoundaryForFps(){
   const boundary=window.__DALOC_V72?.boundaryGroup;
@@ -3282,9 +3293,201 @@ function fpsDistanceToPoint(point){
   return point?camera.position.distanceTo(point):Infinity;
 }
 
+function ensurePlayerVehicleControllerV145(){
+  if(fpsVehicleController)return fpsVehicleController;
+  fpsVehicleController=createPlayerVehicleControllerV145({
+    getAgents:()=>trafficController?.agents||window.__DALOC_TRAFFIC_V91?.agents||[],
+    collisionTest:(position,yaw,agent)=>{
+      const halfW=agent?.type==='supercar'?1.10:1.03;
+      const halfL=Math.max(2.1,(agent?.length||4.3)*.5);
+      const c=Math.cos(yaw),sn=Math.sin(yaw);
+      const probes=[
+        [ halfW, halfL],[ -halfW, halfL],
+        [ halfW,-halfL],[ -halfW,-halfL],
+        [0,halfL+.35],[0,-halfL-.35]
+      ];
+      for(const [lx,lz] of probes){
+        fpsVehicleCollisionProbe.set(
+          position.x+lx*c+lz*sn,
+          1.05,
+          position.z-lx*sn+lz*c
+        );
+        if(fpsStaticBlocked(fpsVehicleCollisionProbe,1.05,1.85)||fpsDoorBlocked(fpsVehicleCollisionProbe)){
+          return true;
+        }
+      }
+      return false;
+    }
+  });
+  window.__DALOC_PLAYER_VEHICLE_V145=fpsVehicleController;
+  return fpsVehicleController;
+}
+
+function fpsNearestDrivableVehicle(maxDistance=4.6){
+  const ctl=ensurePlayerVehicleControllerV145();
+  const feet=fpsVehicleExitProbe.copy(camera.position);
+  feet.y=0;
+  return ctl.nearest(feet,maxDistance);
+}
+
+function fpsSetVehicleVisibility(){
+  if(fpsRealArmsRig)fpsRealArmsRig.visible=false;
+  if(fpsViewModel)fpsViewModel.visible=false;
+  if(fpsBodyRig)fpsBodyRig.visible=false;
+  if(fpsThirdPersonAvatar?.root)fpsThirdPersonAvatar.root.visible=false;
+  document.body.classList.remove('fps-aiming','fps-third-person');
+}
+
+function fpsEnterVehicle(agent){
+  if(!fpsAlive||fpsClimbState||fpsRoofState||fpsVehicleMode)return false;
+  const ctl=ensurePlayerVehicleControllerV145();
+  if(!ctl.enter(agent))return false;
+  fpsVehicleMode=true;
+  fpsVehicleViewMode='third';
+  fpsKeys.clear();
+  fpsAimHeld=false;
+  fpsAiming=false;
+  fpsAimAmount=0;
+  fpsVerticalVelocity=0;
+  fpsGrounded=true;
+  fpsSetVehicleVisibility();
+  if(fpsButton)fpsButton.textContent='FPS Drive: 3P';
+  return true;
+}
+
+function fpsExitVehicle(){
+  if(!fpsVehicleMode)return false;
+  const ctl=ensurePlayerVehicleControllerV145();
+  const parked=ctl.park();
+  fpsVehicleMode=false;
+  fpsVehicleViewMode='third';
+  fpsKeys.clear();
+
+  if(parked?.position){
+    const vehicle=parked.vehicle;
+    const yaw=parked.yaw||0;
+    const rightX=Math.cos(yaw),rightZ=-Math.sin(yaw);
+    const candidates=[
+      parked.position.clone(),
+      parked.position.clone().add(new THREE.Vector3(rightX*1.4,0,rightZ*1.4)),
+      parked.position.clone().add(new THREE.Vector3(-rightX*3.0,0,-rightZ*3.0))
+    ];
+    let placed=false;
+    for(const p of candidates){
+      p.y=FPS_EYE_HEIGHT;
+      if(!fpsStaticBlocked(p,FPS_EYE_HEIGHT,FPS_PLAYER_HEIGHT)&&!fpsDoorBlocked(p)){
+        camera.position.copy(p);
+        placed=true;
+        break;
+      }
+    }
+    if(!placed&&vehicle){
+      camera.position.set(vehicle.position.x,FPS_EYE_HEIGHT,vehicle.position.z);
+    }
+  }
+  fpsGroundLevel=0;
+  fpsGrounded=true;
+  fpsVerticalVelocity=0;
+  fpsHasSafePosition=false;
+  fpsSetViewMode('third',{snap:true});
+  fpsApplyViewModeVisibility();
+  if(fpsButton)fpsButton.textContent='FPS Walk: 3P';
+  return true;
+}
+
+function fpsToggleVehicleView(){
+  if(!fpsVehicleMode)return false;
+  fpsVehicleViewMode=fpsVehicleViewMode==='first'?'third':'first';
+  if(fpsButton)fpsButton.textContent='FPS Drive: '+(fpsVehicleViewMode==='first'?'1P':'3P');
+  return true;
+}
+
+function fpsUpdateVehicleCamera(dt,{snap=false}={}){
+  if(!fpsVehicleMode)return;
+  const ctl=ensurePlayerVehicleControllerV145();
+  const vehicle=ctl.vehicle;
+  if(!vehicle)return;
+
+  const yaw=vehicle.rotation.y;
+  fpsVehicleCamForward.set(Math.sin(yaw),0,Math.cos(yaw)).normalize();
+  fpsVehicleCamRight.set(Math.cos(yaw),0,-Math.sin(yaw)).normalize();
+
+  if(fpsVehicleViewMode==='first'){
+    camera.position.copy(vehicle.position)
+      .addScaledVector(fpsVehicleCamForward,.38);
+    camera.position.y=1.55;
+    camera.rotation.set(fpsPitch,yaw,0,'YXZ');
+    return;
+  }
+
+  const orbitYaw=fpsYaw;
+  const orbitForward=fpsVehicleCamForward.set(Math.sin(orbitYaw),0,Math.cos(orbitYaw)).normalize();
+  const distance=8.4;
+  fpsVehicleCamTarget.copy(vehicle.position);
+  fpsVehicleCamTarget.y=1.25;
+  fpsVehicleCamDesired.copy(fpsVehicleCamTarget)
+    .addScaledVector(orbitForward,-distance);
+  fpsVehicleCamDesired.y+=3.15+THREE.MathUtils.clamp(-fpsPitch*1.8,-1.0,1.8);
+
+  const ray=fpsThirdRayDir.copy(fpsVehicleCamDesired).sub(fpsVehicleCamTarget);
+  const rayDistance=ray.length();
+  if(rayDistance>.001){
+    ray.multiplyScalar(1/rayDistance);
+    fpsThirdCameraRaycaster.set(fpsVehicleCamTarget,ray);
+    fpsThirdCameraRaycaster.near=.10;
+    fpsThirdCameraRaycaster.far=rayDistance;
+    const roots=world.children.filter(child=>child!==vehicle&&child?.name!=='MULTIPLAYER_V142');
+    const hit=fpsThirdCameraRaycaster.intersectObjects(roots,true).find(fpsThirdCameraHitAllowed);
+    if(hit&&hit.distance<rayDistance){
+      fpsVehicleCamDesired.copy(fpsVehicleCamTarget)
+        .addScaledVector(ray,Math.max(1.25,hit.distance-.35));
+    }
+  }
+
+  const alpha=snap?1:(1-Math.exp(-Math.max(0,dt)*9));
+  fpsVehicleCamera.position.lerp(fpsVehicleCamDesired,alpha);
+  fpsVehicleCamera.lookAt(fpsVehicleCamTarget);
+}
+
+function fpsUpdateVehicleMode(dt){
+  if(!fpsVehicleMode)return false;
+  fpsUpdateCombatState(dt);
+  fpsAimHeld=false;
+  fpsAiming=false;
+  fpsAimAmount=0;
+  fpsSetVehicleVisibility();
+
+  const ctl=ensurePlayerVehicleControllerV145();
+  ctl.update(dt,{keys:fpsKeys});
+  const vehicle=ctl.vehicle;
+  if(!vehicle){
+    fpsVehicleMode=false;
+    return false;
+  }
+
+  fpsUpdateVehicleCamera(dt);
+  fpsUpdateInteractionPrompt();
+
+  if(fpsVehicleViewMode==='third'){
+    camera.position.copy(vehicle.position);
+    camera.position.y=1.55;
+  }
+  controls.target.copy(vehicle.position);
+  controls.target.y=1.1;
+  return true;
+}
+
 function fpsFindNearestInteraction(){
   let best=null;
   let bestDist=FPS_INTERACT_DISTANCE;
+
+  if(!fpsVehicleMode&&!fpsClimbState&&!fpsRoofState){
+    const drive=fpsNearestDrivableVehicle(4.6);
+    if(drive&&drive.distance<bestDist){
+      bestDist=drive.distance;
+      best={type:'vehicle',agent:drive.agent,vehicle:drive.vehicle,dist:drive.distance};
+    }
+  }
 
   // Interactive factory doors.
   for(const d of factoryInteriorsV84?.doors||[]){
@@ -3319,6 +3522,12 @@ function fpsUpdateInteractionPrompt(){
     fpsInteractPrompt.classList.add('active');
     return;
   }
+  if(fpsVehicleMode){
+    fpsCurrentInteraction={type:'vehicle-active',agent:ensurePlayerVehicleControllerV145().agent};
+    fpsInteractPrompt.textContent='E · Xuống xe · V đổi camera · W/S ga-lùi · A/D lái · Space handbrake';
+    fpsInteractPrompt.classList.add('active');
+    return;
+  }
 
   fpsCurrentInteraction=fpsFindNearestInteraction();
   if(!fpsCurrentInteraction){
@@ -3327,7 +3536,11 @@ function fpsUpdateInteractionPrompt(){
     return;
   }
 
-  if(fpsCurrentInteraction.type==='door'){
+  if(fpsVehicleMode){
+    fpsInteractPrompt.textContent='E · Xuống xe · V đổi camera · W/S ga-lùi · A/D lái · Space handbrake';
+  }else if(fpsCurrentInteraction.type==='vehicle'){
+    fpsInteractPrompt.textContent='E · Lái / cướp '+(fpsCurrentInteraction.agent?.type==='supercar'?'siêu xe':'ô tô');
+  }else if(fpsCurrentInteraction.type==='door'){
     const d=fpsCurrentInteraction.door;
     const profile=factoryInteriorsV84?.factoryProfiles?.find?.(p=>p.index===d.factoryIndex);
     const label=profile?.archetype?(' · '+profile.archetype.replaceAll('-',' ')):'';
@@ -3450,6 +3663,7 @@ function fpsRoofPositionAllowed(position){
 
 function fpsActivateInteraction(){
   if(!fpsAlive)return false;
+  if(fpsVehicleMode)return fpsExitVehicle();
   if(fpsClimbState){
     const mid=(fpsClimbState.minY+fpsClimbState.maxY)*.5;
     if(camera.position.y>=mid)fpsFinishLadderTop();
@@ -3459,6 +3673,10 @@ function fpsActivateInteraction(){
 
   const interaction=fpsFindNearestInteraction();
   if(!interaction)return false;
+
+  if(interaction.type==='vehicle'){
+    return fpsEnterVehicle(interaction.agent);
+  }
 
   if(interaction.type==='door'){
     factoryInteriorsV84?.toggleDoor?.(interaction.door.index);
@@ -3485,6 +3703,8 @@ function enterFirstPerson(){
   };
   fpsBaseFov=camera.fov;
   fpsMode=true;
+  fpsVehicleMode=false;
+  fpsVehicleViewMode='third';
   fpsViewMode='first';
   document.body.classList.remove('fps-third-person');
   fpsKeys.clear();
@@ -3551,7 +3771,12 @@ function enterFirstPerson(){
 
 function exitFirstPerson(restore=true){
   if(!fpsMode)return;
+  if(fpsVehicleMode){
+    ensurePlayerVehicleControllerV145().park();
+    fpsVehicleMode=false;
+  }
   fpsMode=false;
+  fpsVehicleViewMode='third';
   fpsViewMode='first';
   document.body.classList.remove('fps-third-person');
   fpsKeys.clear();
@@ -3617,7 +3842,7 @@ renderer.domElement.addEventListener('contextmenu',e=>{
   if(fpsMode)e.preventDefault();
 });
 renderer.domElement.addEventListener('mousedown',e=>{
-  if(!fpsMode||!fpsAlive)return;
+  if(!fpsMode||!fpsAlive||fpsVehicleMode)return;
   if(e.button===2){
     e.preventDefault();
     if(document.pointerLockElement!==renderer.domElement){
@@ -3675,7 +3900,10 @@ window.addEventListener('keydown',e=>{
   if(e.code==='KeyV'){
     e.preventDefault();
     e.stopPropagation();
-    if(!e.repeat)fpsToggleViewMode();
+    if(!e.repeat){
+      if(fpsVehicleMode)fpsToggleVehicleView();
+      else fpsToggleViewMode();
+    }
     return;
   }
 
@@ -3697,6 +3925,10 @@ window.addEventListener('keydown',e=>{
     e.preventDefault();
     e.stopPropagation();
     fpsButton?.blur();
+    if(fpsVehicleMode){
+      fpsKeys.add('Space');
+      return;
+    }
     if(!e.repeat&&fpsGrounded&&!fpsClimbState){
       fpsVerticalVelocity=FPS_JUMP_SPEED;
       fpsGrounded=false;
@@ -3718,6 +3950,7 @@ window.addEventListener('keyup',e=>{
     return;
   }
   if(fpsMode&&e.code==='Space'){
+    fpsKeys.delete('Space');
     e.preventDefault();
     e.stopPropagation();
     return;
@@ -3978,6 +4211,10 @@ function fpsUpdateScope(dt){
 
 function updateFirstPerson(dt){
   if(!fpsMode)return;
+  if(fpsVehicleMode){
+    fpsUpdateVehicleMode(dt);
+    return;
+  }
 
   fpsUpdateCombatState(dt);
   fpsUpdateScope(dt);
@@ -4101,6 +4338,10 @@ const fpsApiV139={
   get weapon(){return fpsRealArmsRig?.userData?.weapon||'none';},
   get viewMode(){return fpsViewMode;},
   toggleViewMode:fpsToggleViewMode,
+  get vehicleMode(){return fpsVehicleMode;},
+  get vehicleViewMode(){return fpsVehicleViewMode;},
+  get vehicle(){return ensurePlayerVehicleControllerV145().state();},
+  exitVehicle:fpsExitVehicle,
   get aiming(){return fpsAiming;},
   get aimAmount(){return Number(fpsAimAmount.toFixed(3));},
   get scopeFov(){return Number(camera.fov.toFixed(2));},
@@ -4231,7 +4472,7 @@ let lastFrameTime=performance.now();
   if(fpsMode)updateFirstPerson(dt);else controls.update();
 
   multiplayerV142?.updateLocal?.({
-    active:fpsMode,
+    active:fpsMode&&!fpsVehicleMode,
     x:camera.position.x,
     y:camera.position.y-(fpsMode?fpsCurrentEyeHeight():0),
     z:camera.position.z,
@@ -4246,9 +4487,9 @@ let lastFrameTime=performance.now();
 
   fpsUpdateProjectiles(dt);
   visualQualityV102.update();
-  const activeRenderCamera=(fpsMode&&fpsViewMode==='third')
-    ?fpsThirdPersonCamera
-    :camera;
+  const activeRenderCamera=fpsMode&&fpsVehicleMode
+    ?(fpsVehicleViewMode==='third'?fpsVehicleCamera:camera)
+    :(fpsMode&&fpsViewMode==='third'?fpsThirdPersonCamera:camera);
   visualQualityV102.setRenderCamera?.(activeRenderCamera);
   const d=activeRenderCamera.position.distanceTo(controls.target);
   world.traverse(o=>{
@@ -4258,7 +4499,7 @@ let lastFrameTime=performance.now();
 
   // V131 dedicated FPS arm pass. Preserve world color, clear only depth, then
   // draw the first-person arms with their own camera and lighting.
-  if(fpsMode&&fpsViewMode==='first'&&fpsRealArmsRig?.visible){
+  if(fpsMode&&!fpsVehicleMode&&fpsViewMode==='first'&&fpsRealArmsRig?.visible){
     const previousAutoClear=renderer.autoClear;
     renderer.autoClear=false;
     renderer.clearDepth();
@@ -4274,6 +4515,8 @@ addEventListener('resize',()=>{
   camera.updateProjectionMatrix();
   fpsThirdPersonCamera.aspect=innerWidth/innerHeight;
   fpsThirdPersonCamera.updateProjectionMatrix();
+  fpsVehicleCamera.aspect=innerWidth/innerHeight;
+  fpsVehicleCamera.updateProjectionMatrix();
   fpsArmOverlayCamera.aspect=innerWidth/innerHeight;
   fpsArmOverlayCamera.updateProjectionMatrix();
   renderer.setSize(innerWidth,innerHeight);
