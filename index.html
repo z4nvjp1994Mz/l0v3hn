@@ -24,7 +24,7 @@ body.fps-mode #fpsCrosshair,body.fps-mode #fpsHud{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V138.4 RETRACTED FPS ARMS</small>
+  <small>GitHub → Netlify · BUILD V138.5 FPS ROAD COLLISION FIX</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1516,7 +1516,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V138.4 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V138.5 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -1697,6 +1697,7 @@ let fpsExteriorTreeVisibility=null;
 const fpsLastSafePosition=new THREE.Vector3();
 let fpsHasSafePosition=false;
 let fpsLastBlockReason='none';
+let fpsLastBlockObject='none';
 
 // V124 corrected FPS first-person body/viewmodel.
 let fpsViewModel=null;
@@ -2154,6 +2155,33 @@ function fpsIsDynamicObject(object){
   return false;
 }
 
+function fpsTreeRootFor(object){
+  for(let o=object;o;o=o.parent){
+    if(o.userData?.isTreeGroup)return o;
+  }
+  return null;
+}
+
+function fpsIsWalkableSurface(object){
+  for(let o=object;o;o=o.parent){
+    if(o.userData?.walkable===true)return true;
+    const layer=String(o.userData?.layer||'').toLowerCase();
+    if(['carriageway','sidewalk','greenbelt','curb'].includes(layer))return true;
+  }
+
+  const n=object.name||'';
+  if(
+    /^V72_CAD_(ROAD|JOIN|JUNCTION)_/i.test(n) ||
+    /^V99_(CAD_ACCESS|FACTORY_DRIVEWAY)/i.test(n) ||
+    /^V53_(CARRIAGEWAY|SIDEWALK|GREENBELT|CURB)$/i.test(n) ||
+    /ROAD_PAINT|ROAD_DASH|EDGE_LINE|LANE/i.test(n)
+  )return true;
+
+  const mat=Array.isArray(object.material)?object.material[0]:object.material;
+  if(mat?.transparent&&Number(mat.opacity)<=.05)return true;
+  return false;
+}
+
 function fpsGridKey(ix,iz){return ix+','+iz;}
 
 function refreshFpsStaticColliders(){
@@ -2170,6 +2198,9 @@ function refreshFpsStaticColliders(){
   const instanceMatrix=new THREE.Matrix4();
   const instanceWorld=new THREE.Matrix4();
   const instancedBatches=new Map();
+  const registeredTreeRoots=new Set();
+  const treeWorldPos=new THREE.Vector3();
+  const treeWorldScale=new THREE.Vector3();
 
   function inExteriorForest(object){
     for(let o=object;o;o=o.parent)if(o.name==='EXTERIOR_FOREST_V78')return true;
@@ -2226,9 +2257,64 @@ function refreshFpsStaticColliders(){
     addToGrid(id,collider.worldBox);
   }
 
+  function registerTreeTrunkCollider(treeRoot){
+    if(!treeRoot||registeredTreeRoots.has(treeRoot.uuid))return;
+    registeredTreeRoots.add(treeRoot.uuid);
+    treeRoot.getWorldPosition(treeWorldPos);
+    treeRoot.getWorldScale(treeWorldScale);
+    const planar=Math.max(.65,Math.max(Math.abs(treeWorldScale.x),Math.abs(treeWorldScale.z)));
+    const vertical=Math.max(.65,Math.abs(treeWorldScale.y));
+    const radius=.38*planar;
+    const box=new THREE.Box3(
+      new THREE.Vector3(treeWorldPos.x-radius,treeWorldPos.y-.08,treeWorldPos.z-radius),
+      new THREE.Vector3(treeWorldPos.x+radius,treeWorldPos.y+3.15*vertical,treeWorldPos.z+radius)
+    );
+    registerWorldBoxCollider(treeRoot,box);
+  }
+
+  function registerInstancedBoulevardTrunks(object){
+    if(!object?.isInstancedMesh||!/_PART_0$/i.test(object.name||''))return;
+    const count=object.count||0;
+    const ip=new THREE.Vector3();
+    const iq=new THREE.Quaternion();
+    const iscale=new THREE.Vector3();
+    for(let i=0;i<count;i++){
+      object.getMatrixAt(i,instanceMatrix);
+      if(
+        Math.abs(instanceMatrix.elements[0])<1e-6&&
+        Math.abs(instanceMatrix.elements[5])<1e-6&&
+        Math.abs(instanceMatrix.elements[10])<1e-6
+      )continue;
+      instanceWorld.multiplyMatrices(object.matrixWorld,instanceMatrix);
+      instanceWorld.decompose(ip,iq,iscale);
+      const planar=Math.max(.65,Math.max(Math.abs(iscale.x),Math.abs(iscale.z)));
+      const vertical=Math.max(.65,Math.abs(iscale.y));
+      const radius=.38*planar;
+      const box=new THREE.Box3(
+        new THREE.Vector3(ip.x-radius,ip.y-.08,ip.z-radius),
+        new THREE.Vector3(ip.x+radius,ip.y+3.15*vertical,ip.z+radius)
+      );
+      registerWorldBoxCollider(object,box);
+    }
+  }
+
   scene.traverse(object=>{
     if(!object.isMesh||!object.geometry)return;
     if(!fpsObjectVisible(object)||fpsIsDynamicObject(object))return;
+    if(fpsIsWalkableSurface(object))return;
+
+    // V138.5: never collide against the full branch/crown envelope. That created
+    // invisible walls under roadside canopies. Normal trees get a compact trunk
+    // collider; the instanced V121 boulevard gets one trunk box per instance.
+    const treeRoot=fpsTreeRootFor(object);
+    if(treeRoot){
+      registerTreeTrunkCollider(treeRoot);
+      return;
+    }
+    if(/^V121_MAIN_ROAD_LUSH_TREES_PART_/i.test(object.name||'')){
+      registerInstancedBoulevardTrunks(object);
+      return;
+    }
 
     if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();
     const geometryBox=object.geometry.boundingBox;
@@ -2270,7 +2356,7 @@ function refreshFpsStaticColliders(){
   }
 
   fpsColliderRevision++;
-  console.info('[DaLoc] V117 FPS collision grid optimized',{
+  console.info('[DaLoc] V138.5 FPS collision grid: walkable surfaces ignored, tree trunks only',{
     colliders:fpsStaticColliders.length,
     cells:fpsColliderGrid.size,
     instancedBatches:instancedBatches.size,
@@ -2302,13 +2388,19 @@ function fpsStaticBlocked(position){
       position.z<b.min.z-FPS_PLAYER_RADIUS||position.z>b.max.z+FPS_PLAYER_RADIUS
     )continue;
 
-    if(c.type==='aabb')return true;
+    if(c.type==='aabb'){
+      fpsLastBlockObject=c.object?.name||c.object?.parent?.name||'static-aabb';
+      return true;
+    }
 
     fpsCollisionLocalPoint.copy(fpsCollisionWorldPoint).applyMatrix4(c.inverse);
     if(
       fpsCollisionLocalPoint.x>=c.localBox.min.x-c.localRadius&&fpsCollisionLocalPoint.x<=c.localBox.max.x+c.localRadius&&
       fpsCollisionLocalPoint.z>=c.localBox.min.z-c.localRadius&&fpsCollisionLocalPoint.z<=c.localBox.max.z+c.localRadius
-    )return true;
+    ){
+      fpsLastBlockObject=c.object?.name||c.object?.parent?.name||'static-obb';
+      return true;
+    }
   }
   return false;
 }
@@ -2343,12 +2435,14 @@ function fpsVehicleBlocked(position){
 }
 
 function fpsPositionBlocked(position){
+  fpsLastBlockObject='none';
   if(fpsStaticBlocked(position)){
     fpsLastBlockReason='static';
     return true;
   }
   if(fpsVehicleBlocked(position)){
     fpsLastBlockReason='vehicle';
+    fpsLastBlockObject='traffic-vehicle';
     return true;
   }
   fpsLastBlockReason='none';
@@ -2721,6 +2815,7 @@ window.__DALOC_FPS_V138={
   get verticalVelocity(){return fpsVerticalVelocity;},
   get keys(){return [...fpsKeys];},
   get lastBlockReason(){return fpsLastBlockReason;},
+  get lastBlockObject(){return fpsLastBlockObject;},
   get currentPosition(){return {
     x:Number(camera.position.x.toFixed(2)),
     y:Number(camera.position.y.toFixed(2)),
