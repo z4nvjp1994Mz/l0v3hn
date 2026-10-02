@@ -17,7 +17,7 @@ export function installRoadNameSignsV169({
   const root=new THREE.Group();
   root.name='ROAD_NAME_SIGNS_V169';
   root.userData={
-    version:169.2,
+    version:169.3,
     frameSignature,
     source:'user-annotated-masterplan-1616x2048'
   };
@@ -56,7 +56,7 @@ export function installRoadNameSignsV169({
   const routeById=new Map(routes.map(r=>[r.id,r]));
 
   // Two verified junctions derived from the converging colored route endpoints.
-  // V169.2: the old manual postPx values are kept only as side hints. Final pole
+  // V169.3: the old manual postPx values are kept only as side hints. Final pole
   // positions are solved after CAD warp from road tangent/normal + road width and
   // validated against the live FPS road-safe corridors.
   const posts=[
@@ -105,121 +105,104 @@ export function installRoadNameSignsV169({
     return mapPx(x,y);
   }
 
-  function roadFreeAt(x,z,radius=.85){
-    if(typeof roadSafeInfo!=='function')return true;
-    const probes=[[0,0],[radius,0],[-radius,0],[0,radius],[0,-radius]];
-    return probes.every(([ox,oz])=>!roadSafeInfo(x+ox,z+oz));
+  // V169.3 uses the actual rendered surfaces as authority. V72 CAD asphalt and
+  // junction polygons are the same geometry the player/vehicles see, so a sign is
+  // accepted only when its full safety footprint misses CAD road surfaces and its
+  // base lands on a rendered sidewalk or greenbelt.
+  const cadRoadSurface=world.getObjectByName('V72_CAD_ROAD_SURFACES');
+  const sidewalkSurface=world.getObjectByName('V53_SIDEWALK');
+  const greenbeltSurface=world.getObjectByName('V53_GREENBELT');
+  const surfaceRay=new THREE.Raycaster();
+  const rayOrigin=new THREE.Vector3();
+  const rayDown=new THREE.Vector3(0,-1,0);
+  surfaceRay.near=0;
+  surfaceRay.far=100;
+  world.updateMatrixWorld(true);
+
+  function hitsSurface(object,x,z,recursive=false){
+    if(!object)return false;
+    rayOrigin.set(x,40,z);
+    surfaceRay.set(rayOrigin,rayDown);
+    return surfaceRay.intersectObject(object,recursive).length>0;
+  }
+
+  function roadsideSurfaceAt(x,z){
+    if(hitsSurface(sidewalkSurface,x,z,false))return 'sidewalk';
+    if(hitsSurface(greenbeltSurface,x,z,false))return 'greenbelt';
+    return null;
+  }
+
+  function cadRoadBlockedAt(x,z,safetyRadius=2.2){
+    if(!cadRoadSurface)return true;
+    const probes=[[0,0]];
+    for(let k=0;k<12;k++){
+      const a=k*Math.PI*2/12;
+      probes.push([Math.cos(a)*safetyRadius,Math.sin(a)*safetyRadius]);
+    }
+    return probes.some(([ox,oz])=>hitsSurface(cadRoadSurface,x+ox,z+oz,true));
   }
 
   function findRoadsideSignPosition(post){
     const junction=worldAt(post.junctionPx[0],post.junctionPx[1]);
-    const targetPx=post.blades?.[0]?.targetPx;
-    if(!targetPx){
-      return {position:junction,offsetM:0,directionMode:'junction-fallback',roadWidthPx:null,roadSafeAfter:null};
-    }
-
-    const target=worldAt(targetPx[0],targetPx[1]);
-    let tx=target.x-junction.x,tz=target.z-junction.z;
-    let tLen=Math.hypot(tx,tz)||1;
-    tx/=tLen;tz/=tLen;
-    let nx=-tz,nz=tx;
-
-    // Preserve only the intended corner/side from V169; never reuse its final position.
     const hintPx=post.sideHintPx||post.junctionPx;
-    // Important: do NOT corridor-warp the side hint. V169 proved that a manually
-    // offset point can be dragged back into carriageway. Use only its source-space
-    // direction to identify the intended junction corner.
-    let hx=hintPx[0]-post.junctionPx[0],hz=hintPx[1]-post.junctionPx[1];
-    const hLen=Math.hypot(hx,hz);
-    if(hLen>.001){hx/=hLen;hz/=hLen;}
-    if(hLen>.001 && hx*nx+hz*nz<0){nx=-nx;nz=-nz;}
+    let hx=hintPx[0]-post.junctionPx[0],hy=hintPx[1]-post.junctionPx[1];
+    const hLen=Math.hypot(hx,hy)||1;hx/=hLen;hy/=hLen;
+    const baseAngle=Math.atan2(hy,hx);
 
-    // Measure local cross-road scale after CAD warp. This captures corridor width
-    // expansion/contraction better than assuming the original 0.782 m/px everywhere.
-    const rdx=targetPx[0]-post.junctionPx[0],rdy=targetPx[1]-post.junctionPx[1];
-    const rLen=Math.hypot(rdx,rdy)||1;
-    const rawNx=-rdy/rLen,rawNy=rdx/rLen;
-    const samplePx=[post.junctionPx[0]+rawNx*4,post.junctionPx[1]+rawNy*4];
-    const sample=worldAt(samplePx[0],samplePx[1]);
-    const localWorldPerPx=Math.max(.1,Math.hypot(sample.x-junction.x,sample.z-junction.z)/4);
-
-    // At a junction fpsRoadSafeInfo() returns the nearest corridor. Probe the nearby
-    // junction area and use the widest touching primary road so the pole clears the
-    // full carriageway, not only the narrower safe center corridor.
-    let roadInfo=null;
-    if(typeof roadSafeInfo==='function'){
-      const probeRadius=5.5;
-      const probes=[[0,0]];
-      for(let k=0;k<12;k++){
-        const a=k*Math.PI*2/12;
-        probes.push([Math.cos(a)*probeRadius,Math.sin(a)*probeRadius]);
-      }
-      for(const [ox,oz] of probes){
-        const info=roadSafeInfo(junction.x+ox,junction.z+oz);
-        if(info && (!roadInfo||(info.widthPx||0)>(roadInfo.widthPx||0)))roadInfo=info;
-      }
-    }
-
-    const roadWidthPx=roadInfo?.widthPx||18;
-    const halfRoadM=Math.max(roadWidthPx*localWorldPerPx*.5,roadInfo?.halfSafe||0);
-    const baseOffset=Math.max(6,halfRoadM+2.4,(roadInfo?.halfSafe||0)+2.0);
-
-    const dirs=[];
-    function addDirection(x,z,mode,penalty){
-      const len=Math.hypot(x,z)||1;x/=len;z/=len;
-      if(dirs.some(d=>d.x*x+d.z*z>.999))return;
-      dirs.push({x,z,mode,penalty});
-    }
-
-    addDirection(nx,nz,'road-normal',0);
-    if(hLen>.001){
-      addDirection(nx*.70+hx*.30,nz*.70+hz*.30,'normal-corner-bias',.8);
-      addDirection(hx,hz,'source-corner',1.1);
-
-      // Junction-aware fallback: scan the full circle around the intended corner.
-      // This handles cases where one road's normal is almost parallel to another
-      // crossing road (the exact V169 west-junction failure mode).
-      const baseAngle=Math.atan2(hz,hx);
-      for(let k=1;k<12;k++){
-        const delta=k*Math.PI/12;
-        addDirection(Math.cos(baseAngle+delta),Math.sin(baseAngle+delta),'corner-radial+'+(k*15),1.4+k/12);
-        addDirection(Math.cos(baseAngle-delta),Math.sin(baseAngle-delta),'corner-radial-'+(k*15),1.4+k/12);
-      }
-      addDirection(-hx,-hz,'corner-radial-180',2.6);
-    }
-
+    // Search source-space around the intended corner, then CAD-warp each candidate
+    // exactly as the V53 sidewalk/greenbelt was warped before rendering. Score in
+    // world metres so strong V91 warps cannot accidentally choose a distant point.
+    const angleSteps=[0,15,-15,30,-30,45,-45,60,-60,75,-75,90,-90,120,-120,150,-150,180];
     let best=null;
-    for(const dir of dirs){
-      for(let step=0;step<=60;step++){
-        const offset=baseOffset+step*.75;
-        const x=junction.x+dir.x*offset,z=junction.z+dir.z*offset;
-        if(!roadFreeAt(x,z,.85))continue;
-        const score=offset+dir.penalty*1.5;
-        if(!best||score<best.score)best={x,z,offset,score,mode:dir.mode};
-        break;
+    for(let radiusPx=10;radiusPx<=100;radiusPx+=2){
+      for(const deltaDeg of angleSteps){
+        const a=baseAngle+deltaDeg*Math.PI/180;
+        const sx=post.junctionPx[0]+Math.cos(a)*radiusPx;
+        const sy=post.junctionPx[1]+Math.sin(a)*radiusPx;
+        const p=worldAt(sx,sy);
+        const support=roadsideSurfaceAt(p.x,p.z);
+        if(!support)continue;
+        if(cadRoadBlockedAt(p.x,p.z,2.2))continue;
+
+        // Secondary invariant: if V53 also considers this point part of a protected
+        // road corridor, reject it even though CAD is the primary visual authority.
+        if(typeof roadSafeInfo==='function'&&roadSafeInfo(p.x,p.z))continue;
+
+        const worldDistance=Math.hypot(p.x-junction.x,p.z-junction.z);
+        const score=worldDistance+(support==='sidewalk'?0:.65)+Math.abs(deltaDeg)*.025;
+        if(!best||score<best.score){
+          best={
+            x:p.x,z:p.z,score,support,
+            sourcePx:[Number(sx.toFixed(2)),Number(sy.toFixed(2))],
+            worldDistance:Number(worldDistance.toFixed(2)),
+            deltaDeg
+          };
+        }
       }
+      // Once a close, validated roadside candidate exists, no need to scan far away.
+      if(best&&best.worldDistance<18&&radiusPx>=34)break;
     }
 
-    // Hard fail-safe: an unresolved sign is hidden, never placed inside a road.
     if(!best){
-      console.warn('[DaLoc] V169.2 no validated roadside position for',post.id);
+      console.warn('[DaLoc] V169.3 no CAD-surface-safe roadside position for',post.id);
       return {
         position:{x:junction.x,y:.04,z:junction.z},valid:false,offsetM:0,
-        directionMode:'hidden-no-safe-position',roadWidthPx,
-        localWorldPerPx:Number(localWorldPerPx.toFixed(4)),halfRoadM:Number(halfRoadM.toFixed(2)),
+        directionMode:'hidden-no-cad-safe-position',supportSurface:null,
+        sourcePx:null,cadSurfaceValidated:false,
         roadSafeBefore:typeof roadSafeInfo==='function'?!!roadSafeInfo(junction.x,junction.z):null,
-        roadSafeAfter:typeof roadSafeInfo==='function'?roadSafeInfo(junction.x,junction.z):null
+        roadSafeAfter:null
       };
     }
 
     return {
       position:{x:best.x,y:.04,z:best.z},
       valid:true,
-      offsetM:Number(best.offset.toFixed(2)),
-      directionMode:best.mode,
-      roadWidthPx,
-      localWorldPerPx:Number(localWorldPerPx.toFixed(4)),
-      halfRoadM:Number(halfRoadM.toFixed(2)),
+      offsetM:best.worldDistance,
+      directionMode:'cad-surface-search',
+      supportSurface:best.support,
+      sourcePx:best.sourcePx,
+      angleDeltaDeg:best.deltaDeg,
+      cadSurfaceValidated:true,
       roadSafeBefore:typeof roadSafeInfo==='function'?!!roadSafeInfo(junction.x,junction.z):null,
       roadSafeAfter:typeof roadSafeInfo==='function'?roadSafeInfo(best.x,best.z):null
     };
@@ -331,9 +314,10 @@ export function installRoadNameSignsV169({
         valid:placement.valid!==false,
         offsetM:placement.offsetM,
         directionMode:placement.directionMode,
-        roadWidthPx:placement.roadWidthPx,
-        localWorldPerPx:placement.localWorldPerPx,
-        halfRoadM:placement.halfRoadM,
+        supportSurface:placement.supportSurface||null,
+        sourcePx:placement.sourcePx||null,
+        angleDeltaDeg:placement.angleDeltaDeg??null,
+        cadSurfaceValidated:placement.cadSurfaceValidated===true,
         roadSafeBefore:placement.roadSafeBefore,
         roadSafeAfter:placement.roadSafeAfter
       }
@@ -372,7 +356,7 @@ export function installRoadNameSignsV169({
 
   const api={
     ready:true,
-    version:169.2,
+    version:169.3,
     group:root,
     routes,
     posts,
@@ -383,7 +367,7 @@ export function installRoadNameSignsV169({
   };
 
   window.__DALOC_ROAD_SIGNS_V169=api;
-  console.info('[DaLoc] V169.2 road-safe named-road wayfinding signs installed',{
+  console.info('[DaLoc] V169.3 road-safe named-road wayfinding signs installed',{
     routes:routes.map(r=>r.name),
     posts:postGroups.length,
     placements,
