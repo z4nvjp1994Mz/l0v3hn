@@ -135,15 +135,50 @@ export function createThirdPersonPlayerV144(){
   lens.position.set(0,.105,-.478);
   rifle.add(lens);
 
+  const gatling=new THREE.Group();
+  gatling.name='FPS_LOCAL_GATLING_V152';
+  gatling.position.set(.10,1.18,-.31);
+  gatling.rotation.set(-.07,0,-.07);
+  gatling.visible=false;
+  root.add(gatling);
+
+  const gatlingReceiver=mark(new THREE.Mesh(new THREE.BoxGeometry(.22,.16,.44),mats.weapon));
+  gatlingReceiver.position.z=-.08;
+  gatling.add(gatlingReceiver);
+
+  const gatlingDrum=mark(new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,.16,14),mats.weapon));
+  gatlingDrum.rotation.z=Math.PI/2;
+  gatlingDrum.position.set(-.16,-.05,-.04);
+  gatling.add(gatlingDrum);
+
+  const gatlingCluster=new THREE.Group();
+  gatlingCluster.name='FPS_LOCAL_GATLING_BARRELS_V152';
+  gatlingCluster.position.set(0,.015,-.30);
+  gatling.add(gatlingCluster);
+  for(let i=0;i<6;i++){
+    const a=i*Math.PI*2/6;
+    const b=mark(new THREE.Mesh(new THREE.CylinderGeometry(.013,.014,.72,8),mats.metal));
+    b.rotation.x=Math.PI/2;
+    b.position.set(Math.cos(a)*.065,Math.sin(a)*.065,-.36);
+    gatlingCluster.add(b);
+  }
+  const gatlingMuzzle=mark(new THREE.Mesh(new THREE.CylinderGeometry(.05,.045,.10,12),mats.weapon));
+  gatlingMuzzle.rotation.x=Math.PI/2;
+  gatlingMuzzle.position.set(0,.015,-1.05);
+  gatling.add(gatlingMuzzle);
+
   let phase=0;
   let locomotion=0;
+  let gatlingSpin=0;
 
   function update(dt,{
     x=0,y=0,z=0,
     yaw=0,pitch=0,
     crouch=0,aim=0,
     moving=false,running=false,
-    alive=true
+    alive=true,
+    weapon='sniper',
+    firing=false
   }={}){
     root.position.set(x,y,z);
     root.rotation.y=yaw;
@@ -177,10 +212,17 @@ export function createThirdPersonPlayerV144(){
 
     rifle.position.y=1.19-crouchY+aim*.10;
     rifle.rotation.x=-.08-aim*.12;
+    gatling.position.y=1.18-crouchY;
+    gatling.rotation.x=-.07;
+
+    const gatlingActive=weapon==='gatling';
+    gatlingSpin+=(firing&&gatlingActive?18:3)*dt;
+    gatlingCluster.rotation.z=gatlingSpin;
 
     const deathTarget=alive?0:-Math.PI*.48;
     root.rotation.z+=(deathTarget-root.rotation.z)*Math.min(1,dt*7);
-    rifle.visible=alive;
+    rifle.visible=alive&&!gatlingActive;
+    gatling.visible=alive&&gatlingActive;
   }
 
   function dispose(){
@@ -194,6 +236,6 @@ export function createThirdPersonPlayerV144(){
     root,
     update,
     dispose,
-    parts:{torso,headPivot,leftArm,rightArm,leftLeg,rightLeg,rifle}
+    parts:{torso,headPivot,leftArm,rightArm,leftLeg,rightLeg,rifle,gatling,gatlingCluster}
   };
 }
