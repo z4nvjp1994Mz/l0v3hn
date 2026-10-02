@@ -91,7 +91,7 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
 import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=1051';
-import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=145';
+import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=1451';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
 import { installLandscapeV95 } from './assets/landscape-v95.js?v=1051';
@@ -1799,6 +1799,7 @@ let fpsSavedCadBoundaryVisibility=null;
 let fpsVehicleMode=false;
 let fpsVehicleViewMode='third';
 let fpsVehicleController=null;
+let fpsVehicleLastYaw=0;
 const fpsVehicleCamera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.10,5000);
 const fpsVehicleCamTarget=new THREE.Vector3();
 const fpsVehicleCamDesired=new THREE.Vector3();
@@ -3384,6 +3385,7 @@ function fpsEnterVehicle(agent){
   fpsVehicleMode=true;
   fpsVehicleViewMode='third';
   fpsYaw=agent?.vehicle?.rotation?.y||fpsYaw;
+  fpsVehicleLastYaw=fpsYaw;
   fpsPitch=-.12;
   fpsKeys.clear();
   fpsAimHeld=false;
@@ -3454,6 +3456,12 @@ function fpsUpdateVehicleCamera(dt,{snap=false}={}){
   if(!vehicle)return;
 
   const yaw=vehicle.rotation.y;
+  let yawDelta=yaw-fpsVehicleLastYaw;
+  while(yawDelta>Math.PI)yawDelta-=Math.PI*2;
+  while(yawDelta<-Math.PI)yawDelta+=Math.PI*2;
+  fpsYaw+=yawDelta;
+  fpsVehicleLastYaw=yaw;
+
   const type=ctl.agent?.type||'car';
   const profile=fpsVehicleCameraProfile(type);
   fpsVehicleCamForward.set(Math.sin(yaw),0,Math.cos(yaw)).normalize();
