@@ -26,7 +26,7 @@ body.fps-mode #fpsInteractPrompt.active{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V139.7 REMOVE FLOATING FACTORY SIGNS</small>
+  <small>GitHub → Netlify · BUILD V139.8 ESC-ONLY FPS EXIT</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -1544,7 +1544,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V139.7 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V139.8 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -3121,8 +3121,14 @@ renderer.domElement.addEventListener('click',()=>{
   }
 });
 document.addEventListener('pointerlockchange',()=>{
-  if(fpsMode&&document.pointerLockElement!==renderer.domElement){
-    exitFirstPerson(true);
+  if(!fpsMode)return;
+
+  // V139.8: losing pointer lock is NOT an FPS exit anymore. Windows key,
+  // Alt-Tab, browser focus changes and OS overlays may release pointer lock.
+  // Keep the player exactly where they are and require an explicit Escape key
+  // to leave FPS mode. A later canvas click re-acquires pointer lock.
+  if(document.pointerLockElement!==renderer.domElement){
+    fpsKeys.clear();
   }
 });
 document.addEventListener('mousemove',e=>{
@@ -3135,6 +3141,14 @@ document.addEventListener('mousemove',e=>{
 
 window.addEventListener('keydown',e=>{
   if(!fpsMode)return;
+
+  // V139.8: Escape is the only keyboard action that exits FPS Walk.
+  if(e.code==='Escape'){
+    e.preventDefault();
+    e.stopPropagation();
+    if(!e.repeat)exitFirstPerson(true);
+    return;
+  }
 
   if(e.code==='KeyE'){
     e.preventDefault();
