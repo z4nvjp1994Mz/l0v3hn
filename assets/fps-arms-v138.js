@@ -149,6 +149,55 @@ function makeHand(side,materials){
   return hand;
 }
 
+function makeSniper(materials){
+  const rifle=new THREE.Group();
+  rifle.name='FPS_SNIPER_V140';
+  rifle.position.set(.055,-.245,.035);
+  rifle.rotation.set(-.025,.012,.010);
+  rifle.userData={fpsWeapon:true,ignoreFpsCollision:true,type:'sniper-viewmodel'};
+
+  const addBox=(size,pos,mat,name,rot=[0,0,0])=>{
+    const m=mesh(new THREE.BoxGeometry(...size),mat,name);
+    m.position.set(...pos);
+    m.rotation.set(...rot);
+    rifle.add(m);
+    return m;
+  };
+  const addTube=(rTop,rBottom,len,pos,mat,name,rot=[Math.PI/2,0,0],radial=16)=>{
+    const m=mesh(new THREE.CylinderGeometry(rTop,rBottom,len,radial),mat,name);
+    m.position.set(...pos);
+    m.rotation.set(...rot);
+    rifle.add(m);
+    return m;
+  };
+
+  // Compact first-person sniper silhouette: stock -> receiver -> fore-end -> barrel.
+  addBox([.155,.105,.275],[.018,-.005,.175],materials.weaponStock,'FPS_SNIPER_STOCK_V140',[.02,0,0]);
+  addBox([.180,.125,.055],[.018,-.006,.330],materials.weaponDark,'FPS_SNIPER_BUTT_V140');
+  addBox([.150,.110,.300],[.018,.008,-.105],materials.weaponBody,'FPS_SNIPER_RECEIVER_V140');
+  addBox([.112,.078,.305],[.018,.010,-.390],materials.weaponBody,'FPS_SNIPER_FOREEND_V140');
+
+  // Barrel and muzzle point into the scene (-Z).
+  addTube(.018,.020,.590,[.018,.025,-.735],materials.weaponMetal,'FPS_SNIPER_BARREL_V140');
+  addTube(.028,.024,.090,[.018,.025,-1.065],materials.weaponDark,'FPS_SNIPER_MUZZLE_V140');
+
+  // Scope assembly.
+  addBox([.095,.028,.310],[.018,.105,-.165],materials.weaponMetal,'FPS_SNIPER_SCOPE_RAIL_V140');
+  addTube(.038,.038,.305,[.018,.148,-.175],materials.weaponDark,'FPS_SNIPER_SCOPE_TUBE_V140');
+  addTube(.050,.042,.070,[.018,.148,-.345],materials.weaponDark,'FPS_SNIPER_SCOPE_FRONT_V140');
+  addTube(.044,.040,.060,[.018,.148,.000],materials.weaponDark,'FPS_SNIPER_SCOPE_REAR_V140');
+  addTube(.033,.033,.006,[.018,.148,-.382],materials.scopeLens,'FPS_SNIPER_SCOPE_LENS_V140');
+
+  // Grip and bolt handle make the silhouette readable without adding gameplay logic.
+  addBox([.060,.145,.080],[.075,-.105,.000],materials.weaponDark,'FPS_SNIPER_GRIP_V140',[-.24,0,-.06]);
+  addTube(.010,.010,.090,[.102,.055,-.040],materials.weaponMetal,'FPS_SNIPER_BOLT_V140',[0,0,Math.PI/2],10);
+  const boltKnob=mesh(new THREE.SphereGeometry(.018,10,7),materials.weaponDark,'FPS_SNIPER_BOLT_KNOB_V140');
+  boltKnob.position.set(.148,.055,-.040);
+  rifle.add(boltKnob);
+
+  return rifle;
+}
+
 function makeArm(side,materials){
   const arm=new THREE.Group();
   arm.name=side<0?'FPS_LEFT_ARM_V138':'FPS_RIGHT_ARM_V138';
@@ -233,10 +282,47 @@ export function createThickerFpsArmsV138(){
       metalness:.015,
       side:THREE.DoubleSide,
       fog:false
+    }),
+    weaponBody:new THREE.MeshStandardMaterial({
+      color:0x273330,
+      roughness:.58,
+      metalness:.22,
+      side:THREE.DoubleSide,
+      fog:false
+    }),
+    weaponStock:new THREE.MeshStandardMaterial({
+      color:0x31483c,
+      roughness:.78,
+      metalness:.03,
+      side:THREE.DoubleSide,
+      fog:false
+    }),
+    weaponDark:new THREE.MeshStandardMaterial({
+      color:0x171d1c,
+      roughness:.52,
+      metalness:.30,
+      side:THREE.DoubleSide,
+      fog:false
+    }),
+    weaponMetal:new THREE.MeshStandardMaterial({
+      color:0x46504e,
+      roughness:.42,
+      metalness:.48,
+      side:THREE.DoubleSide,
+      fog:false
+    }),
+    scopeLens:new THREE.MeshStandardMaterial({
+      color:0x24444d,
+      emissive:0x10262d,
+      emissiveIntensity:.20,
+      roughness:.18,
+      metalness:.12,
+      side:THREE.DoubleSide,
+      fog:false
     })
   };
 
-  root.add(makeArm(-1,materials),makeArm(1,materials));
+  root.add(makeArm(-1,materials),makeArm(1,materials),makeSniper(materials));
 
   let triangles=0;
   root.traverse(o=>{
@@ -250,6 +336,7 @@ export function createThickerFpsArmsV138(){
 
   root.userData.ignoreFpsCollision=true;
   root.userData.triangles=triangles;
-  root.userData.source='shaped-glove-shell-v137';
+  root.userData.source='v140-sniper-viewmodel + shaped-glove-shell-v137';
+  root.userData.weapon='sniper-viewmodel';
   return root;
 }
