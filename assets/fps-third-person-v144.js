@@ -172,7 +172,7 @@ export function createThirdPersonPlayerV144(){
   const axe=new THREE.Group();
   axe.name='FPS_LOCAL_AXE_V154';
   axe.position.set(.12,1.16,-.22);
-  axe.rotation.set(.36,-.03,-.10);
+  axe.rotation.set(.10,-.10,-.28);
   axe.visible=false;
   root.add(axe);
 
@@ -186,6 +186,7 @@ export function createThirdPersonPlayerV144(){
 
   const axeHeadRoot=new THREE.Group();
   axeHeadRoot.position.set(0,.015,-.82);
+  axeHeadRoot.rotation.z=.28;
   axe.add(axeHeadRoot);
 
   const axeHead=mark(new THREE.Mesh(
@@ -300,7 +301,7 @@ export function createThirdPersonPlayerV144(){
     };
 
     axe.position.set(.12,1.16-crouchY,-.22);
-    axe.rotation.set(.36,-.03,-.10);
+    axe.rotation.set(.10,-.10,-.28);
     torso.rotation.set(0,0,0);
     chest.rotation.set(0,0,0);
 
@@ -308,9 +309,9 @@ export function createThirdPersonPlayerV144(){
       if(meleeType==='strong'){
         if(mp<.34){
           const t=easeOut(mp/.34);
-          axe.rotation.x=THREE.MathUtils.lerp(.36,1.34,t);
-          axe.rotation.y=THREE.MathUtils.lerp(-.03,-.01,t);
-          axe.rotation.z=THREE.MathUtils.lerp(-.10,.02,t);
+          axe.rotation.x=THREE.MathUtils.lerp(.10,1.30,t);
+          axe.rotation.y=THREE.MathUtils.lerp(-.10,-.02,t);
+          axe.rotation.z=THREE.MathUtils.lerp(-.28,.02,t);
           axe.position.y=THREE.MathUtils.lerp(1.16-crouchY,1.48-crouchY,t);
           axe.position.z=THREE.MathUtils.lerp(-.22,-.08,t);
           torso.rotation.x=THREE.MathUtils.lerp(0,-.10,t);
@@ -328,9 +329,9 @@ export function createThirdPersonPlayerV144(){
           rightArm.rotation.x-=THREE.MathUtils.lerp(.82,1.08,t);
         }else{
           const t=smooth((mp-.72)/.28);
-          axe.rotation.x=THREE.MathUtils.lerp(-1.08,.36,t);
-          axe.rotation.y=THREE.MathUtils.lerp(.03,-.03,t);
-          axe.rotation.z=THREE.MathUtils.lerp(-.18,-.10,t);
+          axe.rotation.x=THREE.MathUtils.lerp(-1.08,.10,t);
+          axe.rotation.y=THREE.MathUtils.lerp(.03,-.10,t);
+          axe.rotation.z=THREE.MathUtils.lerp(-.18,-.28,t);
           axe.position.y=THREE.MathUtils.lerp(.91-crouchY,1.16-crouchY,t);
           axe.position.z=THREE.MathUtils.lerp(-.34,-.22,t);
           torso.rotation.x=THREE.MathUtils.lerp(.15,0,t);
@@ -340,9 +341,9 @@ export function createThirdPersonPlayerV144(){
       }else{
         if(mp<.26){
           const t=easeOut(mp/.26);
-          axe.rotation.x=THREE.MathUtils.lerp(.36,.80,t);
-          axe.rotation.y=THREE.MathUtils.lerp(-.03,-.60,t);
-          axe.rotation.z=THREE.MathUtils.lerp(-.10,-.54,t);
+          axe.rotation.x=THREE.MathUtils.lerp(.10,.72,t);
+          axe.rotation.y=THREE.MathUtils.lerp(-.10,-.66,t);
+          axe.rotation.z=THREE.MathUtils.lerp(-.28,-.64,t);
           axe.position.x=THREE.MathUtils.lerp(.12,.34,t);
           axe.position.y=THREE.MathUtils.lerp(1.16-crouchY,1.36-crouchY,t);
           torso.rotation.y=THREE.MathUtils.lerp(0,-.18,t);
@@ -362,9 +363,9 @@ export function createThirdPersonPlayerV144(){
           rightArm.rotation.x-=THREE.MathUtils.lerp(.48,.68,t);
         }else{
           const t=smooth((mp-.66)/.34);
-          axe.rotation.x=THREE.MathUtils.lerp(-.58,.36,t);
-          axe.rotation.y=THREE.MathUtils.lerp(.68,-.03,t);
-          axe.rotation.z=THREE.MathUtils.lerp(.28,-.10,t);
+          axe.rotation.x=THREE.MathUtils.lerp(-.58,.10,t);
+          axe.rotation.y=THREE.MathUtils.lerp(.68,-.10,t);
+          axe.rotation.z=THREE.MathUtils.lerp(.28,-.28,t);
           axe.position.x=THREE.MathUtils.lerp(-.22,.12,t);
           axe.position.y=THREE.MathUtils.lerp(.91-crouchY,1.16-crouchY,t);
           torso.rotation.y=THREE.MathUtils.lerp(.24,0,t);
