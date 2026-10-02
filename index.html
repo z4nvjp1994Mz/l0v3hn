@@ -1640,7 +1640,7 @@ installCirculationV53({
      v53Asphalt.visible=false;
      v53Asphalt.userData.hiddenByV89CadAuthority=true;
    }
-   coordBadge.textContent='BUILD V142.2 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
+   coordBadge.textContent='BUILD V143 · '+(trafficResult?.ready===false?'Traffic V115 fallback · ':'Traffic V115 ready · ')+(trafficResult?.trafficLightStats?.junctionCount||0)+' sidewalk-corner signalized junctions · RED/YELLOW/GREEN · '+atmosphereV106.stats.cloudClusters+' cloud groups · '+atmosphereV106.stats.flockCount+' bird flocks · '+trafficTotalCount+' vehicles';
    const envButton=document.createElement('button');
    envButton.id='environmentV74';
    envButton.className='active';
@@ -3271,6 +3271,7 @@ function fpsRoofPositionAllowed(position){
 }
 
 function fpsActivateInteraction(){
+  if(!fpsAlive)return false;
   if(fpsClimbState){
     const mid=(fpsClimbState.minY+fpsClimbState.maxY)*.5;
     if(camera.position.y>=mid)fpsFinishLadderTop();
@@ -3432,7 +3433,7 @@ renderer.domElement.addEventListener('contextmenu',e=>{
   if(fpsMode)e.preventDefault();
 });
 renderer.domElement.addEventListener('mousedown',e=>{
-  if(!fpsMode)return;
+  if(!fpsMode||!fpsAlive)return;
   if(e.button===2){
     e.preventDefault();
     if(document.pointerLockElement!==renderer.domElement){
@@ -3484,6 +3485,12 @@ window.addEventListener('keydown',e=>{
     e.preventDefault();
     e.stopPropagation();
     if(!e.repeat)exitFirstPerson(true);
+    return;
+  }
+
+  if(!fpsAlive&&e.code!=='Escape'){
+    e.preventDefault();
+    e.stopPropagation();
     return;
   }
 
@@ -3845,7 +3852,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:139,
+  version:143,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -3868,11 +3875,20 @@ const fpsApiV139={
   get shotsFired(){return fpsShotsFired;},
   get activeProjectiles(){return fpsProjectiles.length;},
   get lastImpactObject(){return fpsLastImpactObject;},
+  get hp(){return fpsHealth;},
+  get maxHp(){return FPS_MAX_HP;},
+  get alive(){return fpsAlive;},
+  get deaths(){return fpsDeaths;},
+  get kills(){return fpsKills;},
+  get damagePerHit(){return FPS_DAMAGE_PER_PLAYER_HIT;},
+  get respawnTimer(){return Number(fpsRespawnTimer.toFixed(2));},
+  get lastDamageFrom(){return fpsLastDamageFrom;},
   get multiplayer(){return {
     connected:!!multiplayerV142?.connected,
     roomId:multiplayerV142?.roomId||'',
     peerCount:multiplayerV142?.peerCount||0,
-    remoteIds:multiplayerV142?.remoteIds||[]
+    remoteIds:multiplayerV142?.remoteIds||[],
+    remoteStatus:multiplayerV142?.remoteStatus||null
   };},
   get verticalVelocity(){return fpsVerticalVelocity;},
   get keys(){return [...fpsKeys];},
@@ -3990,7 +4006,9 @@ let lastFrameTime=performance.now();
     yaw:fpsYaw,
     pitch:fpsPitch,
     crouch:fpsCrouchAmount,
-    aim:fpsAimAmount
+    aim:fpsAimAmount,
+    hp:fpsHealth,
+    alive:fpsAlive
   });
   multiplayerV142?.update?.(dt);
 
