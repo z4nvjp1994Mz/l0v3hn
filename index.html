@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V167-axe-contact-synced-damage">
+<meta name="daloc-build" content="V168-all-building-interactive-doors">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V167 AXE CONTACT-SYNCED DAMAGE</small>
+  <small>GitHub → Netlify · BUILD V168 ALL BUILDING INTERACTIVE DOORS</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -83,7 +83,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V167: LMB fast diagonal chop · damage only at visual blade-contact frame</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V168: Factory + support + village doors open/close with E</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -95,9 +95,9 @@ import { createPlayerVehicleControllerV145 } from './assets/player-vehicle-v145.
 import { installMultiplayerV142 } from './assets/multiplayer-v142.js?v=166';
 import { installCirculationV53 } from './assets/circulation-v53.js?v=1392';
 import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
-import { installSupportStructuresV55 } from './assets/support-structures-v55.js';
+import { installSupportStructuresV55 } from './assets/support-structures-v55.js?v=168';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
-import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=1051';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=168';
 import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=1451';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
@@ -1453,6 +1453,7 @@ let v53CirculationResult=null;
 let v54DetailGroup=null;
 let v54DetailResult=null;
 let v78ExteriorGroup=null;
+let v78ExteriorResult=null;
 let v78TreeCount=0;
 let v78HouseCount=0;
 let v93GateGroup=null;
@@ -1579,9 +1580,11 @@ installCirculationV53({
          renderer
        }))
        .then(forestResult=>{
+       v78ExteriorResult=forestResult||null;
        v78ExteriorGroup=forestResult?.group||null;
        v78TreeCount=forestResult?.treeCount||0;
        v78HouseCount=forestResult?.houseCount||0;
+       if(fpsMode)refreshFpsStaticColliders();
        return installTrafficAIV91({
          world,
          mapPx,
@@ -3473,22 +3476,50 @@ function fpsStaticBlocked(position,eyeHeight=fpsCurrentEyeHeight(),playerHeight=
   return false;
 }
 
-function fpsDoorBlocked(position){
-  const doors=factoryInteriorsV84?.doors||[];
-  for(const d of doors){
-    if(!d?.building||d.openAmount>=.64)continue;
-    d.building.updateWorldMatrix(true,false);
-    fpsDoorLocalPoint.copy(position);
-    d.building.worldToLocal(fpsDoorLocalPoint);
+function fpsDoorControllers(){
+  const candidates=[
+    factoryInteriorsV84,
+    v55Support,
+    v78ExteriorResult||window.__DALOC_V79
+  ];
+  return candidates.filter((api,i)=>
+    api &&
+    Array.isArray(api.doors) &&
+    api.doors.length>0 &&
+    candidates.indexOf(api)===i
+  );
+}
 
-    if(fpsDoorLocalPoint.y<-.2||fpsDoorLocalPoint.y>d.height+.55)continue;
-    const dz=Math.abs(fpsDoorLocalPoint.z-(d.D/2+.15));
-    if(
-      Math.abs(fpsDoorLocalPoint.x)<=d.width*.5+FPS_PLAYER_RADIUS &&
-      dz<=.26+FPS_PLAYER_RADIUS
-    ){
-      fpsLastBlockObject='V139_FACTORY_DOOR_'+d.factoryIndex;
-      return true;
+function fpsDoorBlocked(position){
+  for(const controller of fpsDoorControllers()){
+    for(const d of controller.doors||[]){
+      if(!d?.building||d.openAmount>=.64)continue;
+      d.building.updateWorldMatrix(true,false);
+      fpsDoorLocalPoint.copy(position);
+      d.building.worldToLocal(fpsDoorLocalPoint);
+
+      if(fpsDoorLocalPoint.y<-.2||fpsDoorLocalPoint.y>d.height+.55)continue;
+
+      const center=d.centerLocal||fpsInteractionTmp2.set(
+        Number(d.x)||0,
+        d.height*.5,
+        d.D*.5+.10
+      );
+      const dz=Math.abs(fpsDoorLocalPoint.z-center.z);
+      const dx=Math.abs(fpsDoorLocalPoint.x-center.x);
+
+      if(
+        dx<=d.width*.5+FPS_PLAYER_RADIUS &&
+        dz<=.28+FPS_PLAYER_RADIUS
+      ){
+        fpsLastBlockObject=
+          d.source==='support'
+            ?'V168_SUPPORT_DOOR_'+d.index
+            :d.source==='village'
+              ?'V168_VILLAGE_DOOR_'+d.index
+              :'V139_FACTORY_DOOR_'+(d.factoryIndex??d.index);
+        return true;
+      }
     }
   }
   return false;
@@ -4332,14 +4363,17 @@ function fpsFindNearestInteraction(){
     }
   }
 
-  // Interactive factory doors.
-  for(const d of factoryInteriorsV84?.doors||[]){
-    const info=factoryInteriorsV84?.doorWorldInfo?.(d.index);
-    if(!info?.center)continue;
-    const dist=fpsDistanceToPoint(info.center);
-    if(dist<bestDist){
-      bestDist=dist;
-      best={type:'door',door:d,info,dist};
+  // V168: interactive doors across factories, support/admin/utility
+  // buildings, and exterior village houses.
+  for(const controller of fpsDoorControllers()){
+    for(const d of controller.doors||[]){
+      const info=controller?.doorWorldInfo?.(d.index);
+      if(!info?.center)continue;
+      const dist=fpsDistanceToPoint(info.center);
+      if(dist<bestDist){
+        bestDist=dist;
+        best={type:'door',controller,door:d,info,dist};
+      }
     }
   }
 
@@ -4386,11 +4420,19 @@ function fpsUpdateInteractionPrompt(){
       fpsVehicleTypeLabel(fpsCurrentInteraction.agent?.type);
   }else if(fpsCurrentInteraction.type==='door'){
     const d=fpsCurrentInteraction.door;
-    const profile=factoryInteriorsV84?.factoryProfiles?.find?.(p=>p.index===d.factoryIndex);
-    const label=profile?.archetype?(' · '+profile.archetype.replaceAll('-',' ')):'';
-    fpsInteractPrompt.textContent=d.isOpen
-      ?('E · Đóng cửa xưởng '+(d.factoryIndex+1)+label)
-      :('E · Mở cửa / vào xưởng '+(d.factoryIndex+1)+label);
+    const controller=fpsCurrentInteraction.controller;
+    if(controller===factoryInteriorsV84){
+      const profile=factoryInteriorsV84?.factoryProfiles?.find?.(p=>p.index===d.factoryIndex);
+      const label=profile?.archetype?(' · '+profile.archetype.replaceAll('-',' ')):'';
+      fpsInteractPrompt.textContent=d.isOpen
+        ?('E · Đóng cửa xưởng '+(d.factoryIndex+1)+label)
+        :('E · Mở cửa / vào xưởng '+(d.factoryIndex+1)+label);
+    }else{
+      const label=d.displayName||fpsCurrentInteraction.info?.displayName||'tòa nhà';
+      fpsInteractPrompt.textContent=d.isOpen
+        ?('E · Đóng cửa '+label)
+        :('E · Mở cửa / vào '+label);
+    }
   }else{
     fpsInteractPrompt.textContent=fpsCurrentInteraction.fromTop
       ?'E · Bám thang để xuống mặt đất'
@@ -4546,8 +4588,7 @@ function fpsActivateInteraction(){
   }
 
   if(interaction.type==='door'){
-    factoryInteriorsV84?.toggleDoor?.(interaction.door.index);
-    return true;
+    return !!interaction.controller?.toggleDoor?.(interaction.door.index);
   }
 
   if(interaction.type==='ladder'){
@@ -5642,7 +5683,7 @@ function updateFirstPerson(dt){
 }
 
 const fpsApiV139={
-  version:167,
+  version:168,
   refreshColliders:refreshFpsStaticColliders,
   get colliderCount(){return fpsStaticColliders.length;},
   get gridCells(){return fpsColliderGrid.size;},
@@ -5662,7 +5703,14 @@ const fpsApiV139={
   get roofFactory(){return fpsRoofState?.factoryIndex??null;},
   get interaction(){return fpsCurrentInteraction?.type||null;},
   get ladderCount(){return (v54DetailResult?.ladders||window.__DALOC_V54?.ladders||[]).length;},
-  get doorCount(){return factoryInteriorsV84?.doors?.length||0;},
+  get doorCount(){
+    return fpsDoorControllers().reduce((n,api)=>n+(api.doors?.length||0),0);
+  },
+  get doorCounts(){return {
+    factory:factoryInteriorsV84?.doors?.length||0,
+    support:v55Support?.doors?.length||0,
+    village:(v78ExteriorResult||window.__DALOC_V79)?.doors?.length||0
+  };},
   get factoryArchetypes(){return factoryInteriorsV84?.factoryProfiles?.map?.(p=>({index:p.index,archetype:p.archetype}))||[];},
   get weapon(){return fpsActiveWeapon;},
   setWeapon:fpsSetWeapon,
@@ -5772,7 +5820,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:167,
+    version:168,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
@@ -5861,6 +5909,8 @@ let lastFrameTime=performance.now();
       pondFishV82?.update?.(Math.min(.05,fpsPondFishAccum));
       pedestrianController?.update?.(Math.min(.05,fpsPedestrianAccum));
       factoryInteriorsV84?.update?.(Math.min(.05,fpsFactoryAccum));
+      v55Support?.update?.(Math.min(.05,fpsFactoryAccum));
+      v78ExteriorResult?.update?.(Math.min(.05,fpsFactoryAccum));
       atmosphereV106?.update?.(Math.min(.05,fpsAtmosphereAccum));
       fpsPondFishAccum=0;
       fpsPedestrianAccum=0;
@@ -5873,6 +5923,8 @@ let lastFrameTime=performance.now();
     pondFishV82?.update?.(dt);
     pedestrianController?.update?.(dt);
     factoryInteriorsV84?.update?.(dt);
+    v55Support?.update?.(dt);
+    v78ExteriorResult?.update?.(dt);
     atmosphereV106?.update?.(dt);
   }
 
