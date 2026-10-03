@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V200-road-a-parallel-cad-774f9-long">
+<meta name="daloc-build" content="V202-straight-junction-approaches">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,9 +59,9 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V200 ROAD A PARALLEL TO CAD 774F9 + LONGER</small>
+  <small>GitHub → Netlify · BUILD V202 STRAIGHT 3-ROAD JUNCTION</small>
   <h1>Đa Lộc Industrial Zone</h1>
-  <p>V200 sửa đúng hai điểm còn lệch: nhánh trên ROAD A không còn bám chuỗi boundary cong mà lấy chính hướng của đường CAD gốc 774F9, nên song song tuyệt đối với đường gốc của cụm công nghiệp. Nhánh này được tách riêng khỏi đoạn dưới để smoothing không làm lệch góc và được kéo dài tới mép ngoại cảnh. Node cùng ROAD B/C giữ nguyên. Factory Details giữ nút A/B riêng.</p>
+  <p>V202 giữ nguyên vị trí và hướng tổng thể của V201, chỉ sửa chỗ giao 3 nhánh bị cong. Nguyên nhân là Catmull-Rom smoothing chạy xuyên qua node chung. Các đoạn tiếp cận node của ROAD A, ROAD B và ROAD C giờ dùng polyline thẳng, không smoothing; phần ngoài vẫn giữ hình tuyến V201.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -85,7 +85,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS --</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V200: ROAD A ∥ CAD 774F9 · extended to exterior edge · node/B/C preserved · P2P V171 preserved</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS --</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V202: straight unsmoothed junction approaches · V201 alignment preserved · P2P V171 preserved</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -100,7 +100,7 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js?v=168';
 import { installRoadNameSignsV169 } from './assets/road-name-signs-v169.js?v=1695';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
-import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=200';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=202';
 import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=1451';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
