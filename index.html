@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V173-fps-environment-lite">
+<meta name="daloc-build" content="V174-fps-balanced-environment">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V173 FPS ENVIRONMENT LITE</small>
+  <small>GitHub → Netlify · BUILD V174 FPS BALANCED ENVIRONMENT</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -84,7 +84,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS -- · Forest loading</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V173: FPS Environment Lite · near/medium trees only · P2P V171 preserved</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS -- · Forest loading</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V174: FPS balanced environment · roadside trees + sky life + nearby machinery · P2P V171 preserved</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1941,7 +1941,9 @@ let fpsSavedThirdFar=null;
 let fpsSavedVehicleFar=null;
 let fpsTrafficAccum=0;
 let fpsTrafficFrame=0;
-const FPS_TREE_VIEW_DISTANCE=260;
+const FPS_TREE_NEAR_DISTANCE=145;
+const FPS_TREE_VIEW_DISTANCE=245;
+const FPS_FACTORY_MACHINERY_DISTANCE=115;
 const fpsTreeChunkWorldCenter=new THREE.Vector3();
 
 // V146 FPS performance profile state.
@@ -3823,78 +3825,21 @@ function fpsSetShadowMapSize(size){
 }
 
 function fpsBuildV120TreeBatch(){
-  // applyFpsRenderProfile() can run again if an async asset finishes loading
-  // after FPS was entered. Never overwrite the original overview visibility.
+  // V174: keep the ORIGINAL roadside trees so FPS looks identical to overview.
+  // Performance comes from distance/density culling, not from a substitute proxy.
   if(fpsV120TreeVisibility){
-    if(fpsV120TreeBatchRoot)fpsV120TreeBatchRoot.visible=true;
+    if(fpsV120TreeBatchRoot)fpsV120TreeBatchRoot.visible=false;
     return;
   }
 
   const source=world.children.filter(o=>o.userData?.lushTreeV120===true);
   if(!source.length)return;
 
-  // Save per-session visibility so overview mode is restored exactly.
   fpsV120TreeVisibility=source.map(g=>[g,g.visible]);
 
-  // Build the proxy once. Trees are partitioned into spatial cells so Three.js
-  // can frustum-cull whole batches instead of drawing ~500 trees every frame.
-  if(!fpsV120TreeBatchRoot){
-    const root=new THREE.Group();
-    root.name='FPS_V173_NEAR_MEDIUM_TREE_BATCHES';
-    root.userData.ignoreFpsCollision=true;
-    const cellSize=120;
-    const cells=new Map();
-
-    // FPS-only materials: same tree silhouette/colors, much cheaper than the
-    // overview MeshStandardMaterial path because shadows/specular are disabled.
-    const fpsWoodMat=new THREE.MeshLambertMaterial({color:0x765237});
-    const fpsLeafMat=new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true});
-    const fpsFlowerMat=new THREE.MeshLambertMaterial({color:0xc77f95});
-
-    for(const g of source){
-      if(!g.visible)continue;
-      const key=Math.floor(g.position.x/cellSize)+':'+Math.floor(g.position.z/cellSize);
-      let cell=cells.get(key);
-      if(!cell){
-        cell={all:[],green:[],flower:[]};
-        cells.set(key,cell);
-      }
-      g.updateMatrix();
-      const matrix=g.matrix.clone();
-      cell.all.push(matrix);
-      const flowering=g.children.some(c=>c.material===flowerLeafMat);
-      (flowering?cell.flower:cell.green).push(matrix);
-    }
-
-    const addBatch=(name,geometry,material,matrices)=>{
-      if(!matrices.length)return;
-      const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);
-      mesh.name=name;
-      mesh.castShadow=false;
-      mesh.receiveShadow=false;
-      mesh.frustumCulled=true;
-      mesh.userData.fpsTreeBatch=true;
-      matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));
-      mesh.instanceMatrix.needsUpdate=true;
-      mesh.computeBoundingSphere();
-      root.add(mesh);
-    };
-
-    for(const [key,cell] of cells){
-      addBatch('FPS_V173_TREE_WOOD_'+key,V120_TREE_WOOD_GEOMETRY,fpsWoodMat,cell.all);
-      addBatch('FPS_V173_TREE_GREEN_'+key,V120_TREE_FOLIAGE_GEOMETRY,fpsLeafMat,cell.green);
-      addBatch('FPS_V173_TREE_FLOWER_'+key,V120_TREE_FOLIAGE_GEOMETRY,fpsFlowerMat,cell.flower);
-    }
-
-    fpsV120TreeBatchRoot=root;
-    world.add(root);
-  }else{
-    fpsV120TreeBatchRoot.visible=true;
-  }
-
-  // Hide the original Group-per-tree representation only in FPS. This removes
-  // hundreds of Groups and roughly a thousand individual Mesh draw submissions.
-  for(const [g] of fpsV120TreeVisibility)g.visible=false;
+  // V173 proxy is intentionally retired; if an old in-session root exists,
+  // never render it together with the original roadside trees.
+  if(fpsV120TreeBatchRoot)fpsV120TreeBatchRoot.visible=false;
 }
 
 function fpsDisableLargeInstancedShadows(){
@@ -3950,39 +3895,31 @@ function fpsRememberAndHideLiteObject(object){
 }
 
 function fpsApplyEnvironmentLite(){
-  // Mirror the performance benefit of "3D Environment: Off" for the expensive
-  // decorative roots, while keeping CAD roads, base factories, gates, access,
-  // traffic, road-name signs, P2P avatars and the FPS tree proxy visible.
+  // V174 keeps gameplay-visible detail: roadside trees, clouds/birds, nearby
+  // machinery, factory shells/doors, CAD roads, gates, traffic and P2P.
+  // Only large decorative/global roots are suppressed in FPS.
   fpsRememberAndHideLiteObject(semanticGroup);
   fpsRememberAndHideLiteObject(verifiedSupportGroup);
   fpsRememberAndHideLiteObject(diorama);
   fpsRememberAndHideLiteObject(v53DetailGroup);
   fpsRememberAndHideLiteObject(v54DetailGroup);
 
-  // V147 detail is attached directly to factory groups, so root.visible alone
-  // is not enough; use its controller to disable every micro-detail record.
-  if(factoryDetailV147?.ready){
-    if(fpsFactoryDetailWasVisible===null){
-      fpsFactoryDetailWasVisible=!!factoryDetailV147.root?.visible;
-    }
-    factoryDetailV147.setVisible?.(false);
-  }
-
-  // V139 visual factory shells + doors stay visible because they are attached
-  // directly to the base factory. Only the expensive interior machinery groups
-  // are hidden during FPS.
-  if(factoryInteriorsV84?.ready&&Array.isArray(factoryInteriorsV84.interiors)){
-    if(!fpsFactoryInteriorVisibility){
-      fpsFactoryInteriorVisibility=factoryInteriorsV84.interiors.map(g=>[g,g.visible]);
-    }
-    for(const [g] of fpsFactoryInteriorVisibility)g.visible=false;
+  // Save factory-interior visibility once. The groups themselves remain usable
+  // and are distance-culled by fpsUpdateFactoryMachineryVisibility().
+  if(
+    !fpsFactoryInteriorVisibility &&
+    factoryInteriorsV84?.ready &&
+    Array.isArray(factoryInteriorsV84.interiors)
+  ){
+    fpsFactoryInteriorVisibility=factoryInteriorsV84.interiors.map(g=>[g,g.visible]);
   }
 }
 
 function fpsRestoreEnvironmentLite(){
   const envButton=document.getElementById('environmentV74');
-  const envButtonKnown=!!envButton;
-  const environmentOn=envButtonKnown?envButton.classList.contains('active'):null;
+  const environmentOn=envButton
+    ?envButton.classList.contains('active')
+    :null;
 
   if(fpsLiteEnvironmentState){
     for(const [object,wasVisible] of fpsLiteEnvironmentState){
@@ -3990,13 +3927,6 @@ function fpsRestoreEnvironmentLite(){
       object.visible=environmentOn===null?wasVisible:environmentOn;
     }
     fpsLiteEnvironmentState=null;
-  }
-
-  if(fpsFactoryDetailWasVisible!==null&&factoryDetailV147?.ready){
-    factoryDetailV147.setVisible?.(
-      environmentOn===null?fpsFactoryDetailWasVisible:environmentOn
-    );
-    fpsFactoryDetailWasVisible=null;
   }
 
   if(fpsFactoryInteriorVisibility){
@@ -4007,28 +3937,74 @@ function fpsRestoreEnvironmentLite(){
     }
     fpsFactoryInteriorVisibility=null;
   }
+
+  // V147 detail was never disabled in V174; reset its records to the current
+  // environment-button state so overview mode is coherent after FPS exit.
+  if(factoryDetailV147?.ready&&environmentOn!==null){
+    factoryDetailV147.setVisible?.(environmentOn);
+  }
+}
+
+function fpsUpdateFactoryMachineryVisibility(){
+  if(!fpsMode||!factoryInteriorsV84?.ready)return;
+  if((fpsPerfFrame%6)!==0)return;
+
+  const envButton=document.getElementById('environmentV74');
+  const environmentOn=envButton
+    ?envButton.classList.contains('active')
+    :true;
+
+  const interiors=factoryInteriorsV84.interiors||[];
+  const maxSq=FPS_FACTORY_MACHINERY_DISTANCE*FPS_FACTORY_MACHINERY_DISTANCE;
+
+  for(let i=0;i<interiors.length;i++){
+    const g=interiors[i];
+    if(!g)continue;
+    if(!environmentOn){
+      g.visible=false;
+      continue;
+    }
+
+    const building=g.parent;
+    if(!building){
+      g.visible=false;
+      continue;
+    }
+
+    const dx=camera.position.x-building.position.x;
+    const dz=camera.position.z-building.position.z;
+    g.visible=dx*dx+dz*dz<=maxSq;
+  }
 }
 
 function fpsUpdateTreeChunkVisibility(activeCamera){
-  if(!fpsMode||!fpsV120TreeBatchRoot||!activeCamera)return;
-  if((fpsPerfFrame%6)!==0)return;
+  if(!fpsMode||!fpsV120TreeVisibility||!activeCamera)return;
+  if((fpsPerfFrame%5)!==0)return;
 
-  // InstancedMesh.computeBoundingSphere() includes all instance transforms.
-  // The previous geometry.boundingSphere only described one tree at origin,
-  // so distance culling was effectively checking the wrong location.
-  for(const mesh of fpsV120TreeBatchRoot.children){
-    if(!mesh?.isInstancedMesh)continue;
-    if(!mesh.boundingSphere)mesh.computeBoundingSphere?.();
-    const sphere=mesh.boundingSphere;
-    if(!sphere)continue;
-    fpsTreeChunkWorldCenter.copy(sphere.center).applyMatrix4(mesh.matrixWorld);
-    const scale=mesh.matrixWorld.getMaxScaleOnAxis?.()||1;
-    const limit=FPS_TREE_VIEW_DISTANCE+sphere.radius*scale;
-    mesh.visible=fpsTreeChunkWorldCenter.distanceToSquared(activeCamera.position)<=limit*limit;
+  const nearSq=FPS_TREE_NEAR_DISTANCE*FPS_TREE_NEAR_DISTANCE;
+  const farSq=FPS_TREE_VIEW_DISTANCE*FPS_TREE_VIEW_DISTANCE;
+
+  for(let i=0;i<fpsV120TreeVisibility.length;i++){
+    const [g,wasVisible]=fpsV120TreeVisibility[i];
+    if(!g||!wasVisible){
+      if(g)g.visible=false;
+      continue;
+    }
+
+    // V120 roadside trees are direct children of world, but getWorldPosition
+    // keeps this robust if their parent changes later.
+    g.getWorldPosition(fpsTreeChunkWorldCenter);
+    const d2=fpsTreeChunkWorldCenter.distanceToSquared(activeCamera.position);
+
+    if(d2<=nearSq){
+      g.visible=true;                       // full visual quality near player
+    }else if(d2<=farSq){
+      g.visible=(i%3)!==1;                 // 2/3 density in medium distance
+    }else{
+      g.visible=false;
+    }
   }
 
-  // Async modules can finish after FPS was entered. Re-apply the lightweight
-  // visibility profile periodically so new heavy environment roots stay hidden.
   fpsApplyEnvironmentLite();
 }
 
@@ -4076,13 +4052,12 @@ function applyFpsRenderProfile(){
 
   if(!fpsSavedAmbientState){
     fpsSavedAmbientState={
-      atmosphere:atmosphereV106?.group?.visible??false,
       fish:pondFishV82?.group?.visible??false,
       pedestrians:pedestrianController?.group?.visible??false,
       landscape:landscapeV95?.group?.visible??false,
       lotus:lotusPondV81?.group?.visible??false
     };
-    atmosphereV106?.setEnabled?.(false);
+    // Clouds + birds remain enabled in V174.
     pondFishV82?.setEnabled?.(false);
     pedestrianController?.setEnabled?.(false);
     landscapeV95?.setVisible?.(false);
@@ -4128,7 +4103,6 @@ function restoreFpsRenderProfile(){
   fpsExteriorTreeVisibility=null;
 
   if(fpsSavedAmbientState){
-    atmosphereV106?.setEnabled?.(!!fpsSavedAmbientState.atmosphere);
     pondFishV82?.setEnabled?.(!!fpsSavedAmbientState.fish);
     pedestrianController?.setEnabled?.(!!fpsSavedAmbientState.pedestrians);
     landscapeV95?.setVisible?.(!!fpsSavedAmbientState.landscape);
@@ -6009,7 +5983,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:173,
+    version:174,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
@@ -6021,7 +5995,10 @@ const fpsApiV139={
     fpsShadowPass:fpsMode?'off':'on',
     fpsPixelRatio:fpsMode?renderer.getPixelRatio():null,
     fpsEnvironmentLite:fpsMode,
+    fpsTreeNearDistance:FPS_TREE_NEAR_DISTANCE,
     fpsTreeViewDistance:FPS_TREE_VIEW_DISTANCE,
+    fpsFactoryMachineryDistance:FPS_FACTORY_MACHINERY_DISTANCE,
+    fpsSkyLifeRetained:true,
     factoryDetailFactories:factoryDetailV147?.stats?.factories||0,
     factoryDetailMeshes:factoryDetailV147?.stats?.detailMeshes||0,
     solarTwoStoreyFactories:solarRoofV94?.twoStoreyFactoryCount||0
@@ -6130,15 +6107,26 @@ let lastFrameTime=performance.now();
     trafficController?.update?.(dt);
   }
 
-  // V173: hidden environment systems do ZERO animation work in FPS.
-  // Keep only factory door pivots alive at ~30 Hz because door interaction is gameplay.
+  // V174: retain clouds/birds + nearby factory machinery while keeping the
+  // expensive global ambient systems disabled in FPS.
   if(fpsMode){
     fpsPerfFrame++;
     fpsFactoryAccum+=dt;
+    fpsAtmosphereAccum+=dt;
+
     if((fpsPerfFrame&1)===0){
+      // Door animation remains responsive and lightweight.
       factoryInteriorsV84?.update?.(Math.min(.05,fpsFactoryAccum));
       fpsFactoryAccum=0;
+
+      // Sky life is only five instanced draw calls; update at ~30 Hz.
+      if(atmosphereV106?.group?.visible){
+        atmosphereV106?.update?.(Math.min(.07,fpsAtmosphereAccum));
+      }
+      fpsAtmosphereAccum=0;
     }
+
+    fpsUpdateFactoryMachineryVisibility();
   }else{
     fpsPerfFrame=0;
     fpsPondFishAccum=fpsPedestrianAccum=fpsFactoryAccum=fpsAtmosphereAccum=0;
@@ -6155,12 +6143,10 @@ let lastFrameTime=performance.now();
   // V147 detail layer owns its own coarse LOD and runs only lightweight
   // distance checks here. Interior detail is rendered only near the camera,
   // unless explicit cutaway mode is enabled.
-  if(!fpsMode){
-    factoryDetailV147?.update?.(dt,{
-      fpsMode:false,
-      cutaway:factoryCutawayOn
-    });
-  }
+  factoryDetailV147?.update?.(dt,{
+    fpsMode,
+    cutaway:factoryCutawayOn
+  });
 
   multiplayerV142?.updateLocal?.({
     active:fpsMode&&!fpsVehicleMode,
