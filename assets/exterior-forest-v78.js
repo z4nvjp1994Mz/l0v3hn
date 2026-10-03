@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V205';
-  const forestMode='scenic-v205';
+  root.name='EXTERIOR_SCENERY_V206';
+  const forestMode='scenic-v206';
 
   root.userData={
-    version:205,
+    version:206,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V205 trim all four physical road arms before the node, straighten the through-road approach, and join them with one exact-fit octagonal asphalt/shoulder junction mesh'
+    purpose:'V206 remove the oversized V205 junction polygon; ROAD A runs straight through the node, B/C connect directly to it, and only a road-width compact asphalt core hides seams/markings'
   };
   scene.add(root);
 
@@ -158,7 +158,7 @@ export async function installExteriorForestV78({
     return spec;
   }
 
-  // V205: exact polyline road. Use this near the common junction so
+  // V206: exact polyline road. Use this near the common junction so
   // Catmull-Rom cannot round or bow a branch as it enters the node.
   function addLinearHighway(name,controlPoints,width,kind='main'){
     const points=controlPoints
@@ -332,37 +332,21 @@ export async function installExteriorForestV78({
     }
   );
 
-  // V205 REAL JUNCTION GEOMETRY
+  // V206 DIRECT ROAD-TO-ROAD JUNCTION
   //
-  // The previous versions still drew every road all the way to one point and
-  // then tried to hide the overlap with another polygon. That guarantees a
-  // "three roads pasted together" look.
+  // V205 was structurally wrong for this visual target: cutting the roads back
+  // 70m and filling the gap created a huge paved object. Here the roads themselves
+  // meet at the node. ROAD A is a true straight-through road near the junction;
+  // ROAD B and ROAD C terminate directly into it.
   //
-  // V205 does the opposite:
-  //   1) establish the four physical arm directions;
-  //   2) CUT every road back 70m from the common node;
-  //   3) make ROAD A enter/leave the junction almost as one straight through-road;
-  //   4) fill the cut-out center with one exact-fit polygon whose cross-sections
-  //      are identical to the road ribbons.
-  //
-  // The closest pair of arms is only ~39deg apart. With ~40m carriageways,
-  // ~70m cutback is required before their shoulders are physically separated.
-  const junctionCutDistance=70;
-  const junctionSeamOverlap=1.5;
-
+  // Keep the accepted outer ROAD A alignment, then merge onto the exact opposite
+  // direction of ROAD A bottom about 73m before the node. This removes the local
+  // kink without moving the outer corridor.
   const roadABottomDir=normalize2(
     redMeasured.bottomRight.x-referenceJunction.x,
     redMeasured.bottomRight.z-referenceJunction.z
   );
   const roadATopDir={x:-roadABottomDir.x,z:-roadABottomDir.z};
-  const roadBDir=normalize2(
-    redMeasured.bottomLeft.x-referenceJunction.x,
-    redMeasured.bottomLeft.z-referenceJunction.z
-  );
-  const roadCDir=normalize2(
-    redMeasured.right.x-referenceJunction.x,
-    redMeasured.right.z-referenceJunction.z
-  );
 
   function pointFromJunction(dir,distance){
     return {
@@ -371,18 +355,10 @@ export async function installExteriorForestV78({
     };
   }
 
-  const roadATopCut=pointFromJunction(roadATopDir,junctionCutDistance);
-  const roadABottomCut=pointFromJunction(roadABottomDir,junctionCutDistance);
-  const roadBCut=pointFromJunction(roadBDir,junctionCutDistance);
-  const roadCCut=pointFromJunction(roadCDir,junctionCutDistance);
-
-  // Merge the old boundary-following outer geometry onto the true through-road
-  // tangent WELL BEFORE the junction. The merge point is very close to the
-  // previous boundary edge 7, so the accepted V201 exterior alignment remains.
-  const roadATopMerge=pointFromJunction(roadATopDir,110);
+  const roadATopMerge=pointFromJunction(roadATopDir,73);
 
   const referenceRoadATopOuter=addSmoothHighway(
-    'V205_REFERENCE_ROAD_A_TOP_OUTER',
+    'V206_REFERENCE_ROAD_A_TOP_OUTER',
     [
       roadATopFar,
       roadAEdge8,
@@ -394,20 +370,12 @@ export async function installExteriorForestV78({
     24
   );
 
-  const referenceRoadATopApproach=addLinearHighway(
-    'V205_REFERENCE_ROAD_A_TOP_APPROACH',
+  // One continuous straight ROAD A through the common node.
+  const referenceRoadAThrough=addLinearHighway(
+    'V206_REFERENCE_ROAD_A_THROUGH',
     [
       roadATopMerge,
-      roadATopCut
-    ],
-    40,
-    'main'
-  );
-
-  const referenceRoadABottom=addLinearHighway(
-    'V205_REFERENCE_ROAD_A_BOTTOM',
-    [
-      roadABottomCut,
+      referenceJunction,
       redMeasured.bottomRight,
       redReference.extended.bottomRight
     ],
@@ -415,43 +383,28 @@ export async function installExteriorForestV78({
     'main'
   );
 
-  const referenceRoadBOuter=addLinearHighway(
-    'V205_REFERENCE_ROAD_B_OUTER',
+  // ROAD B and ROAD C connect directly to the same node. No cut-back gap.
+  const referenceRoadB=addLinearHighway(
+    'V206_REFERENCE_ROAD_B',
     [
       redReference.extended.bottomLeft,
-      redMeasured.bottomLeft
-    ],
-    38,
-    'main'
-  );
-
-  const referenceRoadBApproach=addLinearHighway(
-    'V205_REFERENCE_ROAD_B_APPROACH',
-    [
       redMeasured.bottomLeft,
-      roadBCut
+      referenceJunction
     ],
     38,
     'main'
   );
 
   const referenceRoadC=addLinearHighway(
-    'V205_REFERENCE_ROAD_C_RIGHT',
+    'V206_REFERENCE_ROAD_C',
     [
-      roadCCut,
+      referenceJunction,
       redMeasured.right,
       redReference.extended.right
     ],
     38,
     'main'
   );
-
-  const referenceJunctionArms=[
-    {id:'A_TOP',dir:roadATopDir,width:40,cut:roadATopCut},
-    {id:'A_BOTTOM',dir:roadABottomDir,width:40,cut:roadABottomCut},
-    {id:'B',dir:roadBDir,width:38,cut:roadBCut},
-    {id:'C',dir:roadCDir,width:38,cut:roadCCut}
-  ];
 
   // ---------------------------------------------------------------------------
   // NORTH THROUGH ROAD — stays well north of the three-gateway zone.
@@ -504,7 +457,7 @@ export async function installExteriorForestV78({
   // The gate and all internal circulation remain source-authoritative.
   const forkIslandPolygons=[];
 
-  // All V205 reference-road centerlines clear generated forest/village/fields.
+  // All V206 reference-road centerlines clear generated forest/village/fields.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
@@ -703,7 +656,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V205_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V206_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -775,7 +728,7 @@ export async function installExteriorForestV78({
         const t=s/len;
         const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')
           ?.515
-          :(spec.name.startsWith('V205_REFERENCE_ROAD_')?.405:.262);
+          :(spec.name.startsWith('V206_REFERENCE_ROAD_')?.405:.262);
         dashDummy.position.set(
           THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
           dashY,
@@ -799,7 +752,7 @@ export async function installExteriorForestV78({
     const isRamp=spec.kind==='ramp';
     const isGateway=spec.kind==='gateway';
     const isFork=spec.kind==='fork'||spec.kind==='fork-trunk';
-    const isReference=spec.name.startsWith('V205_REFERENCE_ROAD_');
+    const isReference=spec.name.startsWith('V206_REFERENCE_ROAD_');
 
     const shoulderY=isFork?.425:(isReference?.305:.185);
     const asphaltY=isFork?.455:(isReference?.345:.215);
@@ -884,50 +837,19 @@ export async function installExteriorForestV78({
     highwaySurfaceCount++;
   }
 
-  // V205 EXACT-FIT TRIMMED JUNCTION
+  // V206 COMPACT JUNCTION CORE
   //
-  // Every branch now STOPS before this mesh. The junction boundary is generated
-  // from those same stop cross-sections, so there are no hidden square road ends
-  // underneath it and no arbitrary convex-hull bulge.
-  function junctionSectionPoints(arm,pad=0,extraReach=0){
-    const d=arm.dir;
-    const n={x:-d.z,z:d.x};
-    const c=pointFromJunction(d,junctionCutDistance+extraReach);
-    const half=arm.width*.5+pad;
-    return [
-      {x:c.x+n.x*half,z:c.z+n.z*half},
-      {x:c.x-n.x*half,z:c.z-n.z*half}
-    ];
-  }
-
-  function orderedJunctionBoundary(pad=0,extraReach=0){
-    const pts=[];
-    for(const arm of referenceJunctionArms){
-      pts.push(...junctionSectionPoints(arm,pad,extraReach));
-    }
-    // At 70m cutback the cross-sections no longer overlap. Sorting around the
-    // common node produces the real eight-sided union boundary instead of a hull.
-    pts.sort((a,b)=>
-      Math.atan2(a.z-referenceJunction.z,a.x-referenceJunction.x)-
-      Math.atan2(b.z-referenceJunction.z,b.x-referenceJunction.x)
+  // No large polygon. The road surfaces already meet at referenceJunction.
+  // A small asphalt cap approximately equal to one carriageway width simply
+  // hides the square ribbon ends and lane/median seams, so visually it reads
+  // as road meeting road rather than road meeting a separate object.
+  function makeCompactJunctionDisc({radius,y,material,name,renderOrder}){
+    const mesh=new THREE.Mesh(
+      new THREE.CircleGeometry(radius,48),
+      material
     );
-    return pts;
-  }
-
-  function makeExactJunctionMesh({pad,y,material,name,renderOrder}){
-    const boundaryPts=orderedJunctionBoundary(pad,junctionSeamOverlap);
-    let shapePts=boundaryPts.map(p=>new THREE.Vector2(p.x,-p.z));
-    if(!THREE.ShapeUtils.isClockWise(shapePts))shapePts.reverse();
-    const shape=new THREE.Shape();
-    shapePts.forEach((p,i)=>{
-      if(i===0)shape.moveTo(p.x,p.y);
-      else shape.lineTo(p.x,p.y);
-    });
-    shape.closePath();
-
-    const mesh=new THREE.Mesh(new THREE.ShapeGeometry(shape),material);
     mesh.rotation.x=-Math.PI/2;
-    mesh.position.y=y;
+    mesh.position.set(referenceJunction.x,y,referenceJunction.z);
     mesh.name=name;
     mesh.renderOrder=renderOrder;
     mesh.castShadow=false;
@@ -937,41 +859,42 @@ export async function installExteriorForestV78({
       walkable:true,
       highwayV194:true,
       referenceJunction:true,
-      exactTrimmedUnion:true
+      compactRoadCore:true
     };
     highwayRoot.add(mesh);
     return mesh;
   }
 
-  // Match the exact normal road elevations; only +.001 avoids hairline z-fight.
-  const junctionShoulder=makeExactJunctionMesh({
-    pad:3,
+  // Road half-widths are 19-20m. Keep the visible asphalt core at 21m so it
+  // extends only ~1m beyond ROAD A and ~2m beyond ROAD B/C.
+  const junctionShoulder=makeCompactJunctionDisc({
+    radius:23.5,
     y:.306,
     material:highwayShoulderMat,
-    name:'V205_REFERENCE_JUNCTION_SHOULDER',
+    name:'V206_REFERENCE_JUNCTION_SHOULDER',
     renderOrder:145
   });
 
-  const junctionAsphalt=makeExactJunctionMesh({
-    pad:0,
-    y:.346,
+  const junctionAsphalt=makeCompactJunctionDisc({
+    radius:21,
+    y:.432,
     material:highwayAsphaltMat,
-    name:'V205_REFERENCE_JUNCTION_ASPHALT',
+    name:'V206_REFERENCE_JUNCTION_ASPHALT',
     renderOrder:146
   });
 
   root.userData.referenceJunctionPaved=true;
   root.userData.referenceJunctionPlate={
-    cutDistance:junctionCutDistance,
-    seamOverlap:junctionSeamOverlap,
-    method:'trimmed-eight-sided-exact-cross-sections',
+    method:'compact-road-width-disc',
+    asphaltRadius:21,
+    shoulderRadius:23.5,
     roadAThrough:true,
     node:{...referenceJunction}
   };
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V205_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V206_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
@@ -1456,7 +1379,7 @@ export async function installExteriorForestV78({
   root.userData.referenceCornerIndex=referenceCornerIndex;
   root.userData.referenceCorner={x:referenceCorner.x,z:referenceCorner.z};
   root.userData.referenceJunctionNode={x:referenceJunction.x,z:referenceJunction.z};
-  root.userData.referenceJunctionMode='v205-trimmed-exact-fit-junction';
+  root.userData.referenceJunctionMode='v206-compact-direct-road-junction';
   root.userData.redReference=redReference;
 
   function setDoorOpen(index,v){
@@ -1498,7 +1421,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:205,group:root,treeAssetMode,forestMode,
+    ready:true,version:206,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1518,7 +1441,7 @@ export async function installExteriorForestV78({
     referenceCornerIndex,
     referenceCorner:{x:referenceCorner.x,z:referenceCorner.z},
     referenceJunctionNode:{x:referenceJunction.x,z:referenceJunction.z},
-    referenceJunctionMode:'v205-trimmed-exact-fit-junction',
+    referenceJunctionMode:'v206-compact-direct-road-junction',
     redReference,
     boundaryPoints:boundary.length,
     doors,
@@ -1555,9 +1478,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V200=api;
   window.__DALOC_EXTERIOR_V201=api;
   window.__DALOC_EXTERIOR_V202=api;
-  window.__DALOC_EXTERIOR_V205=api;
+  window.__DALOC_EXTERIOR_V206=api;
 
-  console.info('[DaLoc] V205 trimmed exact-fit junction installed',{
+  console.info('[DaLoc] V206 compact direct-road junction installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
