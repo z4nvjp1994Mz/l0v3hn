@@ -18,15 +18,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V180';
-  const forestMode='scenic-v180';
+  root.name='EXTERIOR_SCENERY_V181';
+  const forestMode='scenic-v181';
 
   root.userData={
-    version:180,
+    version:181,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V180 scenic exterior: clustered forest, water, villages and connected expressway network'
+    purpose:'V181 scenic exterior: natural curved edge-to-edge expressways + ramps + landscape'
   };
   scene.add(root);
 
@@ -77,9 +77,10 @@ export async function installExteriorForestV78({
   const expansion=430;
   const box={minX:minX-expansion,maxX:maxX+expansion,minZ:minZ-expansion,maxZ:maxZ+expansion};
 
-  // V180 external road network.
-  // CAD external tie-ins are surfaced instead of invented, then joined by a
-  // continuous outer expressway so every major internal outbound road connects.
+  // V181 CURVED EXPRESSWAY NETWORK
+  // No closed polygon ring. Main corridors are smooth edge-to-edge routes that
+  // inherit real CAD tie-in geometry, while industrial-road exits merge via
+  // tangential curved ramps.
   function roadWorldPoints(handle){
     const road=(data.roads||[]).find(r=>r.handle===handle);
     if(!road)return [];
@@ -93,44 +94,61 @@ export async function installExteriorForestV78({
     const road=(data.roads||[]).find(r=>r.handle===handle);
     if(!road)return fallback;
     const raw=(road.widthCad||12)*(data.pxPerCadUnit||1.20434303125)*metersPerPixel;
-    return Math.max(18,Math.min(46,raw));
+    return Math.max(16,Math.min(38,raw));
   }
 
-  const highwaySpecs=[];
-  function addHighwaySpec(name,points,width,kind='expressway'){
-    if(!points||points.length<2)return;
-    highwaySpecs.push({name,points,width,kind});
+  function normalize2(x,z){
+    const l=Math.hypot(x,z)||1;
+    return {x:x/l,z:z/l};
   }
 
-  // Existing CAD external tie-ins. These are the wide TIM____NG objects that V72
-  // intentionally did not surface inside the project renderer.
-  const externalTieHandles=['774EA','774EC','774F5','774F6','774F7','774F8'];
-  for(const handle of externalTieHandles){
-    addHighwaySpec(
-      'V180_CAD_TIE_'+handle,
-      roadWorldPoints(handle),
-      cadRoadWidth(handle,26),
-      'cad-tie'
+  function extendRayToBoxEdge(p,neighbor){
+    const d=normalize2(p.x-neighbor.x,p.z-neighbor.z);
+    const candidates=[];
+
+    if(Math.abs(d.x)>1e-7){
+      for(const xEdge of [box.minX,box.maxX]){
+        const t=(xEdge-p.x)/d.x;
+        if(t<=0)continue;
+        const z=p.z+d.z*t;
+        if(z>=box.minZ-1e-5&&z<=box.maxZ+1e-5){
+          candidates.push({t,p:{x:xEdge,z}});
+        }
+      }
+    }
+    if(Math.abs(d.z)>1e-7){
+      for(const zEdge of [box.minZ,box.maxZ]){
+        const t=(zEdge-p.z)/d.z;
+        if(t<=0)continue;
+        const x=p.x+d.x*t;
+        if(x>=box.minX-1e-5&&x<=box.maxX+1e-5){
+          candidates.push({t,p:{x,z:zEdge}});
+        }
+      }
+    }
+
+    candidates.sort((a,b)=>a.t-b.t);
+    return candidates[0]?.p||{
+      x:THREE.MathUtils.clamp(p.x+d.x*500,box.minX,box.maxX),
+      z:THREE.MathUtils.clamp(p.z+d.z*500,box.minZ,box.maxZ)
+    };
+  }
+
+  function smoothPath(controlPoints,density=18){
+    const pts=controlPoints.filter(Boolean);
+    if(pts.length<2)return pts;
+    const curve=new THREE.CatmullRomCurve3(
+      pts.map(p=>new THREE.Vector3(p.x,0,p.z)),
+      false,
+      'centripetal',
+      .35
     );
+    const segments=Math.max(30,(pts.length-1)*density);
+    return curve.getPoints(segments).map(v=>({x:v.x,z:v.z}));
   }
-
-  const ringOffsetX=220;
-  const ringOffsetZ=220;
-  const expressRing=[
-    {x:minX-ringOffsetX,z:minZ+50},
-    {x:minX+70,z:minZ-ringOffsetZ},
-    {x:maxX-70,z:minZ-ringOffsetZ},
-    {x:maxX+ringOffsetX,z:minZ+50},
-    {x:maxX+ringOffsetX,z:maxZ-55},
-    {x:maxX-65,z:maxZ+ringOffsetZ},
-    {x:minX+70,z:maxZ+ringOffsetZ},
-    {x:minX-ringOffsetX,z:maxZ-55},
-    {x:minX-ringOffsetX,z:minZ+50}
-  ];
-  addHighwaySpec('V180_OUTER_EXPRESS_RING',expressRing,28,'ring');
 
   function closestPointOnPolyline(p,line){
-    let best=null,bestD=Infinity;
+    let bestPoint=null,bestD=Infinity,bestTangent={x:1,z:0},bestIndex=0;
     for(let i=1;i<line.length;i++){
       const a=line[i-1],b=line[i];
       const vx=b.x-a.x,vz=b.z-a.z;
@@ -139,54 +157,222 @@ export async function installExteriorForestV78({
       const t=vv?Math.max(0,Math.min(1,(wx*vx+wz*vz)/vv)):0;
       const q={x:a.x+t*vx,z:a.z+t*vz};
       const d=Math.hypot(q.x-p.x,q.z-p.z);
-      if(d<bestD){bestD=d;best=q;}
+      if(d<bestD){
+        bestD=d;
+        bestPoint=q;
+        bestTangent=normalize2(vx,vz);
+        bestIndex=i-1;
+      }
     }
-    return {point:best,distance:bestD};
+    return {point:bestPoint,distance:bestD,tangent:bestTangent,index:bestIndex};
   }
 
-  // Connect actual ends of the major internal CAD roads to the outer expressway.
-  // Only endpoints outside the project polygon get a connector.
-  const majorInternalHandles=['77505','77536','7754C','774F9'];
-  const connectorKeys=new Set();
-  for(const handle of majorInternalHandles){
+  const highwaySpecs=[];
+  const primaryHighways=[];
+
+  function addSmoothHighway(name,controlPoints,width,kind='main',density=18){
+    const points=smoothPath(controlPoints,density);
+    if(points.length<2)return null;
+    const spec={name,points,width,kind};
+    highwaySpecs.push(spec);
+    if(kind==='main'||kind==='bypass')primaryHighways.push(spec);
+    return spec;
+  }
+
+  // ----- Primary 1: WEST RADIAL -----
+  // Preserve the actual 774EC -> 774EA CAD chain, but continue its natural
+  // alignment to the physical edge of the total 3D map in both directions.
+  const ec=roadWorldPoints('774EC');
+  const ea=roadWorldPoints('774EA');
+  if(ec.length>=2&&ea.length>=2){
+    const westOuter=ec[1];
+    const westJoin=ec[0];
+    const westUpper=ea[0];
+    const westStart=extendRayToBoxEdge(westOuter,westJoin);
+    const westEnd=extendRayToBoxEdge(westUpper,westJoin);
+
+    addSmoothHighway(
+      'V181_WEST_RADIAL',
+      [
+        westStart,
+        {
+          x:THREE.MathUtils.lerp(westStart.x,westOuter.x,.48)-28,
+          z:THREE.MathUtils.lerp(westStart.z,westOuter.z,.48)+18
+        },
+        westOuter,
+        westJoin,
+        westUpper,
+        {
+          x:THREE.MathUtils.lerp(westUpper.x,westEnd.x,.48)+22,
+          z:THREE.MathUtils.lerp(westUpper.z,westEnd.z,.48)-10
+        },
+        westEnd
+      ],
+      30,
+      'main',
+      20
+    );
+  }
+
+  // ----- Primary 2: NORTH-EAST EXPRESSWAY -----
+  // Follows the wide F5/F7/F8 CAD family, then exits through opposite map edges.
+  const f5=roadWorldPoints('774F5');
+  const f7=roadWorldPoints('774F7');
+  const f8=roadWorldPoints('774F8');
+  if(f5.length>=2&&f7.length>=2&&f8.length>=2){
+    const n0=f5[0];
+    const n1=f5[1];
+    const n2={
+      x:(f7[1].x+f8[0].x)*.5,
+      z:(f7[1].z+f8[0].z)*.5
+    };
+    const n3=f8[1];
+    const northStart=extendRayToBoxEdge(n0,n1);
+    const eastEnd=extendRayToBoxEdge(n3,n2);
+
+    addSmoothHighway(
+      'V181_NORTHEAST_EXPRESSWAY',
+      [
+        northStart,
+        {
+          x:THREE.MathUtils.lerp(northStart.x,n0.x,.52)-12,
+          z:THREE.MathUtils.lerp(northStart.z,n0.z,.52)+30
+        },
+        n0,
+        n1,
+        n2,
+        n3,
+        {
+          x:THREE.MathUtils.lerp(n3.x,eastEnd.x,.52)+16,
+          z:THREE.MathUtils.lerp(n3.z,eastEnd.z,.52)+26
+        },
+        eastEnd
+      ],
+      32,
+      'main',
+      20
+    );
+  }
+
+  // ----- Primary 3: SOUTH BYPASS -----
+  // A long natural arc, not a ring. Both ends terminate exactly at the total
+  // map boundary so the road visually continues beyond the scene.
+  addSmoothHighway(
+    'V181_SOUTH_BYPASS',
+    [
+      {x:box.minX,z:maxZ+205},
+      {x:minX-185,z:maxZ+150},
+      {x:minX+120,z:maxZ+175},
+      {x:(minX+maxX)*.48,z:maxZ+215},
+      {x:maxX-90,z:maxZ+170},
+      {x:maxX+180,z:maxZ+115},
+      {x:box.maxX,z:maxZ+155}
+    ],
+    28,
+    'bypass',
+    20
+  );
+
+  // Select a primary highway and merge target for an outbound industrial road.
+  function nearestPrimary(p){
+    let best=null;
+    for(const spec of primaryHighways){
+      const hit=closestPointOnPolyline(p,spec.points);
+      if(!best||hit.distance<best.hit.distance)best={spec,hit};
+    }
+    return best;
+  }
+
+  function endpointOutDirection(pts,index){
+    if(index===0){
+      return normalize2(pts[0].x-pts[1].x,pts[0].z-pts[1].z);
+    }
+    return normalize2(
+      pts[pts.length-1].x-pts[pts.length-2].x,
+      pts[pts.length-1].z-pts[pts.length-2].z
+    );
+  }
+
+  function addMergeRamp(handle,endpointIndex,width){
+    const pts=roadWorldPoints(handle);
+    if(pts.length<2)return;
+    const p=endpointIndex===0?pts[0]:pts[pts.length-1];
+    if(pointInPolygon(p.x,p.z,boundary))return;
+
+    const nearest=nearestPrimary(p);
+    if(!nearest||!nearest.hit.point)return;
+    if(nearest.hit.distance<18||nearest.hit.distance>520)return;
+
+    const out=endpointOutDirection(pts,endpointIndex);
+    let tangent=nearest.hit.tangent;
+    const toward={
+      x:nearest.hit.point.x-p.x,
+      z:nearest.hit.point.z-p.z
+    };
+    if(toward.x*tangent.x+toward.z*tangent.z<0){
+      tangent={x:-tangent.x,z:-tangent.z};
+    }
+
+    const d=nearest.hit.distance;
+    const outLen=Math.min(92,Math.max(42,d*.34));
+    const mergeLen=Math.min(90,Math.max(48,d*.28));
+
+    const c1={
+      x:p.x+out.x*outLen,
+      z:p.z+out.z*outLen
+    };
+    const c2={
+      x:nearest.hit.point.x-tangent.x*mergeLen,
+      z:nearest.hit.point.z-tangent.z*mergeLen
+    };
+
+    addSmoothHighway(
+      'V181_RAMP_'+handle+'_'+endpointIndex,
+      [p,c1,c2,nearest.hit.point],
+      width,
+      'ramp',
+      24
+    );
+  }
+
+  // 77505 is the main through-road and receives ramps at both external ends.
+  addMergeRamp('77505',0,19);
+  addMergeRamp('77505',1,19);
+
+  // Other large project roads receive one outward merge where their CAD geometry
+  // actually exits the site.
+  const oneExitHandles=['77536','7754C','774F9'];
+  for(const handle of oneExitHandles){
     const pts=roadWorldPoints(handle);
     if(pts.length<2)continue;
-    const candidates=[pts[0],pts[pts.length-1]];
-    for(let ei=0;ei<candidates.length;ei++){
-      const p=candidates[ei];
-      if(pointInPolygon(p.x,p.z,boundary))continue;
-      const hit=closestPointOnPolyline(p,expressRing);
-      if(!hit.point||hit.distance<12||hit.distance>430)continue;
-      const key=Math.round(p.x/12)+':'+Math.round(p.z/12);
-      if(connectorKeys.has(key))continue;
-      connectorKeys.add(key);
+    const outside=[];
+    if(!pointInPolygon(pts[0].x,pts[0].z,boundary))outside.push(0);
+    if(!pointInPolygon(pts[pts.length-1].x,pts[pts.length-1].z,boundary))outside.push(1);
+    if(!outside.length)continue;
 
-      // Mild midpoint bend avoids ruler-straight spokes and makes the merge read
-      // naturally from Top View.
-      const mx=(p.x+hit.point.x)*.5;
-      const mz=(p.z+hit.point.z)*.5;
-      const dx=hit.point.x-p.x,dz=hit.point.z-p.z;
-      const len=Math.hypot(dx,dz)||1;
-      const bend=Math.min(26,hit.distance*.10)*(ei===0?1:-1);
-      const mid={x:mx-dz/len*bend,z:mz+dx/len*bend};
-
-      addHighwaySpec(
-        'V180_INTERNAL_CONNECTOR_'+handle+'_'+ei,
-        [p,mid,hit.point],
-        Math.max(20,Math.min(28,cadRoadWidth(handle,22))),
-        'connector'
-      );
+    // If both ends are technically outside an irregular CAD polygon, only build
+    // the endpoint nearest a primary road; this prevents random spoke networks.
+    let bestIndex=outside[0],bestDistance=Infinity;
+    for(const ei of outside){
+      const p=ei===0?pts[0]:pts[pts.length-1];
+      const nearest=nearestPrimary(p);
+      if(nearest&&nearest.hit.distance<bestDistance){
+        bestDistance=nearest.hit.distance;
+        bestIndex=ei;
+      }
     }
+    addMergeRamp(handle,bestIndex,handle==='774F9'?18:17);
   }
 
-  // Highways are authoritative clear corridors for all exterior procedural scenery.
+  // Smooth road centerlines are also the authoritative procedural-clearance
+  // corridors: trees/houses/fields cannot spawn across them.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
         a:spec.points[i-1],
         b:spec.points[i],
-        radius:spec.width*.5+7,
-        highwayV180:true
+        radius:spec.width*.5+(spec.kind==='ramp'?5:8),
+        highwayV181:true
       });
     }
   }
@@ -209,7 +395,7 @@ export async function installExteriorForestV78({
   floor.rotation.x=-Math.PI/2;
   floor.position.y=-.48;
   floor.receiveShadow=false;
-  floor.name='V180_SCENIC_GROUND';
+  floor.name='V181_SCENIC_GROUND';
   root.add(floor);
 
   let seed=780131;
@@ -365,29 +551,29 @@ export async function installExteriorForestV78({
   // Exterior scenery remains static, shadow-free and heavily instanced.
   // -------------------------------------------------------------------------
   const sceneryRoot=new THREE.Group();
-  sceneryRoot.name='V180_SCENIC_LANDSCAPE';
+  sceneryRoot.name='V181_SCENIC_LANDSCAPE';
   sceneryRoot.userData={fpsNonSolid:true,optimizedExterior:true};
   root.add(sceneryRoot);
 
   const terrainRoot=new THREE.Group();
-  terrainRoot.name='V180_TERRAIN';
+  terrainRoot.name='V181_TERRAIN';
   sceneryRoot.add(terrainRoot);
 
   const waterRoot=new THREE.Group();
-  waterRoot.name='V180_WATER';
+  waterRoot.name='V181_WATER';
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V180_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V181_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
   const forestRoot=new THREE.Group();
-  forestRoot.name='V180_CLUSTERED_FOREST';
+  forestRoot.name='V181_CLUSTERED_FOREST';
   sceneryRoot.add(forestRoot);
 
   const villageBackdropRoot=new THREE.Group();
-  villageBackdropRoot.name='V180_VILLAGE_BACKDROP';
+  villageBackdropRoot.name='V181_VILLAGE_BACKDROP';
   sceneryRoot.add(villageBackdropRoot);
 
   function makeRoadRibbon(points,width,y=.20,offset=0){
@@ -419,20 +605,61 @@ export async function installExteriorForestV78({
     return g;
   }
 
-  const highwayShoulderMat=new THREE.MeshLambertMaterial({color:0x8d908b});
-  const highwayAsphaltMat=new THREE.MeshLambertMaterial({color:0x4c4f4e});
-  const highwayMedianMat=new THREE.MeshLambertMaterial({color:0x617553});
-  const highwayWhiteMat=new THREE.MeshBasicMaterial({color:0xf1f0df});
-  const highwayYellowMat=new THREE.MeshBasicMaterial({color:0xe7c84f});
+  const highwayShoulderMat=new THREE.MeshLambertMaterial({color:0x858985});
+  const highwayAsphaltMat=new THREE.MeshLambertMaterial({color:0x4a4d4d});
+  const highwayMedianMat=new THREE.MeshLambertMaterial({color:0x657a56});
+  const highwayWhiteMat=new THREE.MeshBasicMaterial({color:0xf4f2e5});
+  const highwayYellowMat=new THREE.MeshBasicMaterial({color:0xe4c449});
+
+  const dashGeo=new THREE.BoxGeometry(.22,.025,4.8);
+  const dashMatrices=[];
+  const dashDummy=new THREE.Object3D();
+
+  function collectLaneDashes(spec,offset){
+    const pts=spec.points;
+    let carry=0;
+    const spacing=11.0;
+
+    for(let i=1;i<pts.length;i++){
+      const a=pts[i-1],b=pts[i];
+      const dx=b.x-a.x,dz=b.z-a.z;
+      const len=Math.hypot(dx,dz);
+      if(len<.01)continue;
+      const tx=dx/len,tz=dz/len;
+      const nx=-tz,nz=tx;
+      const yaw=Math.atan2(tx,tz);
+
+      let s=spacing-carry;
+      while(s<len){
+        const t=s/len;
+        dashDummy.position.set(
+          THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
+          .262,
+          THREE.MathUtils.lerp(a.z,b.z,t)+nz*offset
+        );
+        dashDummy.rotation.set(0,yaw,0);
+        dashDummy.scale.set(1,1,1);
+        dashDummy.updateMatrix();
+        dashMatrices.push(dashDummy.matrix.clone());
+        s+=spacing;
+      }
+      carry=(carry+len)%spacing;
+    }
+  }
 
   let highwaySurfaceCount=0;
+  let highwayMainCount=0;
+  let highwayRampCount=0;
+
   for(const spec of highwaySpecs){
+    const isRamp=spec.kind==='ramp';
+
     const shoulder=new THREE.Mesh(
-      makeRoadRibbon(spec.points,spec.width+6,.185),
+      makeRoadRibbon(spec.points,spec.width+(isRamp?3.5:6),.185),
       highwayShoulderMat
     );
     shoulder.name=spec.name+'_SHOULDER';
-    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV180:true};
+    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV181:true};
     shoulder.castShadow=false;
     shoulder.receiveShadow=false;
     highwayRoot.add(shoulder);
@@ -442,55 +669,71 @@ export async function installExteriorForestV78({
       highwayAsphaltMat
     );
     asphalt.name=spec.name+'_ASPHALT';
-    asphalt.userData={fpsNonSolid:true,walkable:true,highwayV180:true,layer:'carriageway'};
+    asphalt.userData={
+      fpsNonSolid:true,
+      walkable:true,
+      highwayV181:true,
+      layer:'carriageway'
+    };
     asphalt.castShadow=false;
     asphalt.receiveShadow=false;
     highwayRoot.add(asphalt);
 
-    // Median and lane guides. The CAD tie-ins can be very wide, so use a larger
-    // central reserve there; connectors use a compact divider.
-    const medianWidth=spec.width>=34?4.2:3.0;
-    const median=new THREE.Mesh(
-      makeRoadRibbon(spec.points,medianWidth,.238),
-      highwayMedianMat
-    );
-    median.name=spec.name+'_MEDIAN';
-    median.userData={fpsNonSolid:true,highwayV180:true};
-    highwayRoot.add(median);
+    if(!isRamp){
+      const medianWidth=spec.width>=30?3.8:3.0;
+      const median=new THREE.Mesh(
+        makeRoadRibbon(spec.points,medianWidth,.238),
+        highwayMedianMat
+      );
+      median.name=spec.name+'_MEDIAN';
+      median.userData={fpsNonSolid:true,highwayV181:true};
+      highwayRoot.add(median);
+    }
 
-    const edgeOffset=Math.max(2.0,spec.width*.5-1.25);
+    const edgeOffset=Math.max(2.0,spec.width*.5-.95);
     for(const side of [-1,1]){
       const edge=new THREE.Mesh(
-        makeRoadRibbon(spec.points,.34,.244,side*edgeOffset),
+        makeRoadRibbon(spec.points,.30,.248,side*edgeOffset),
         highwayWhiteMat
       );
       edge.name=spec.name+'_EDGE_'+(side<0?'L':'R');
-      edge.userData={fpsNonSolid:true,highwayV180:true};
+      edge.userData={fpsNonSolid:true,highwayV181:true};
       highwayRoot.add(edge);
     }
 
-    if(spec.width>=22){
-      const laneOffset=Math.max(4.2,spec.width*.25);
-      for(const side of [-1,1]){
-        const lane=new THREE.Mesh(
-          makeRoadRibbon(spec.points,.22,.246,side*laneOffset),
-          highwayWhiteMat
-        );
-        lane.name=spec.name+'_LANE_'+(side<0?'L':'R');
-        lane.userData={fpsNonSolid:true,highwayV180:true};
-        highwayRoot.add(lane);
-      }
+    if(isRamp){
+      // One dashed center separator on ramps.
+      collectLaneDashes(spec,0);
+      highwayRampCount++;
+    }else{
+      // Dashed lane separators on both carriageways.
+      const laneOffset=Math.max(4.2,spec.width*.27);
+      collectLaneDashes(spec,-laneOffset);
+      collectLaneDashes(spec,laneOffset);
+
+      const centerLine=new THREE.Mesh(
+        makeRoadRibbon(spec.points,.16,.250),
+        highwayYellowMat
+      );
+      centerLine.name=spec.name+'_CENTER';
+      centerLine.userData={fpsNonSolid:true,highwayV181:true};
+      highwayRoot.add(centerLine);
+      highwayMainCount++;
     }
 
-    const centerLine=new THREE.Mesh(
-      makeRoadRibbon(spec.points,.18,.249),
-      highwayYellowMat
-    );
-    centerLine.name=spec.name+'_CENTER';
-    centerLine.userData={fpsNonSolid:true,highwayV180:true};
-    highwayRoot.add(centerLine);
-
     highwaySurfaceCount++;
+  }
+
+  if(dashMatrices.length){
+    const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
+    dashBatch.name='V181_HIGHWAY_LANE_DASHES';
+    dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
+    dashBatch.instanceMatrix.needsUpdate=true;
+    dashBatch.computeBoundingSphere();
+    dashBatch.castShadow=false;
+    dashBatch.receiveShadow=false;
+    dashBatch.userData={fpsNonSolid:true,highwayV181:true};
+    highwayRoot.add(dashBatch);
   }
 
   const siteW=maxX-minX;
@@ -538,7 +781,7 @@ export async function installExteriorForestV78({
   for(let i=0;i<fieldPatches.length;i++){
     const p=fieldPatches[i];
     const m=new THREE.Mesh(new THREE.PlaneGeometry(1,1),p.mat);
-    m.name='V180_FIELD_'+i;
+    m.name='V181_FIELD_'+i;
     m.rotation.x=-Math.PI/2;
     m.rotation.z=p.rot;
     m.scale.set(p.w,p.h,1);
@@ -601,7 +844,7 @@ export async function installExteriorForestV78({
       makeIrregularLakeGeometry(p.rx,p.rz,p.phase,1.16),
       bankMat
     );
-    bank.name='V180_LAKE_BANK_'+i;
+    bank.name='V181_LAKE_BANK_'+i;
     bank.rotation.x=-Math.PI/2;
     bank.rotation.z=p.rot;
     bank.position.set(p.x,-.447,p.z);
@@ -614,7 +857,7 @@ export async function installExteriorForestV78({
       makeIrregularLakeGeometry(p.rx,p.rz,p.phase+.3,1.05),
       shallowMat
     );
-    shallow.name='V180_LAKE_SHALLOW_'+i;
+    shallow.name='V181_LAKE_SHALLOW_'+i;
     shallow.rotation.x=-Math.PI/2;
     shallow.rotation.z=p.rot;
     shallow.position.set(p.x,-.428,p.z);
@@ -627,7 +870,7 @@ export async function installExteriorForestV78({
       makeIrregularLakeGeometry(p.rx,p.rz,p.phase,1),
       waterMat
     );
-    lake.name='V180_LAKE_'+i;
+    lake.name='V181_LAKE_'+i;
     lake.rotation.x=-Math.PI/2;
     lake.rotation.z=p.rot;
     lake.position.set(p.x,-.405,p.z);
@@ -718,12 +961,12 @@ export async function installExteriorForestV78({
     });
   }
   const canalBank=new THREE.Mesh(makeStripGeometry(canalPoints,34,-.438),bankMat);
-  canalBank.name='V180_CANAL_BANK';
+  canalBank.name='V181_CANAL_BANK';
   canalBank.userData.fpsNonSolid=true;
   waterRoot.add(canalBank);
 
   const canal=new THREE.Mesh(makeStripGeometry(canalPoints,21,-.402),waterMat);
-  canal.name='V180_CANAL';
+  canal.name='V181_CANAL';
   canal.userData.fpsNonSolid=true;
   waterRoot.add(canal);
 
@@ -776,9 +1019,9 @@ export async function installExteriorForestV78({
     const houses=backdropHouseSites.filter(h=>h.colorIndex===ci);
     if(!houses.length)continue;
     const bodyBatch=new THREE.InstancedMesh(bgBodyGeo,bgWallMats[ci],houses.length);
-    bodyBatch.name='V180_BG_HOUSE_BODY_'+ci;
+    bodyBatch.name='V181_BG_HOUSE_BODY_'+ci;
     const roofBatch=new THREE.InstancedMesh(bgRoofGeo,bgRoofMats[ci],houses.length);
-    roofBatch.name='V180_BG_HOUSE_ROOF_'+ci;
+    roofBatch.name='V181_BG_HOUSE_ROOF_'+ci;
 
     houses.forEach((h,i)=>{
       bgDummy.position.set(h.x,h.h*.5-.38,h.z);
@@ -863,7 +1106,7 @@ export async function installExteriorForestV78({
   const shrubMat=new THREE.MeshLambertMaterial({color:0x496f3d});
 
   const trunkBatch=new THREE.InstancedMesh(trunkGeo,trunkMat,treeSites.length);
-  trunkBatch.name='V180_FOREST_TRUNKS';
+  trunkBatch.name='V181_FOREST_TRUNKS';
   const broadUpper=[[],[],[],[]];
   const broadLower=[[],[],[],[]];
   const pineMatrices=[];
@@ -932,11 +1175,11 @@ export async function installExteriorForestV78({
   }
 
   for(let i=0;i<4;i++){
-    addForestBatch('V180_FOREST_UPPER_'+i,crownGeo,broadMats[i],broadUpper[i]);
-    addForestBatch('V180_FOREST_LOWER_'+i,crownGeo,broadMats[i],broadLower[i]);
+    addForestBatch('V181_FOREST_UPPER_'+i,crownGeo,broadMats[i],broadUpper[i]);
+    addForestBatch('V181_FOREST_LOWER_'+i,crownGeo,broadMats[i],broadLower[i]);
   }
-  addForestBatch('V180_FOREST_PINE',pineGeo,pineMat,pineMatrices);
-  addForestBatch('V180_FOREST_SHRUBS',shrubGeo,shrubMat,shrubMatrices);
+  addForestBatch('V181_FOREST_PINE',pineGeo,pineMat,pineMatrices);
+  addForestBatch('V181_FOREST_SHRUBS',shrubGeo,shrubMat,shrubMatrices);
 
   const deciduous=treeSites.filter(t=>t.kind==='broad');
   const conifers=treeSites.filter(t=>t.kind==='pine');
@@ -961,6 +1204,8 @@ export async function installExteriorForestV78({
   root.userData.fieldPatchCount=fieldPatches.length;
   root.userData.highwayCount=highwaySpecs.length;
   root.userData.highwaySurfaceCount=highwaySurfaceCount;
+  root.userData.highwayMainCount=highwayMainCount;
+  root.userData.highwayRampCount=highwayRampCount;
 
   function setDoorOpen(index,v){
     const d=doors[index];
@@ -1001,7 +1246,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:180,group:root,treeAssetMode,forestMode,
+    ready:true,version:181,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1014,6 +1259,8 @@ export async function installExteriorForestV78({
     fieldPatchCount:fieldPatches.length,
     highwayCount:highwaySpecs.length,
     highwaySurfaceCount,
+    highwayMainCount,
+    highwayRampCount,
     boundaryPoints:boundary.length,
     doors,
     setDoorOpen,
@@ -1027,8 +1274,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V176=api;
   window.__DALOC_EXTERIOR_V179=api;
   window.__DALOC_EXTERIOR_V180=api;
+  window.__DALOC_EXTERIOR_V181=api;
 
-  console.info('[DaLoc] V180 scenic exterior + expressway network installed',{
+  console.info('[DaLoc] V181 curved edge-to-edge expressway network installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
@@ -1042,6 +1290,8 @@ export async function installExteriorForestV78({
     waterBodies:waterBodyCount,
     fields:fieldPatches.length,
     highways:highwaySpecs.length,
+    highwayMains:highwayMainCount,
+    highwayRamps:highwayRampCount,
     highwaySurfaces:highwaySurfaceCount,
     doors:doors.length,
     boundaryPoints:boundary.length
