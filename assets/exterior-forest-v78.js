@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V203';
-  const forestMode='scenic-v203';
+  root.name='EXTERIOR_SCENERY_V204';
+  const forestMode='scenic-v204';
 
   root.userData={
-    version:203,
+    version:204,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V203 preserve V202 road alignment and add one continuous asphalt/shoulder junction plate so all road arms physically merge at the common node'
+    purpose:'V204 force redeploy of the V203 continuous asphalt/shoulder junction plate; geometry unchanged'
   };
   scene.add(root);
 
@@ -337,7 +337,7 @@ export async function installExteriorForestV78({
   // Each branch gets a straight final approach so the intersection reads as
   // three straight roads meeting at one point instead of a rounded Y.
   const referenceRoadATopOuter=addSmoothHighway(
-    'V203_REFERENCE_ROAD_A_TOP_OUTER',
+    'V204_REFERENCE_ROAD_A_TOP_OUTER',
     [
       roadATopFar,
       roadAEdge8,
@@ -351,7 +351,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadATopApproach=addLinearHighway(
-    'V203_REFERENCE_ROAD_A_TOP_APPROACH',
+    'V204_REFERENCE_ROAD_A_TOP_APPROACH',
     [
       roadAEdge5,
       referenceJunction
@@ -361,7 +361,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadABottom=addLinearHighway(
-    'V203_REFERENCE_ROAD_A_BOTTOM',
+    'V204_REFERENCE_ROAD_A_BOTTOM',
     [
       referenceJunction,
       redMeasured.bottomRight,
@@ -372,7 +372,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadBOuter=addLinearHighway(
-    'V203_REFERENCE_ROAD_B_OUTER',
+    'V204_REFERENCE_ROAD_B_OUTER',
     [
       redReference.extended.bottomLeft,
       redMeasured.bottomLeft
@@ -382,7 +382,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadBApproach=addLinearHighway(
-    'V203_REFERENCE_ROAD_B_APPROACH',
+    'V204_REFERENCE_ROAD_B_APPROACH',
     [
       redMeasured.bottomLeft,
       referenceJunction
@@ -392,7 +392,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadC=addLinearHighway(
-    'V203_REFERENCE_ROAD_C_RIGHT',
+    'V204_REFERENCE_ROAD_C_RIGHT',
     [
       referenceJunction,
       redMeasured.right,
@@ -453,7 +453,7 @@ export async function installExteriorForestV78({
   // The gate and all internal circulation remain source-authoritative.
   const forkIslandPolygons=[];
 
-  // All V203 reference-road centerlines clear generated forest/village/fields.
+  // All V204 reference-road centerlines clear generated forest/village/fields.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
@@ -652,7 +652,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V203_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V204_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -724,7 +724,7 @@ export async function installExteriorForestV78({
         const t=s/len;
         const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')
           ?.515
-          :(spec.name.startsWith('V203_REFERENCE_ROAD_')?.405:.262);
+          :(spec.name.startsWith('V204_REFERENCE_ROAD_')?.405:.262);
         dashDummy.position.set(
           THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
           dashY,
@@ -748,7 +748,7 @@ export async function installExteriorForestV78({
     const isRamp=spec.kind==='ramp';
     const isGateway=spec.kind==='gateway';
     const isFork=spec.kind==='fork'||spec.kind==='fork-trunk';
-    const isReference=spec.name.startsWith('V203_REFERENCE_ROAD_');
+    const isReference=spec.name.startsWith('V204_REFERENCE_ROAD_');
 
     const shoulderY=isFork?.425:(isReference?.305:.185);
     const asphaltY=isFork?.455:(isReference?.345:.215);
@@ -919,7 +919,7 @@ export async function installExteriorForestV78({
     reach:33,
     y:.418,
     material:highwayShoulderMat,
-    name:'V203_REFERENCE_JUNCTION_SHOULDER',
+    name:'V204_REFERENCE_JUNCTION_SHOULDER',
     renderOrder:145
   });
 
@@ -928,7 +928,7 @@ export async function installExteriorForestV78({
     reach:30,
     y:.432,
     material:highwayAsphaltMat,
-    name:'V203_REFERENCE_JUNCTION_ASPHALT',
+    name:'V204_REFERENCE_JUNCTION_ASPHALT',
     renderOrder:146
   });
 
@@ -942,7 +942,7 @@ export async function installExteriorForestV78({
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V203_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V204_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
@@ -1427,7 +1427,7 @@ export async function installExteriorForestV78({
   root.userData.referenceCornerIndex=referenceCornerIndex;
   root.userData.referenceCorner={x:referenceCorner.x,z:referenceCorner.z};
   root.userData.referenceJunctionNode={x:referenceJunction.x,z:referenceJunction.z};
-  root.userData.referenceJunctionMode='v203-continuous-paved-junction-core';
+  root.userData.referenceJunctionMode='v204-continuous-paved-junction-core-force-redeploy';
   root.userData.redReference=redReference;
 
   function setDoorOpen(index,v){
@@ -1469,7 +1469,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:203,group:root,treeAssetMode,forestMode,
+    ready:true,version:204,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1489,7 +1489,7 @@ export async function installExteriorForestV78({
     referenceCornerIndex,
     referenceCorner:{x:referenceCorner.x,z:referenceCorner.z},
     referenceJunctionNode:{x:referenceJunction.x,z:referenceJunction.z},
-    referenceJunctionMode:'v203-continuous-paved-junction-core',
+    referenceJunctionMode:'v204-continuous-paved-junction-core-force-redeploy',
     redReference,
     boundaryPoints:boundary.length,
     doors,
@@ -1526,9 +1526,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V200=api;
   window.__DALOC_EXTERIOR_V201=api;
   window.__DALOC_EXTERIOR_V202=api;
-  window.__DALOC_EXTERIOR_V203=api;
+  window.__DALOC_EXTERIOR_V204=api;
 
-  console.info('[DaLoc] V203 continuous paved junction core installed',{
+  console.info('[DaLoc] V204 force-redeploy continuous paved junction core installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
