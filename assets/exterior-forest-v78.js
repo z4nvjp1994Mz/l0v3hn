@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V208';
-  const forestMode='scenic-v208';
+  root.name='EXTERIOR_SCENERY_V209';
+  const forestMode='scenic-v209';
 
   root.userData={
-    version:208,
+    version:209,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V208 simplify ROAD A to one single long straight line from scene edge to scene edge; ROAD B/C attach directly to its asphalt edges'
+    purpose:'V209 align the one straight ROAD A onto the user-marked red/original line using roadAEdge8-to-roadAEdge5 as the target axis'
   };
   scene.add(root);
 
@@ -340,38 +340,51 @@ export async function installExteriorForestV78({
   // direction, then extends to BOTH edges of the exterior scene.
 
   const roadABottomDir=normalize2(
-    redMeasured.bottomRight.x-referenceJunction.x,
-    redMeasured.bottomRight.z-referenceJunction.z
+    roadAEdge5.x-roadAEdge8.x,
+    roadAEdge5.z-roadAEdge8.z
   );
   const roadATopDir={x:-roadABottomDir.x,z:-roadABottomDir.z};
+
+  const roadAEdge8ToOldNode={
+    x:referenceJunction.x-roadAEdge8.x,
+    z:referenceJunction.z-roadAEdge8.z
+  };
+  const roadAProjectionDistance=
+    roadAEdge8ToOldNode.x*roadABottomDir.x+
+    roadAEdge8ToOldNode.z*roadABottomDir.z;
+  const roadAReferenceNode={
+    x:roadAEdge8.x+roadABottomDir.x*roadAProjectionDistance,
+    z:roadAEdge8.z+roadABottomDir.z*roadAProjectionDistance
+  };
+
   const roadBDir=normalize2(
-    redMeasured.bottomLeft.x-referenceJunction.x,
-    redMeasured.bottomLeft.z-referenceJunction.z
+    redMeasured.bottomLeft.x-roadAReferenceNode.x,
+    redMeasured.bottomLeft.z-roadAReferenceNode.z
   );
   const roadCDir=normalize2(
-    redMeasured.right.x-referenceJunction.x,
-    redMeasured.right.z-referenceJunction.z
+    redMeasured.right.x-roadAReferenceNode.x,
+    redMeasured.right.z-roadAReferenceNode.z
   );
 
   function pointFromJunction(dir,distance){
     return {
-      x:referenceJunction.x+dir.x*distance,
-      z:referenceJunction.z+dir.z*distance
+      x:roadAReferenceNode.x+dir.x*distance,
+      z:roadAReferenceNode.z+dir.z*distance
     };
   }
 
   const roadATopEnd=rayThroughToBoxEdge(
-    referenceJunction,
+    roadAReferenceNode,
     pointFromJunction(roadATopDir,100)
   );
   const roadABottomEnd=rayThroughToBoxEdge(
-    referenceJunction,
+    roadAReferenceNode,
     pointFromJunction(roadABottomDir,100)
   );
 
   // Literally one straight segment from one scene edge to the other.
   const referenceRoadA=addLinearHighway(
-    'V208_REFERENCE_ROAD_A_ONE_STRAIGHT_LINE',
+    'V209_REFERENCE_ROAD_A_RED_ALIGNMENT',
     [roadATopEnd,roadABottomEnd],
     40,
     'main'
@@ -393,7 +406,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadB=addLinearHighway(
-    'V208_REFERENCE_ROAD_B_SIDE_JOIN',
+    'V209_REFERENCE_ROAD_B_SIDE_JOIN',
     [redReference.extended.bottomLeft,redMeasured.bottomLeft,roadBAttach],
     38,
     'junction-branch'
@@ -402,7 +415,7 @@ export async function installExteriorForestV78({
   referenceRoadB.junctionAttach='end';
 
   const referenceRoadC=addLinearHighway(
-    'V208_REFERENCE_ROAD_C_SIDE_JOIN',
+    'V209_REFERENCE_ROAD_C_SIDE_JOIN',
     [roadCAttach,redMeasured.right,redReference.extended.right],
     38,
     'junction-branch'
@@ -428,7 +441,9 @@ export async function installExteriorForestV78({
     edgeLineGapMeters:roadAEdgeGap,
     roadAStart:{...roadATopEnd},
     roadAEnd:{...roadABottomEnd},
-    node:{...referenceJunction}
+    oldNode:{...referenceJunction},
+    node:{...roadAReferenceNode},
+    targetChord:{start:{...roadAEdge8},end:{...roadAEdge5}}
   };
 
   // ---------------------------------------------------------------------------
@@ -482,7 +497,7 @@ export async function installExteriorForestV78({
   // The gate and all internal circulation remain source-authoritative.
   const forkIslandPolygons=[];
 
-  // All V208 reference-road centerlines clear generated forest/village/fields.
+  // All V209 reference-road centerlines clear generated forest/village/fields.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
@@ -681,7 +696,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V208_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V209_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -753,7 +768,7 @@ export async function installExteriorForestV78({
         const t=s/len;
         const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')
           ?.515
-          :(spec.name.startsWith('V208_REFERENCE_ROAD_')?.405:.262);
+          :(spec.name.startsWith('V209_REFERENCE_ROAD_')?.405:.262);
         dashDummy.position.set(
           THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
           dashY,
@@ -777,7 +792,7 @@ export async function installExteriorForestV78({
     const isRamp=spec.kind==='ramp';
     const isGateway=spec.kind==='gateway';
     const isFork=spec.kind==='fork'||spec.kind==='fork-trunk';
-    const isReference=spec.name.startsWith('V208_REFERENCE_ROAD_');
+    const isReference=spec.name.startsWith('V209_REFERENCE_ROAD_');
     const isJunctionBranch=spec.kind==='junction-branch';
 
     const shoulderY=isFork?.425:(isReference?(isJunctionBranch?.306:.305):.185);
@@ -871,7 +886,7 @@ export async function installExteriorForestV78({
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V208_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V209_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
@@ -1355,8 +1370,8 @@ export async function installExteriorForestV78({
   root.userData.referencePhysicalEndpointCount=4;
   root.userData.referenceCornerIndex=referenceCornerIndex;
   root.userData.referenceCorner={x:referenceCorner.x,z:referenceCorner.z};
-  root.userData.referenceJunctionNode={x:referenceJunction.x,z:referenceJunction.z};
-  root.userData.referenceJunctionMode='v208-one-long-straight-road-a';
+  root.userData.referenceJunctionNode={x:roadAReferenceNode.x,z:roadAReferenceNode.z};
+  root.userData.referenceJunctionMode='v209-red-line-aligned-straight-road-a';
   root.userData.redReference=redReference;
 
   function setDoorOpen(index,v){
@@ -1398,7 +1413,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:208,group:root,treeAssetMode,forestMode,
+    ready:true,version:209,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1417,8 +1432,8 @@ export async function installExteriorForestV78({
     referencePhysicalEndpointCount:4,
     referenceCornerIndex,
     referenceCorner:{x:referenceCorner.x,z:referenceCorner.z},
-    referenceJunctionNode:{x:referenceJunction.x,z:referenceJunction.z},
-    referenceJunctionMode:'v208-one-long-straight-road-a',
+    referenceJunctionNode:{x:roadAReferenceNode.x,z:roadAReferenceNode.z},
+    referenceJunctionMode:'v209-red-line-aligned-straight-road-a',
     redReference,
     boundaryPoints:boundary.length,
     doors,
@@ -1458,8 +1473,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V206=api;
   window.__DALOC_EXTERIOR_V207=api;
   window.__DALOC_EXTERIOR_V208=api;
+  window.__DALOC_EXTERIOR_V209=api;
 
-  console.info('[DaLoc] V208 one-long-straight-road junction installed',{
+  console.info('[DaLoc] V209 red-line-aligned straight road installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
