@@ -18,15 +18,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V181';
-  const forestMode='scenic-v181';
+  root.name='EXTERIOR_SCENERY_V182';
+  const forestMode='scenic-v182';
 
   root.userData={
-    version:181,
+    version:182,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V181 scenic exterior: natural curved edge-to-edge expressways + ramps + landscape'
+    purpose:'V182 scenic exterior: curved highways + three-branch east gateway inspired by reference masterplan'
   };
   scene.add(root);
 
@@ -273,6 +273,89 @@ export async function installExteriorForestV78({
     20
   );
 
+  // ----- EAST GATEWAY ARTERIAL + THREE PROJECT BRANCHES -----
+  // Reference-layout logic: one continuous north-south external arterial and
+  // exactly three independent project connections, arranged top/middle/bottom.
+  // This replaces the V181 U-loop appearance at the right/east side.
+  const eastArterialX=maxX+118;
+
+  const eastGatewayArterial=addSmoothHighway(
+    'V182_EAST_GATEWAY_ARTERIAL',
+    [
+      {x:eastArterialX+18,z:box.minZ},
+      {x:eastArterialX-8,z:minZ-245},
+      {x:eastArterialX+4,z:minZ-70},
+      {x:eastArterialX-3,z:-245},
+      {x:eastArterialX+5,z:-95},
+      {x:eastArterialX-5,z:75},
+      {x:eastArterialX+8,z:maxZ+220},
+      {x:eastArterialX+14,z:box.maxZ}
+    ],
+    32,
+    'main',
+    22
+  );
+
+  function addEastGatewayBranch(name,start,targetZ,width,biasZ=0){
+    if(!start||!eastGatewayArterial)return null;
+    const targetHit=closestPointOnPolyline(
+      {x:eastArterialX,z:targetZ},
+      eastGatewayArterial.points
+    );
+    if(!targetHit?.point)return null;
+
+    const target=targetHit.point;
+    const span=Math.max(70,target.x-start.x);
+    const c1={
+      x:start.x+Math.min(58,span*.34),
+      z:start.z+biasZ*.35
+    };
+    const c2={
+      x:target.x-Math.min(62,span*.32),
+      z:target.z-biasZ*.20
+    };
+
+    return addSmoothHighway(
+      name,
+      [start,c1,c2,target],
+      width,
+      'gateway',
+      26
+    );
+  }
+
+  const east77505=roadWorldPoints('77505');
+  const east774F9=roadWorldPoints('774F9');
+  const east77537=roadWorldPoints('77537');
+
+  const eastBranchTopStart=east77505[0]||null;
+  const eastBranchMidStart=east774F9[0]||null;
+  const eastBranchBottomStart=east77537[0]||null;
+
+  const eastGatewayBranches=[
+    addEastGatewayBranch(
+      'V182_EAST_BRANCH_TOP',
+      eastBranchTopStart,
+      eastBranchTopStart?.z??-225,
+      22,
+      -8
+    ),
+    addEastGatewayBranch(
+      'V182_EAST_BRANCH_MIDDLE',
+      eastBranchMidStart,
+      eastBranchMidStart?.z??-145,
+      20,
+      4
+    ),
+    addEastGatewayBranch(
+      'V182_EAST_BRANCH_BOTTOM',
+      eastBranchBottomStart,
+      eastBranchBottomStart?.z??-10,
+      20,
+      9
+    )
+  ].filter(Boolean);
+
   // Select a primary highway and merge target for an outbound industrial road.
   function nearestPrimary(p){
     let best=null;
@@ -335,13 +418,13 @@ export async function installExteriorForestV78({
     );
   }
 
-  // 77505 is the main through-road and receives ramps at both external ends.
-  addMergeRamp('77505',0,19);
+  // V182: east endpoint of 77505 is now handled by the explicit 3-branch
+  // gateway above. Keep only its opposite/west-side highway connection.
   addMergeRamp('77505',1,19);
 
   // Other large project roads receive one outward merge where their CAD geometry
   // actually exits the site.
-  const oneExitHandles=['77536','7754C','774F9'];
+  const oneExitHandles=['77536','7754C'];
   for(const handle of oneExitHandles){
     const pts=roadWorldPoints(handle);
     if(pts.length<2)continue;
@@ -653,6 +736,7 @@ export async function installExteriorForestV78({
 
   for(const spec of highwaySpecs){
     const isRamp=spec.kind==='ramp';
+    const isGateway=spec.kind==='gateway';
 
     const shoulder=new THREE.Mesh(
       makeRoadRibbon(spec.points,spec.width+(isRamp?3.5:6),.185),
@@ -680,7 +764,7 @@ export async function installExteriorForestV78({
     highwayRoot.add(asphalt);
 
     if(!isRamp){
-      const medianWidth=spec.width>=30?3.8:3.0;
+      const medianWidth=isGateway?2.2:(spec.width>=30?3.8:3.0);
       const median=new THREE.Mesh(
         makeRoadRibbon(spec.points,medianWidth,.238),
         highwayMedianMat
@@ -1206,6 +1290,7 @@ export async function installExteriorForestV78({
   root.userData.highwaySurfaceCount=highwaySurfaceCount;
   root.userData.highwayMainCount=highwayMainCount;
   root.userData.highwayRampCount=highwayRampCount;
+  root.userData.eastGatewayBranchCount=eastGatewayBranches.length;
 
   function setDoorOpen(index,v){
     const d=doors[index];
@@ -1246,7 +1331,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:181,group:root,treeAssetMode,forestMode,
+    ready:true,version:182,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1261,6 +1346,7 @@ export async function installExteriorForestV78({
     highwaySurfaceCount,
     highwayMainCount,
     highwayRampCount,
+    eastGatewayBranchCount:eastGatewayBranches.length,
     boundaryPoints:boundary.length,
     doors,
     setDoorOpen,
@@ -1275,8 +1361,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V179=api;
   window.__DALOC_EXTERIOR_V180=api;
   window.__DALOC_EXTERIOR_V181=api;
+  window.__DALOC_EXTERIOR_V182=api;
 
-  console.info('[DaLoc] V181 curved edge-to-edge expressway network installed',{
+  console.info('[DaLoc] V182 curved highways + three-branch east gateway installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
@@ -1292,6 +1379,7 @@ export async function installExteriorForestV78({
     highways:highwaySpecs.length,
     highwayMains:highwayMainCount,
     highwayRamps:highwayRampCount,
+    eastGatewayBranches:eastGatewayBranches.length,
     highwaySurfaces:highwaySurfaceCount,
     doors:doors.length,
     boundaryPoints:boundary.length
