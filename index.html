@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V175-fps-full-visual-instanced-trees">
+<meta name="daloc-build" content="V175.1-fps-full-visual-instanced-trees">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V175 FPS FULL VISUAL + INSTANCED TREES</small>
+  <small>GitHub → Netlify · BUILD V175.1 FPS FULL VISUAL + INSTANCED TREES</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -84,7 +84,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS -- · Forest loading</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V175: Full-visual FPS · all roadside trees retained · P2P V171 preserved</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS -- · Forest loading</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V175.1: Full-visual FPS · all trees retained · P2P V171 preserved</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -4001,11 +4001,10 @@ function applyFpsRenderProfile(){
   fpsRefreshSpriteCache();
   fpsApplyEnvironmentLite();
 
-  if(v78ExteriorGroup&&fpsSavedExteriorRootVisibility===null){
-    fpsSavedExteriorRootVisibility=v78ExteriorGroup.visible;
-    v78ExteriorGroup.visible=false;
-    fpsExteriorTreeVisibility=[];
-  }
+  // V175.1 keeps the light exterior forest visible too. Legacy 14K is disabled
+  // in the forest module, so there is no reason to blank the boundary scenery.
+  fpsSavedExteriorRootVisibility=null;
+  fpsExteriorTreeVisibility=null;
 
   // V175 keeps pond/fish/parks/pedestrians/lotus visible. Their simulations are
   // throttled in the animation loop rather than disabling the visible systems.
