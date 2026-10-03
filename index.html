@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V172.1-fps-performance-pass">
+<meta name="daloc-build" content="V173-fps-environment-lite">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V172.1 FPS PERFORMANCE PASS</small>
+  <small>GitHub → Netlify · BUILD V173 FPS ENVIRONMENT LITE</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -84,7 +84,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS -- · Forest loading</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V172.1: FPS performance pass · P2P V171 preserved</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS -- · Forest loading</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V173: FPS Environment Lite · near/medium trees only · P2P V171 preserved</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1934,8 +1934,14 @@ let fpsShadowFrame=0;
 let fpsExteriorTreeVisibility=null;
 let fpsSavedExteriorRootVisibility=null;
 let fpsSavedAmbientState=null;
+let fpsLiteEnvironmentState=null;
+let fpsFactoryDetailWasVisible=null;
+let fpsFactoryInteriorVisibility=null;
+let fpsSavedThirdFar=null;
+let fpsSavedVehicleFar=null;
 let fpsTrafficAccum=0;
 let fpsTrafficFrame=0;
+const FPS_TREE_VIEW_DISTANCE=260;
 const fpsTreeChunkWorldCenter=new THREE.Vector3();
 
 // V146 FPS performance profile state.
@@ -3834,10 +3840,16 @@ function fpsBuildV120TreeBatch(){
   // can frustum-cull whole batches instead of drawing ~500 trees every frame.
   if(!fpsV120TreeBatchRoot){
     const root=new THREE.Group();
-    root.name='FPS_V146_V120_TREE_BATCHES';
+    root.name='FPS_V173_NEAR_MEDIUM_TREE_BATCHES';
     root.userData.ignoreFpsCollision=true;
-    const cellSize=180;
+    const cellSize=120;
     const cells=new Map();
+
+    // FPS-only materials: same tree silhouette/colors, much cheaper than the
+    // overview MeshStandardMaterial path because shadows/specular are disabled.
+    const fpsWoodMat=new THREE.MeshLambertMaterial({color:0x765237});
+    const fpsLeafMat=new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true});
+    const fpsFlowerMat=new THREE.MeshLambertMaterial({color:0xc77f95});
 
     for(const g of source){
       if(!g.visible)continue;
@@ -3869,9 +3881,9 @@ function fpsBuildV120TreeBatch(){
     };
 
     for(const [key,cell] of cells){
-      addBatch('FPS_V146_TREE_WOOD_'+key,V120_TREE_WOOD_GEOMETRY,treeTrunkMat,cell.all);
-      addBatch('FPS_V146_TREE_GREEN_'+key,V120_TREE_FOLIAGE_GEOMETRY,treeLeafMat,cell.green);
-      addBatch('FPS_V146_TREE_FLOWER_'+key,V120_TREE_FOLIAGE_GEOMETRY,flowerLeafMat,cell.flower);
+      addBatch('FPS_V173_TREE_WOOD_'+key,V120_TREE_WOOD_GEOMETRY,fpsWoodMat,cell.all);
+      addBatch('FPS_V173_TREE_GREEN_'+key,V120_TREE_FOLIAGE_GEOMETRY,fpsLeafMat,cell.green);
+      addBatch('FPS_V173_TREE_FLOWER_'+key,V120_TREE_FOLIAGE_GEOMETRY,fpsFlowerMat,cell.flower);
     }
 
     fpsV120TreeBatchRoot=root;
@@ -3928,19 +3940,96 @@ function fpsUpdateSpriteVisibility(activeCamera){
   }
 }
 
+function fpsRememberAndHideLiteObject(object){
+  if(!object)return;
+  if(!fpsLiteEnvironmentState)fpsLiteEnvironmentState=new Map();
+  if(!fpsLiteEnvironmentState.has(object)){
+    fpsLiteEnvironmentState.set(object,object.visible);
+  }
+  object.visible=false;
+}
+
+function fpsApplyEnvironmentLite(){
+  // Mirror the performance benefit of "3D Environment: Off" for the expensive
+  // decorative roots, while keeping CAD roads, base factories, gates, access,
+  // traffic, road-name signs, P2P avatars and the FPS tree proxy visible.
+  fpsRememberAndHideLiteObject(semanticGroup);
+  fpsRememberAndHideLiteObject(verifiedSupportGroup);
+  fpsRememberAndHideLiteObject(diorama);
+  fpsRememberAndHideLiteObject(v53DetailGroup);
+  fpsRememberAndHideLiteObject(v54DetailGroup);
+
+  // V147 detail is attached directly to factory groups, so root.visible alone
+  // is not enough; use its controller to disable every micro-detail record.
+  if(factoryDetailV147?.ready){
+    if(fpsFactoryDetailWasVisible===null){
+      fpsFactoryDetailWasVisible=!!factoryDetailV147.root?.visible;
+    }
+    factoryDetailV147.setVisible?.(false);
+  }
+
+  // V139 visual factory shells + doors stay visible because they are attached
+  // directly to the base factory. Only the expensive interior machinery groups
+  // are hidden during FPS.
+  if(factoryInteriorsV84?.ready&&Array.isArray(factoryInteriorsV84.interiors)){
+    if(!fpsFactoryInteriorVisibility){
+      fpsFactoryInteriorVisibility=factoryInteriorsV84.interiors.map(g=>[g,g.visible]);
+    }
+    for(const [g] of fpsFactoryInteriorVisibility)g.visible=false;
+  }
+}
+
+function fpsRestoreEnvironmentLite(){
+  const envButton=document.getElementById('environmentV74');
+  const envButtonKnown=!!envButton;
+  const environmentOn=envButtonKnown?envButton.classList.contains('active'):null;
+
+  if(fpsLiteEnvironmentState){
+    for(const [object,wasVisible] of fpsLiteEnvironmentState){
+      if(!object)continue;
+      object.visible=environmentOn===null?wasVisible:environmentOn;
+    }
+    fpsLiteEnvironmentState=null;
+  }
+
+  if(fpsFactoryDetailWasVisible!==null&&factoryDetailV147?.ready){
+    factoryDetailV147.setVisible?.(
+      environmentOn===null?fpsFactoryDetailWasVisible:environmentOn
+    );
+    fpsFactoryDetailWasVisible=null;
+  }
+
+  if(fpsFactoryInteriorVisibility){
+    if(environmentOn===null){
+      for(const [g,wasVisible] of fpsFactoryInteriorVisibility)g.visible=wasVisible;
+    }else{
+      for(const [g] of fpsFactoryInteriorVisibility)g.visible=environmentOn;
+    }
+    fpsFactoryInteriorVisibility=null;
+  }
+}
+
 function fpsUpdateTreeChunkVisibility(activeCamera){
   if(!fpsMode||!fpsV120TreeBatchRoot||!activeCamera)return;
-  if((fpsPerfFrame%8)!==0)return;
-  const maxDistance=360;
+  if((fpsPerfFrame%6)!==0)return;
+
+  // InstancedMesh.computeBoundingSphere() includes all instance transforms.
+  // The previous geometry.boundingSphere only described one tree at origin,
+  // so distance culling was effectively checking the wrong location.
   for(const mesh of fpsV120TreeBatchRoot.children){
     if(!mesh?.isInstancedMesh)continue;
-    if(!mesh.geometry?.boundingSphere)mesh.geometry?.computeBoundingSphere?.();
-    const sphere=mesh.geometry?.boundingSphere;
+    if(!mesh.boundingSphere)mesh.computeBoundingSphere?.();
+    const sphere=mesh.boundingSphere;
     if(!sphere)continue;
     fpsTreeChunkWorldCenter.copy(sphere.center).applyMatrix4(mesh.matrixWorld);
-    const limit=maxDistance+sphere.radius;
+    const scale=mesh.matrixWorld.getMaxScaleOnAxis?.()||1;
+    const limit=FPS_TREE_VIEW_DISTANCE+sphere.radius*scale;
     mesh.visible=fpsTreeChunkWorldCenter.distanceToSquared(activeCamera.position)<=limit*limit;
   }
+
+  // Async modules can finish after FPS was entered. Re-apply the lightweight
+  // visibility profile periodically so new heavy environment roots stay hidden.
+  fpsApplyEnvironmentLite();
 }
 
 function fpsUpdateShadowBudget(){
@@ -3965,9 +4054,19 @@ function applyFpsRenderProfile(){
   renderer.shadowMap.needsUpdate=false;
   fpsShadowFrame=0;
 
+  if(fpsSavedThirdFar===null)fpsSavedThirdFar=fpsThirdPersonCamera.far;
+  if(fpsSavedVehicleFar===null)fpsSavedVehicleFar=fpsVehicleCamera.far;
+  camera.far=1100;
+  fpsThirdPersonCamera.far=1100;
+  fpsVehicleCamera.far=1100;
+  camera.updateProjectionMatrix();
+  fpsThirdPersonCamera.updateProjectionMatrix();
+  fpsVehicleCamera.updateProjectionMatrix();
+
   fpsBuildV120TreeBatch();
   fpsDisableLargeInstancedShadows();
   fpsRefreshSpriteCache();
+  fpsApplyEnvironmentLite();
 
   if(v78ExteriorGroup&&fpsSavedExteriorRootVisibility===null){
     fpsSavedExteriorRootVisibility=v78ExteriorGroup.visible;
@@ -4008,6 +4107,19 @@ function restoreFpsRenderProfile(){
     fpsSavedShadowMapSize=null;
   }
   renderer.shadowMap.needsUpdate=true;
+
+  if(fpsSavedThirdFar!==null){
+    fpsThirdPersonCamera.far=fpsSavedThirdFar;
+    fpsSavedThirdFar=null;
+    fpsThirdPersonCamera.updateProjectionMatrix();
+  }
+  if(fpsSavedVehicleFar!==null){
+    fpsVehicleCamera.far=fpsSavedVehicleFar;
+    fpsSavedVehicleFar=null;
+    fpsVehicleCamera.updateProjectionMatrix();
+  }
+
+  fpsRestoreEnvironmentLite();
 
   if(v78ExteriorGroup&&fpsSavedExteriorRootVisibility!==null){
     v78ExteriorGroup.visible=fpsSavedExteriorRootVisibility;
@@ -4680,6 +4792,7 @@ function enterFirstPerson(){
     position:camera.position.clone(),
     target:controls.target.clone(),
     near:camera.near,
+    far:camera.far,
     fov:camera.fov
   };
   fpsBaseFov=camera.fov;
@@ -4811,6 +4924,7 @@ function exitFirstPerson(restore=true){
 
   if(fpsSavedView){
     camera.near=fpsSavedView.near;
+    camera.far=fpsSavedView.far??5000;
     camera.fov=fpsSavedView.fov??42;
     camera.updateProjectionMatrix();
     if(restore){
@@ -5895,7 +6009,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:172,
+    version:173,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
@@ -5906,6 +6020,8 @@ const fpsApiV139={
     secondaryAnimationRate:fpsMode?'ambient off / traffic ~30 Hz':'full-rate',
     fpsShadowPass:fpsMode?'off':'on',
     fpsPixelRatio:fpsMode?renderer.getPixelRatio():null,
+    fpsEnvironmentLite:fpsMode,
+    fpsTreeViewDistance:FPS_TREE_VIEW_DISTANCE,
     factoryDetailFactories:factoryDetailV147?.stats?.factories||0,
     factoryDetailMeshes:factoryDetailV147?.stats?.detailMeshes||0,
     solarTwoStoreyFactories:solarRoofV94?.twoStoreyFactoryCount||0
@@ -6014,25 +6130,14 @@ let lastFrameTime=performance.now();
     trafficController?.update?.(dt);
   }
 
-  // V146/V172: non-critical ambient simulations run at ~30 Hz only in FPS.
-  // Their accumulated dt is preserved, so animation speed does not slow down.
+  // V173: hidden environment systems do ZERO animation work in FPS.
+  // Keep only factory door pivots alive at ~30 Hz because door interaction is gameplay.
   if(fpsMode){
     fpsPerfFrame++;
-    fpsPondFishAccum+=dt;
-    fpsPedestrianAccum+=dt;
     fpsFactoryAccum+=dt;
-    fpsAtmosphereAccum+=dt;
     if((fpsPerfFrame&1)===0){
-      pondFishV82?.update?.(Math.min(.05,fpsPondFishAccum));
-      pedestrianController?.update?.(Math.min(.05,fpsPedestrianAccum));
       factoryInteriorsV84?.update?.(Math.min(.05,fpsFactoryAccum));
-      v55Support?.update?.(Math.min(.05,fpsFactoryAccum));
-      v78ExteriorResult?.update?.(Math.min(.05,fpsFactoryAccum));
-      atmosphereV106?.update?.(Math.min(.05,fpsAtmosphereAccum));
-      fpsPondFishAccum=0;
-      fpsPedestrianAccum=0;
       fpsFactoryAccum=0;
-      fpsAtmosphereAccum=0;
     }
   }else{
     fpsPerfFrame=0;
@@ -6050,10 +6155,12 @@ let lastFrameTime=performance.now();
   // V147 detail layer owns its own coarse LOD and runs only lightweight
   // distance checks here. Interior detail is rendered only near the camera,
   // unless explicit cutaway mode is enabled.
-  factoryDetailV147?.update?.(dt,{
-    fpsMode,
-    cutaway:factoryCutawayOn
-  });
+  if(!fpsMode){
+    factoryDetailV147?.update?.(dt,{
+      fpsMode:false,
+      cutaway:factoryCutawayOn
+    });
+  }
 
   multiplayerV142?.updateLocal?.({
     active:fpsMode&&!fpsVehicleMode,
@@ -6073,7 +6180,7 @@ let lastFrameTime=performance.now();
   multiplayerV142?.update?.(dt);
 
   fpsUpdateProjectiles(dt);
-  visualQualityV102.update();
+  if(!fpsMode)visualQualityV102.update();
   const activeRenderCamera=fpsMode&&fpsVehicleMode
     ?(fpsVehicleViewMode==='third'?fpsVehicleCamera:camera)
     :(fpsMode&&fpsViewMode==='third'?fpsThirdPersonCamera:camera);
