@@ -20,7 +20,7 @@ export async function installCadSourceV72({
   const root=new THREE.Group();
   root.name='CAD_SOURCE_V72';
   root.userData={
-    version:106,
+    version:107,
     source:data.source,
     edgeLayer:data.edgeLayer,
     boundaryLayer:data.boundaryLayer,
@@ -75,13 +75,11 @@ export async function installCadSourceV72({
     tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
     return tex;
   }
-  const cadRoadColor=makeRoadTexture(false);
-  const cadRoadBump=makeRoadTexture(true);
-  const roadMat=new THREE.MeshStandardMaterial({
-    map:cadRoadColor,bumpMap:cadRoadBump,bumpScale:.018,
-    color:0xffffff,roughness:.93,metalness:.012
-  });
-  const junctionMat=roadMat.clone();
+  // V212: use the original exterior-road material everywhere.
+  // This is the exact visual recipe used by the old exterior network:
+  // MeshLambertMaterial + 0x4a4d4d, with no CAD aggregate/bump texture.
+  const roadMat=new THREE.MeshLambertMaterial({color:0x4a4d4d});
+  const junctionMat=roadMat;
   const edgeMat=new THREE.LineBasicMaterial({color:0x00d9a1,transparent:true,opacity:.95,depthTest:false});
   const boundaryMat=new THREE.LineBasicMaterial({color:0xe05b5b,transparent:true,opacity:.92,depthTest:false});
 
@@ -220,7 +218,7 @@ export async function installCadSourceV72({
     setEnabled,showEdges
   };
 
-  console.info('[DaLoc] V211 CAD roads expose shared internal-road material; old 774F9 still suppressed',{
+  console.info('[DaLoc] V212 CAD/internal roads now use the original exterior-road material; old 774F9 still suppressed',{
     surfacedRoads:surfaceRoads.map(r=>r.handle),
     cadEdges:data.roadEdges?.length||0,
     siteBoundaryPoints:data.siteBoundaryPx?.length||0,
@@ -229,7 +227,7 @@ export async function installCadSourceV72({
 
   return {
     ready:true,
-    version:106,
+    version:107,
     roads:surfaceRoads.length,
     roadMaterial:roadMat,
     roadTopY:.39,
