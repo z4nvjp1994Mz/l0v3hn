@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { loadKenneyTreeAssets, createStaticInstancedAsset } from './real-assets-v105.js?v=1051';
 
 export async function installExteriorForestV78({
   scene,mapPx,metersPerPixel,frameSignature,renderer
@@ -19,19 +18,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_FOREST_V78';
-  // V175: Legacy 14K was only an A/B diagnostic and could remain stuck in the
-  // URL after the old toggle. Production always uses the light exterior forest.
-  const forestMode='light';
+  root.name='EXTERIOR_VILLAGE_V176';
+  const forestMode='none';
 
   root.userData={
-    version:175,
+    version:176,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:forestMode==='legacy'
-      ?'diagnostic legacy exterior forest (14k trees)'
-      :'V175 light exterior forest: real edge trees + continuous canopy blanket'
+    purpose:'V176 exterior village + ground only; all exterior trees removed'
   };
   scene.add(root);
 
@@ -251,219 +246,18 @@ export async function installExteriorForestV78({
   }
 
   // -------------------------------------------------------------------------
-  // V172 LIGHT FOREST
-  // Keep only a thin belt of real trees near the project boundary. The deep
-  // background becomes one continuous undulating canopy surface split into
-  // spatial chunks: no 14k instances and no giant spherical V170 canopy blobs.
-  // ?forest=legacy remains available only as a hidden diagnostic comparison.
+  // V176: EXTERIOR TREES REMOVED
+  // Keep village houses/interactive doors and the exterior ground, but render
+  // no oak, pine, procedural fallback, canopy blanket or tree asset at all.
+  // Internal V120 roadside trees are defined in index.html and are unaffected.
   // -------------------------------------------------------------------------
-  const legacyForest=forestMode==='legacy';
-  const targetTrees=legacyForest?14000:520;
-  const nearMaxDistance=legacyForest?420:72;
-  const deciduous=[],conifers=[];
-  let guard=0;
-  while(deciduous.length+conifers.length<targetTrees && guard++<(legacyForest?360000:100000)){
-    const x=rr(box.minX,box.maxX),z=rr(box.minZ,box.maxZ);
-    if(pointInPolygon(x,z,boundary))continue;
-    const d=distanceToBoundary(x,z);
-    if(d<18||d>nearMaxDistance)continue;
-    if(inRoadCorridor(x,z,7))continue;
-    if(nearHouse(x,z,4))continue;
-    if(!legacyForest&&rnd()>(d<48?.92:.76))continue;
-    if(legacyForest&&rnd()>(d<180?.93:d<300?.84:.72))continue;
-
-    const item={x,z,scale:legacyForest?rr(.72,1.55):rr(.88,1.48),rot:rr(0,Math.PI*2)};
-    if(rnd()<.74)deciduous.push(item);else conifers.push(item);
-  }
-
-  let treeAssetMode=legacyForest?'kenney-glb-instanced-legacy':'light-v172';
-  let treeDrawMeshes=0;
-  let treeChunkCount=0;
-  let canopyBlanketPatchCount=0;
-  let canopyBlanketChunkCount=0;
-
-  function spatialKey(x,z,size){
-    return Math.floor((x-box.minX)/size)+','+Math.floor((z-box.minZ)/size);
-  }
-
-  function groupedRealTreeChunks(){
-    const chunks=new Map();
-    function add(item,type){
-      const key=spatialKey(item.x,item.z,120);
-      let chunk=chunks.get(key);
-      if(!chunk){
-        chunk={oak:[],pine:[]};
-        chunks.set(key,chunk);
-      }
-      chunk[type].push(item);
-    }
-    deciduous.forEach(p=>add(p,'oak'));
-    conifers.forEach(p=>add(p,'pine'));
-    return chunks;
-  }
-
-  try{
-    const assets=await loadKenneyTreeAssets();
-    if(legacyForest){
-      const oakBatch=createStaticInstancedAsset(
-        root,assets.oak,
-        deciduous.map(p=>({position:new THREE.Vector3(p.x,-.42,p.z),rotationY:p.rot,scale:p.scale})),
-        {name:'V105_KENNEY_OAK_FOREST',castShadow:false,receiveShadow:true}
-      );
-      const pineBatch=createStaticInstancedAsset(
-        root,assets.pine,
-        conifers.map(p=>({position:new THREE.Vector3(p.x,-.42,p.z),rotationY:p.rot,scale:p.scale})),
-        {name:'V105_KENNEY_PINE_FOREST',castShadow:false,receiveShadow:true}
-      );
-      treeDrawMeshes=oakBatch.meshes.length+pineBatch.meshes.length;
-      treeChunkCount=2;
-    }else{
-      const chunks=groupedRealTreeChunks();
-      for(const [key,chunk] of chunks){
-        const g=new THREE.Group();
-        g.name='V172_EDGE_TREE_CHUNK_'+key;
-        root.add(g);
-        treeChunkCount++;
-
-        if(chunk.oak.length){
-          const batch=createStaticInstancedAsset(
-            g,assets.oak,
-            chunk.oak.map(p=>({position:new THREE.Vector3(p.x,-.42,p.z),rotationY:p.rot,scale:p.scale})),
-            {name:'V172_EDGE_OAK_'+key,castShadow:false,receiveShadow:false}
-          );
-          treeDrawMeshes+=batch.meshes.length;
-        }
-        if(chunk.pine.length){
-          const batch=createStaticInstancedAsset(
-            g,assets.pine,
-            chunk.pine.map(p=>({position:new THREE.Vector3(p.x,-.42,p.z),rotationY:p.rot,scale:p.scale})),
-            {name:'V172_EDGE_PINE_'+key,castShadow:false,receiveShadow:false}
-          );
-          treeDrawMeshes+=batch.meshes.length;
-        }
-      }
-    }
-  }catch(error){
-    console.error('[DaLoc] V172 edge-tree asset fallback',error);
-    treeAssetMode=legacyForest?'procedural-fallback-legacy':'procedural-fallback-v172';
-
-    const trunkGeo=new THREE.CylinderGeometry(.18,.38,4.9,7);
-    const crownGeo=new THREE.DodecahedronGeometry(1.62,0);
-    const coneGeo=new THREE.ConeGeometry(1.82,6.8,8);
-    const trunkMat=new THREE.MeshLambertMaterial({color:0x6a4931});
-    const leafMat=new THREE.MeshLambertMaterial({color:0x3d824a});
-    const pineMat=new THREE.MeshLambertMaterial({color:0x2b6940});
-
-    const fill=(items,type)=>{
-      if(!items.length)return;
-      const trunk=new THREE.InstancedMesh(trunkGeo,trunkMat,items.length);
-      const crown=new THREE.InstancedMesh(type==='oak'?crownGeo:coneGeo,type==='oak'?leafMat:pineMat,items.length);
-      const d=new THREE.Object3D();
-      items.forEach((p,i)=>{
-        d.position.set(p.x,2.05*p.scale-.42,p.z);
-        d.rotation.set(0,p.rot,0);d.scale.setScalar(p.scale);d.updateMatrix();trunk.setMatrixAt(i,d.matrix);
-        d.position.set(p.x,type==='oak'?5.15*p.scale-.42:5.45*p.scale-.42,p.z);
-        d.updateMatrix();crown.setMatrixAt(i,d.matrix);
-      });
-      for(const m of [trunk,crown]){
-        m.instanceMatrix.needsUpdate=true;
-        m.computeBoundingSphere();
-        m.castShadow=false;
-        m.receiveShadow=false;
-        m.frustumCulled=true;
-        root.add(m);
-      }
-      treeDrawMeshes+=2;
-    };
-    fill(deciduous,'oak');
-    fill(conifers,'pine');
-  }
-
-  function canopyHeight(x,z){
-    return 7.8+
-      Math.sin(x*.013)*1.45+
-      Math.cos(z*.017)*1.25+
-      Math.sin((x+z)*.009)*.85;
-  }
-
-  function canopyColor(x,z){
-    const t=(Math.sin(x*.021+z*.012)+Math.cos(z*.018-x*.007))*.5;
-    if(t>.45)return new THREE.Color(0x487c45);
-    if(t<-.45)return new THREE.Color(0x2f6339);
-    return new THREE.Color(0x3b7040);
-  }
-
-  function buildCanopyBlanket(){
-    if(legacyForest)return;
-    const tile=38;
-    const chunkSize=228;
-    const chunks=new Map();
-    const x0=Math.floor(box.minX/tile)*tile;
-    const z0=Math.floor(box.minZ/tile)*tile;
-
-    for(let x=x0;x<=box.maxX;x+=tile){
-      for(let z=z0;z<=box.maxZ;z+=tile){
-        const d=distanceToBoundary(x,z);
-        if(d<76||d>420)continue;
-        if(pointInPolygon(x,z,boundary))continue;
-        if(inRoadCorridor(x,z,13))continue;
-        if(nearHouse(x,z,18))continue;
-
-        const key=spatialKey(x,z,chunkSize);
-        let list=chunks.get(key);
-        if(!list){list=[];chunks.set(key,list);}
-        list.push({x,z});
-        canopyBlanketPatchCount++;
-      }
-    }
-
-    const mat=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
-
-    for(const [key,patches] of chunks){
-      const positions=[];
-      const colors=[];
-      const indices=[];
-      let base=0;
-
-      for(const p of patches){
-        for(let gz=0;gz<3;gz++)for(let gx=0;gx<3;gx++){
-          const wx=p.x+(gx-1)*tile*.5;
-          const wz=p.z+(gz-1)*tile*.5;
-          const wy=canopyHeight(wx,wz);
-          const c=canopyColor(wx,wz);
-          positions.push(wx,wy,wz);
-          colors.push(c.r,c.g,c.b);
-        }
-        for(let cz=0;cz<2;cz++)for(let cx=0;cx<2;cx++){
-          const a=base+cz*3+cx;
-          const b=a+1;
-          const d=a+3;
-          const e=d+1;
-          indices.push(a,d,b,b,d,e);
-        }
-        base+=9;
-      }
-
-      const geo=new THREE.BufferGeometry();
-      geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-      geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-      geo.setIndex(indices);
-      geo.computeVertexNormals();
-      geo.computeBoundingSphere();
-
-      const mesh=new THREE.Mesh(geo,mat);
-      mesh.name='V172_CANOPY_BLANKET_'+key;
-      mesh.castShadow=false;
-      mesh.receiveShadow=false;
-      mesh.frustumCulled=true;
-      mesh.userData={forestLayer:'canopy-blanket',forestChunk:key};
-      root.add(mesh);
-      canopyBlanketChunkCount++;
-      treeDrawMeshes++;
-    }
-  }
-
-  buildCanopyBlanket();
+  const deciduous=[];
+  const conifers=[];
+  const treeAssetMode='none';
+  const treeDrawMeshes=0;
+  const treeChunkCount=0;
+  const canopyBlanketPatchCount=0;
+  const canopyBlanketChunkCount=0;
 
   root.userData.treeCount=deciduous.length+conifers.length;
   root.userData.treeAssetMode=treeAssetMode;
@@ -512,7 +306,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:175,group:root,treeAssetMode,forestMode,
+    ready:true,version:176,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -529,6 +323,7 @@ export async function installExteriorForestV78({
   window.__DALOC_V79=api;
   window.__DALOC_FOREST_V170=api;
   window.__DALOC_FOREST_V172=api;
+  window.__DALOC_EXTERIOR_V176=api;
 
   console.info('[DaLoc] V175 light exterior forest installed',{
     mode:forestMode,
