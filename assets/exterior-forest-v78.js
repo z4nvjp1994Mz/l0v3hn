@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V191';
-  const forestMode='scenic-v191';
+  root.name='EXTERIOR_SCENERY_V192';
+  const forestMode='scenic-v192';
 
   root.userData={
-    version:191,
+    version:192,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V191 visible reference junction: red-markup three-road layout placed directly beside the south-east project corner'
+    purpose:'V192 CAD-corner anchored reference junction: three visible roads placed at the real lower-right boundary corner'
   };
   scene.add(root);
 
@@ -169,25 +169,64 @@ export async function installExteriorForestV78({
   //
   // Therefore there are 3 roads, with ROAD A physically continuing through the
   // node. All arms run to the scene edge, as requested in V181.
-  // V191: put the junction where it is actually visible in Top View,
-  // directly outside the south-east project corner rather than near the scene edge.
+  // V192: anchor the red-markup junction to a REAL CAD boundary corner.
+  // Previous builds incorrectly combined maxX and maxZ even though they come
+  // from different vertices of this irregular polygon.
   //
-  // Red-markup topology:
-  //
-  //                     ROAD A
-  //                       |
-  //                       |
-  // ROAD B ---------------●
-  //                       /|
-  //                      / |
-  //                ROAD C  |
-  //                       ROAD A
-  //
-  // ROAD A is ONE continuous through-road. ROAD B ends at the node.
-  // ROAD C begins at the same node and exits to the lower-right scene edge.
+  // Choose the lower-right/east-south corner using the CAD polygon itself.
+  let referenceCornerIndex=0;
+  let referenceCornerScore=-Infinity;
+  for(let i=0;i<boundary.length;i++){
+    const p=boundary[i];
+    const score=p.x+1.2*p.z;
+    if(score>referenceCornerScore){
+      referenceCornerScore=score;
+      referenceCornerIndex=i;
+    }
+  }
+
+  function boundaryOutwardAt(index){
+    const n=boundary.length;
+    const prev=boundary[(index-1+n)%n];
+    const cur=boundary[index];
+    const next=boundary[(index+1)%n];
+    const e1=normalize2(cur.x-prev.x,cur.z-prev.z);
+    const e2=normalize2(next.x-cur.x,next.z-cur.z);
+
+    // siteBoundaryPx is clockwise in the current CAD source, therefore the
+    // LEFT normal is outward. Compute orientation anyway for robustness.
+    let signed=0;
+    for(let i=0;i<n;i++){
+      const a=boundary[i],b=boundary[(i+1)%n];
+      signed+=a.x*b.z-b.x*a.z;
+    }
+    const clockwise=signed<0;
+
+    let n1={x:-e1.z,z:e1.x};
+    let n2={x:-e2.z,z:e2.x};
+    if(!clockwise){
+      n1={x:-n1.x,z:-n1.z};
+      n2={x:-n2.x,z:-n2.z};
+    }
+    return normalize2(n1.x+n2.x,n1.z+n2.z);
+  }
+
+  function offsetBoundaryPoint(index,distance){
+    const n=boundary.length;
+    const i=((index%n)+n)%n;
+    const p=boundary[i];
+    const out=boundaryOutwardAt(i);
+    return {x:p.x+out.x*distance,z:p.z+out.z*distance};
+  }
+
+  const referenceCorner=boundary[referenceCornerIndex];
+  const referenceCornerOut=boundaryOutwardAt(referenceCornerIndex);
+
+  // About 72 m outside the actual CAD corner. In current data this resolves to
+  // roughly x=505, z=97 — directly beside the visible project corner.
   const referenceJunction={
-    x:maxX+60,
-    z:maxZ+65
+    x:referenceCorner.x+referenceCornerOut.x*72,
+    z:referenceCorner.z+referenceCornerOut.z*72
   };
 
   function rayToBoxEdge(origin,dir){
@@ -224,54 +263,59 @@ export async function installExteriorForestV78({
     return {x:x-dz/l*normalOffset,z:z+dx/l*normalOffset};
   }
 
-  // ROAD A: the almost north/south line drawn in red.
-  // It leans to the right toward the top and to the left toward the bottom.
-  const trunkNorthDir={x:.24,z:-.971};
-  const trunkSouthDir={x:-.24,z:.971};
+  // ROAD A — the large near-vertical through arterial from the red markup.
+  const trunkNorthDir={x:.08,z:-.997};
+  const trunkSouthDir={x:-.08,z:.997};
 
-  // ROAD C: the lower-right diagonal drawn in red.
-  const southEastDir={x:.76,z:.65};
+  // ROAD C — lower-right diagonal from the same junction.
+  const southEastDir={x:.72,z:.69};
 
   const trunkNorthEnd=rayToBoxEdge(referenceJunction,trunkNorthDir);
   const trunkSouthEnd=rayToBoxEdge(referenceJunction,trunkSouthDir);
   const southEastEnd=rayToBoxEdge(referenceJunction,southEastDir);
 
-  // ROAD B must visibly run along the outside/bottom side of the project and
-  // arrive from the LEFT. Do not ray-cast it to the lower edge like V190.
-  const westEnd={
+  // ROAD B follows the outside of the REAL lower project boundary instead of
+  // cutting through the site. These indices are all from the same CAD polygon.
+  const roadB22=offsetBoundaryPoint(22,68);
+  const roadB28=offsetBoundaryPoint(28,66);
+  const roadB34=offsetBoundaryPoint(34,66);
+  const roadB42=offsetBoundaryPoint(42,66);
+  const roadBWestEnd={
     x:box.minX,
-    z:Math.min(box.maxZ-90,maxZ+150)
+    z:Math.min(box.maxZ-70,roadB22.z+18)
   };
 
   const referenceOuterTrunk=addSmoothHighway(
-    'V191_REFERENCE_ROAD_A_THROUGH',
+    'V192_REFERENCE_ROAD_A_THROUGH',
     [
       trunkNorthEnd,
-      bendPoint(trunkNorthEnd,referenceJunction,.48,-7),
+      bendPoint(trunkNorthEnd,referenceJunction,.50,-5),
       referenceJunction,
-      bendPoint(referenceJunction,trunkSouthEnd,.48,6),
+      bendPoint(referenceJunction,trunkSouthEnd,.48,5),
       trunkSouthEnd
     ],
     38,
     'main',
-    24
+    26
   );
 
   const referenceOuterWest=addSmoothHighway(
-    'V191_REFERENCE_ROAD_B_WEST',
+    'V192_REFERENCE_ROAD_B_WEST',
     [
-      westEnd,
-      bendPoint(westEnd,referenceJunction,.34,-4),
-      bendPoint(westEnd,referenceJunction,.70,3),
+      roadBWestEnd,
+      roadB22,
+      roadB28,
+      roadB34,
+      roadB42,
       referenceJunction
     ],
     36,
     'main',
-    24
+    26
   );
 
   const referenceOuterDiagonal=addSmoothHighway(
-    'V191_REFERENCE_ROAD_C_DIAGONAL',
+    'V192_REFERENCE_ROAD_C_DIAGONAL',
     [
       referenceJunction,
       bendPoint(referenceJunction,southEastEnd,.42,-3),
@@ -279,7 +323,7 @@ export async function installExteriorForestV78({
     ],
     34,
     'main',
-    24
+    26
   );
 
   // ---------------------------------------------------------------------------
@@ -340,7 +384,7 @@ export async function installExteriorForestV78({
         a:spec.points[i-1],
         b:spec.points[i],
         radius:spec.width*.5+(spec.kind==='gateway'?4.5:spec.kind==='ramp'?5:8),
-        highwayV191:true
+        highwayV192:true
       });
     }
   }
@@ -532,7 +576,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V191_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V192_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -602,7 +646,9 @@ export async function installExteriorForestV78({
       let s=spacing-carry;
       while(s<len){
         const t=s/len;
-        const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')?.515:.262;
+        const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')
+          ?.515
+          :(spec.name.startsWith('V192_REFERENCE_ROAD_')?.405:.262);
         dashDummy.position.set(
           THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
           dashY,
@@ -626,20 +672,22 @@ export async function installExteriorForestV78({
     const isRamp=spec.kind==='ramp';
     const isGateway=spec.kind==='gateway';
     const isFork=spec.kind==='fork'||spec.kind==='fork-trunk';
+    const isReference=spec.name.startsWith('V192_REFERENCE_ROAD_');
 
-    const shoulderY=isFork?.425:.185;
-    const asphaltY=isFork?.455:.215;
-    const edgeY=isFork?.492:.248;
+    const shoulderY=isFork?.425:(isReference?.305:.185);
+    const asphaltY=isFork?.455:(isReference?.345:.215);
+    const edgeY=isFork?.492:(isReference?.385:.248);
 
     const shoulder=new THREE.Mesh(
       makeRoadRibbon(spec.points,spec.width+(isFork?3:(isRamp?3.5:6)),shoulderY),
       isFork?forkShoulderMat:highwayShoulderMat
     );
     shoulder.name=spec.name+'_SHOULDER';
-    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV191:true};
+    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV192:true};
     shoulder.castShadow=false;
     shoulder.receiveShadow=false;
     if(isFork)shoulder.renderOrder=120;
+    if(isReference)shoulder.renderOrder=130;
     highwayRoot.add(shoulder);
 
     const asphalt=new THREE.Mesh(
@@ -650,22 +698,23 @@ export async function installExteriorForestV78({
     asphalt.userData={
       fpsNonSolid:true,
       walkable:true,
-      highwayV191:true,
+      highwayV192:true,
       layer:'carriageway'
     };
     asphalt.castShadow=false;
     asphalt.receiveShadow=false;
     if(isFork)asphalt.renderOrder=121;
+    if(isReference)asphalt.renderOrder=131;
     highwayRoot.add(asphalt);
 
     if(!isRamp&&!isFork){
       const medianWidth=isGateway?1.6:(spec.width>=30?3.8:3.0);
       const median=new THREE.Mesh(
-        makeRoadRibbon(spec.points,medianWidth,.238),
+        makeRoadRibbon(spec.points,medianWidth,isReference?.365:.238),
         highwayMedianMat
       );
       median.name=spec.name+'_MEDIAN';
-      median.userData={fpsNonSolid:true,highwayV191:true};
+      median.userData={fpsNonSolid:true,highwayV192:true};
       highwayRoot.add(median);
     }
 
@@ -676,8 +725,9 @@ export async function installExteriorForestV78({
         highwayWhiteMat
       );
       edge.name=spec.name+'_EDGE_'+(side<0?'L':'R');
-      edge.userData={fpsNonSolid:true,highwayV191:true};
+      edge.userData={fpsNonSolid:true,highwayV192:true};
       if(isFork)edge.renderOrder=123;
+      if(isReference)edge.renderOrder=133;
       highwayRoot.add(edge);
     }
 
@@ -694,11 +744,12 @@ export async function installExteriorForestV78({
       collectLaneDashes(spec,laneOffset);
 
       const centerLine=new THREE.Mesh(
-        makeRoadRibbon(spec.points,.16,.250),
+        makeRoadRibbon(spec.points,.16,isReference?.395:.250),
         highwayYellowMat
       );
       centerLine.name=spec.name+'_CENTER';
-      centerLine.userData={fpsNonSolid:true,highwayV191:true};
+      centerLine.userData={fpsNonSolid:true,highwayV192:true};
+      if(isReference)centerLine.renderOrder=134;
       highwayRoot.add(centerLine);
       highwayMainCount++;
     }
@@ -710,13 +761,13 @@ export async function installExteriorForestV78({
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V191_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V192_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
     dashBatch.castShadow=false;
     dashBatch.receiveShadow=false;
-    dashBatch.userData={fpsNonSolid:true,highwayV191:true};
+    dashBatch.userData={fpsNonSolid:true,highwayV192:true};
     highwayRoot.add(dashBatch);
   }
 
@@ -1191,8 +1242,10 @@ export async function installExteriorForestV78({
   root.userData.highwayMainCount=highwayMainCount;
   root.userData.highwayRampCount=highwayRampCount;
   root.userData.referenceOuterRoadCount=3;
+  root.userData.referenceCornerIndex=referenceCornerIndex;
+  root.userData.referenceCorner={x:referenceCorner.x,z:referenceCorner.z};
   root.userData.referenceJunctionNode={x:referenceJunction.x,z:referenceJunction.z};
-  root.userData.referenceJunctionMode='visible-red-markup-three-road-layout';
+  root.userData.referenceJunctionMode='cad-corner-anchored-three-road-layout';
 
   function setDoorOpen(index,v){
     const d=doors[index];
@@ -1233,7 +1286,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:191,group:root,treeAssetMode,forestMode,
+    ready:true,version:192,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1249,8 +1302,10 @@ export async function installExteriorForestV78({
     highwayMainCount,
     highwayRampCount,
     referenceOuterRoadCount:3,
+    referenceCornerIndex,
+    referenceCorner:{x:referenceCorner.x,z:referenceCorner.z},
     referenceJunctionNode:{x:referenceJunction.x,z:referenceJunction.z},
-    referenceJunctionMode:'visible-red-markup-three-road-layout',
+    referenceJunctionMode:'cad-corner-anchored-three-road-layout',
     boundaryPoints:boundary.length,
     doors,
     setDoorOpen,
@@ -1275,8 +1330,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V189=api;
   window.__DALOC_EXTERIOR_V190=api;
   window.__DALOC_EXTERIOR_V191=api;
+  window.__DALOC_EXTERIOR_V192=api;
 
-  console.info('[DaLoc] V191 visible red-markup outer 3-road junction installed',{
+  console.info('[DaLoc] V192 CAD-corner anchored outer 3-road junction installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
