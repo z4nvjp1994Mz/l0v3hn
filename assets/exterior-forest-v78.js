@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V202';
-  const forestMode='scenic-v202';
+  root.name='EXTERIOR_SCENERY_V203';
+  const forestMode='scenic-v203';
 
   root.userData={
-    version:202,
+    version:203,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V202 preserve V201 alignment and remove junction bowing by using straight unsmoothed approach segments at the three-road node'
+    purpose:'V203 preserve V202 road alignment and add one continuous asphalt/shoulder junction plate so all road arms physically merge at the common node'
   };
   scene.add(root);
 
@@ -158,7 +158,7 @@ export async function installExteriorForestV78({
     return spec;
   }
 
-  // V202: exact polyline road. Use this near the common junction so
+  // V203: exact polyline road. Use this near the common junction so
   // Catmull-Rom cannot round or bow a branch as it enters the node.
   function addLinearHighway(name,controlPoints,width,kind='main'){
     const points=controlPoints
@@ -337,7 +337,7 @@ export async function installExteriorForestV78({
   // Each branch gets a straight final approach so the intersection reads as
   // three straight roads meeting at one point instead of a rounded Y.
   const referenceRoadATopOuter=addSmoothHighway(
-    'V202_REFERENCE_ROAD_A_TOP_OUTER',
+    'V203_REFERENCE_ROAD_A_TOP_OUTER',
     [
       roadATopFar,
       roadAEdge8,
@@ -351,7 +351,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadATopApproach=addLinearHighway(
-    'V202_REFERENCE_ROAD_A_TOP_APPROACH',
+    'V203_REFERENCE_ROAD_A_TOP_APPROACH',
     [
       roadAEdge5,
       referenceJunction
@@ -361,7 +361,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadABottom=addLinearHighway(
-    'V202_REFERENCE_ROAD_A_BOTTOM',
+    'V203_REFERENCE_ROAD_A_BOTTOM',
     [
       referenceJunction,
       redMeasured.bottomRight,
@@ -372,7 +372,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadBOuter=addLinearHighway(
-    'V202_REFERENCE_ROAD_B_OUTER',
+    'V203_REFERENCE_ROAD_B_OUTER',
     [
       redReference.extended.bottomLeft,
       redMeasured.bottomLeft
@@ -382,7 +382,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadBApproach=addLinearHighway(
-    'V202_REFERENCE_ROAD_B_APPROACH',
+    'V203_REFERENCE_ROAD_B_APPROACH',
     [
       redMeasured.bottomLeft,
       referenceJunction
@@ -392,7 +392,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadC=addLinearHighway(
-    'V202_REFERENCE_ROAD_C_RIGHT',
+    'V203_REFERENCE_ROAD_C_RIGHT',
     [
       referenceJunction,
       redMeasured.right,
@@ -453,7 +453,7 @@ export async function installExteriorForestV78({
   // The gate and all internal circulation remain source-authoritative.
   const forkIslandPolygons=[];
 
-  // All V202 reference-road centerlines clear generated forest/village/fields.
+  // All V203 reference-road centerlines clear generated forest/village/fields.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
@@ -652,7 +652,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V202_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V203_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -724,7 +724,7 @@ export async function installExteriorForestV78({
         const t=s/len;
         const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')
           ?.515
-          :(spec.name.startsWith('V202_REFERENCE_ROAD_')?.405:.262);
+          :(spec.name.startsWith('V203_REFERENCE_ROAD_')?.405:.262);
         dashDummy.position.set(
           THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
           dashY,
@@ -748,7 +748,7 @@ export async function installExteriorForestV78({
     const isRamp=spec.kind==='ramp';
     const isGateway=spec.kind==='gateway';
     const isFork=spec.kind==='fork'||spec.kind==='fork-trunk';
-    const isReference=spec.name.startsWith('V202_REFERENCE_ROAD_');
+    const isReference=spec.name.startsWith('V203_REFERENCE_ROAD_');
 
     const shoulderY=isFork?.425:(isReference?.305:.185);
     const asphaltY=isFork?.455:(isReference?.345:.215);
@@ -833,11 +833,116 @@ export async function installExteriorForestV78({
     highwaySurfaceCount++;
   }
 
-  // V202 straight-approach junction uses only road geometry; no synthetic gate hub/islands.
+  // V203 CONTINUOUS JUNCTION CORE
+  //
+  // V202 made the approaches straight, but each road was still rendered as an
+  // independent ribbon ending at the same mathematical point. That leaves
+  // square ends, median seams and visible gaps at the intersection.
+  //
+  // Build one paved polygon from the OUTER EDGES of all four physical arms
+  // (ROAD A has two opposite arms; ROAD B and ROAD C add one each). This is a
+  // junction surface, not a new road: it only fills the common intersection.
+  function convexHullXZ(points){
+    const pts=points
+      .map(p=>({x:p.x,z:p.z}))
+      .sort((a,b)=>a.x===b.x?a.z-b.z:a.x-b.x);
+    if(pts.length<=3)return pts;
+    const cross=(o,a,b)=>(a.x-o.x)*(b.z-o.z)-(a.z-o.z)*(b.x-o.x);
+    const lower=[];
+    for(const p of pts){
+      while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0)lower.pop();
+      lower.push(p);
+    }
+    const upper=[];
+    for(let i=pts.length-1;i>=0;i--){
+      const p=pts[i];
+      while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0)upper.pop();
+      upper.push(p);
+    }
+    lower.pop();upper.pop();
+    return lower.concat(upper);
+  }
+
+  function junctionArmEdgePair(target,width,reach,pad=0){
+    const d=normalize2(target.x-referenceJunction.x,target.z-referenceJunction.z);
+    const n={x:-d.z,z:d.x};
+    const c={
+      x:referenceJunction.x+d.x*reach,
+      z:referenceJunction.z+d.z*reach
+    };
+    const h=width*.5+pad;
+    return [
+      {x:c.x+n.x*h,z:c.z+n.z*h},
+      {x:c.x-n.x*h,z:c.z-n.z*h}
+    ];
+  }
+
+  function makeJunctionPlate({pad,reach,y,material,name,renderOrder}){
+    const arms=[
+      {target:roadAEdge5,width:40},
+      {target:redMeasured.bottomRight,width:40},
+      {target:redMeasured.bottomLeft,width:38},
+      {target:redMeasured.right,width:38}
+    ];
+    const edgePts=[];
+    for(const arm of arms){
+      edgePts.push(...junctionArmEdgePair(arm.target,arm.width,reach,pad));
+    }
+    const hull=convexHullXZ(edgePts);
+    let shapePts=hull.map(p=>new THREE.Vector2(p.x,-p.z));
+    if(!THREE.ShapeUtils.isClockWise(shapePts))shapePts.reverse();
+    const shape=new THREE.Shape();
+    shapePts.forEach((p,i)=>{
+      if(i===0)shape.moveTo(p.x,p.y);
+      else shape.lineTo(p.x,p.y);
+    });
+    shape.closePath();
+    const mesh=new THREE.Mesh(new THREE.ShapeGeometry(shape),material);
+    mesh.rotation.x=-Math.PI/2;
+    mesh.position.y=y;
+    mesh.name=name;
+    mesh.renderOrder=renderOrder;
+    mesh.castShadow=false;
+    mesh.receiveShadow=false;
+    mesh.userData={
+      fpsNonSolid:true,
+      walkable:true,
+      highwayV194:true,
+      referenceJunction:true
+    };
+    highwayRoot.add(mesh);
+    return mesh;
+  }
+
+  const junctionShoulder=makeJunctionPlate({
+    pad:3.4,
+    reach:33,
+    y:.418,
+    material:highwayShoulderMat,
+    name:'V203_REFERENCE_JUNCTION_SHOULDER',
+    renderOrder:145
+  });
+
+  const junctionAsphalt=makeJunctionPlate({
+    pad:.7,
+    reach:30,
+    y:.432,
+    material:highwayAsphaltMat,
+    name:'V203_REFERENCE_JUNCTION_ASPHALT',
+    renderOrder:146
+  });
+
+  root.userData.referenceJunctionPaved=true;
+  root.userData.referenceJunctionPlate={
+    reach:30,
+    shoulderReach:33,
+    asphaltY:.432,
+    node:{...referenceJunction}
+  };
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V202_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V203_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
@@ -1322,7 +1427,7 @@ export async function installExteriorForestV78({
   root.userData.referenceCornerIndex=referenceCornerIndex;
   root.userData.referenceCorner={x:referenceCorner.x,z:referenceCorner.z};
   root.userData.referenceJunctionNode={x:referenceJunction.x,z:referenceJunction.z};
-  root.userData.referenceJunctionMode='v202-straight-unsmoothed-junction-approaches';
+  root.userData.referenceJunctionMode='v203-continuous-paved-junction-core';
   root.userData.redReference=redReference;
 
   function setDoorOpen(index,v){
@@ -1364,7 +1469,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:202,group:root,treeAssetMode,forestMode,
+    ready:true,version:203,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1384,7 +1489,7 @@ export async function installExteriorForestV78({
     referenceCornerIndex,
     referenceCorner:{x:referenceCorner.x,z:referenceCorner.z},
     referenceJunctionNode:{x:referenceJunction.x,z:referenceJunction.z},
-    referenceJunctionMode:'v202-straight-unsmoothed-junction-approaches',
+    referenceJunctionMode:'v203-continuous-paved-junction-core',
     redReference,
     boundaryPoints:boundary.length,
     doors,
@@ -1421,8 +1526,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V200=api;
   window.__DALOC_EXTERIOR_V201=api;
   window.__DALOC_EXTERIOR_V202=api;
+  window.__DALOC_EXTERIOR_V203=api;
 
-  console.info('[DaLoc] V202 straight unsmoothed junction approaches installed',{
+  console.info('[DaLoc] V203 continuous paved junction core installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
