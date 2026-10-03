@@ -20,17 +20,18 @@ export async function installExteriorForestV78({
   }
 
   root.name='EXTERIOR_FOREST_V78';
-  const forestQuery=new URLSearchParams(globalThis.location?.search||'');
-  const forestMode=forestQuery.get('forest')==='legacy'?'legacy':'light';
+  // V175: Legacy 14K was only an A/B diagnostic and could remain stuck in the
+  // URL after the old toggle. Production always uses the light exterior forest.
+  const forestMode='light';
 
   root.userData={
-    version:172,
+    version:175,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
     purpose:forestMode==='legacy'
       ?'diagnostic legacy exterior forest (14k trees)'
-      :'V172 light exterior forest: real edge trees + continuous canopy blanket'
+      :'V175 light exterior forest: real edge trees + continuous canopy blanket'
   };
   scene.add(root);
 
@@ -511,7 +512,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:172,group:root,treeAssetMode,forestMode,
+    ready:true,version:175,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -529,7 +530,7 @@ export async function installExteriorForestV78({
   window.__DALOC_FOREST_V170=api;
   window.__DALOC_FOREST_V172=api;
 
-  console.info('[DaLoc] V172 light exterior forest installed',{
+  console.info('[DaLoc] V175 light exterior forest installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
