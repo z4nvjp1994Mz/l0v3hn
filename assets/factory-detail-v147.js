@@ -551,12 +551,12 @@ export function installFactoryDetailV147({
       const dz=camera.position.z-building.position.z;
       const distSq=dx*dx+dz*dz;
 
-      // Exterior architecture remains readable in normal 3D views.
-      rec.exterior.visible=distSq<1200*1200;
+      // V172 FPS: base factory shells remain visible; only high-detail layers
+      // are aggressively distance-culled for first-person performance.
+      const exteriorRange=fpsMode?210:1200;
+      rec.exterior.visible=distSq<exteriorRange*exteriorRange;
 
-      // Detailed interiors are expensive and invisible through opaque shells.
-      // Render all only for explicit cutaway; otherwise keep the near factories.
-      const interiorRange=fpsMode?300:cutaway?5000:520;
+      const interiorRange=fpsMode?85:cutaway?5000:520;
       rec.interior.visible=distSq<interiorRange*interiorRange;
     }
   }

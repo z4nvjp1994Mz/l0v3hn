@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V171-p2p-remote-avatar-fix">
+<meta name="daloc-build" content="V172-fps-performance-pass">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V171 P2P REMOTE AVATAR FIX</small>
+  <small>GitHub → Netlify · BUILD V172 FPS PERFORMANCE PASS</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>V105 giữ nguyên CAD/bố cục/traffic nhưng thay phần nhìn thấy rõ nhất bằng asset GLB thật: người đi bộ dùng Kenney Mini Characters có skeleton + walk animation, cây dùng Kenney Nature Kit; rừng và greenbelt vẫn batching/InstancedMesh để giữ FPS.</p>
 </div>
@@ -69,7 +69,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   <button id="fps">FPS Walk</button>
   <button id="multiplayer">2P Multiplayer: Off</button>
   <button id="bp">Blueprint Off</button>
-  <button id="forestMode">Forest: Hybrid</button>
+  <button id="forestMode" disabled>Forest: Light V172</button>
   <button id="reset">Reset</button>
 </div>
 <div class="ui info">
@@ -84,7 +84,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS -- · Forest loading</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V171: P2P remote avatar scope fix · Hybrid Forest V170 retained</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS -- · Forest loading</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V172: FPS performance pass · P2P V171 preserved</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -99,7 +99,7 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js?v=168';
 import { installRoadNameSignsV169 } from './assets/road-name-signs-v169.js?v=1695';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
-import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=170';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=172';
 import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=1451';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
@@ -153,17 +153,9 @@ const world=new THREE.Group();scene.add(world);
 
 const multiplayerButton=document.getElementById('multiplayer');
 const forestModeButton=document.getElementById('forestMode');
-const forestQueryMode=new URLSearchParams(location.search).get('forest')==='legacy'?'legacy':'hybrid';
 if(forestModeButton){
-  forestModeButton.textContent=forestQueryMode==='legacy'?'Forest: Legacy 14K':'Forest: Hybrid V170';
-  forestModeButton.classList.toggle('active',forestQueryMode==='hybrid');
-  forestModeButton.title='A/B test: chuyển giữa Hybrid V170 và Legacy 14K rồi reload cùng góc camera';
-  forestModeButton.onclick=()=>{
-    const next=new URL(location.href);
-    if(forestQueryMode==='legacy')next.searchParams.delete('forest');
-    else next.searchParams.set('forest','legacy');
-    location.href=next.toString();
-  };
+  forestModeButton.textContent='Forest: Light V172';
+  forestModeButton.title='V172: 520 real edge trees + continuous low-poly canopy blanket';
 }
 let multiplayerV142=null;
 
@@ -1937,8 +1929,14 @@ const fpsEmptyColliderIds=[];
 let fpsSavedPixelRatio=null;
 let fpsSavedShadowAutoUpdate=true;
 let fpsSavedShadowMapSize=null;
+let fpsSavedShadowEnabled=null;
 let fpsShadowFrame=0;
 let fpsExteriorTreeVisibility=null;
+let fpsSavedExteriorRootVisibility=null;
+let fpsSavedAmbientState=null;
+let fpsTrafficAccum=0;
+let fpsTrafficFrame=0;
+const fpsTreeChunkWorldCenter=new THREE.Vector3();
 
 // V146 FPS performance profile state.
 let fpsV120TreeBatchRoot=null;
@@ -3861,8 +3859,9 @@ function fpsBuildV120TreeBatch(){
       const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);
       mesh.name=name;
       mesh.castShadow=false;
-      mesh.receiveShadow=true;
+      mesh.receiveShadow=false;
       mesh.frustumCulled=true;
+      mesh.userData.fpsTreeBatch=true;
       matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));
       mesh.instanceMatrix.needsUpdate=true;
       mesh.computeBoundingSphere();
@@ -3929,9 +3928,23 @@ function fpsUpdateSpriteVisibility(activeCamera){
   }
 }
 
+function fpsUpdateTreeChunkVisibility(activeCamera){
+  if(!fpsMode||!fpsV120TreeBatchRoot||!activeCamera)return;
+  if((fpsPerfFrame%8)!==0)return;
+  const maxDistance=360;
+  for(const mesh of fpsV120TreeBatchRoot.children){
+    if(!mesh?.isInstancedMesh)continue;
+    if(!mesh.geometry?.boundingSphere)mesh.geometry?.computeBoundingSphere?.();
+    const sphere=mesh.geometry?.boundingSphere;
+    if(!sphere)continue;
+    fpsTreeChunkWorldCenter.copy(sphere.center).applyMatrix4(mesh.matrixWorld);
+    const limit=maxDistance+sphere.radius;
+    mesh.visible=fpsTreeChunkWorldCenter.distanceToSquared(activeCamera.position)<=limit*limit;
+  }
+}
+
 function fpsUpdateShadowBudget(){
-  // 1024² at 15-20 Hz is dramatically cheaper than the old 2048² pass every
-  // second frame. The sun is static enough that this remains visually stable.
+  if(!renderer.shadowMap.enabled)return;
   const interval=fpsVehicleMode?3:4;
   renderer.shadowMap.needsUpdate=(fpsShadowFrame++%interval)===0;
 }
@@ -3941,28 +3954,40 @@ function applyFpsRenderProfile(){
     fpsSavedPixelRatio=renderer.getPixelRatio();
     fpsSavedShadowAutoUpdate=renderer.shadowMap.autoUpdate;
     fpsSavedShadowMapSize=sun?.shadow?.mapSize?.width||2048;
+    fpsSavedShadowEnabled=renderer.shadowMap.enabled;
   }
-  renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));
+
+  renderer.setPixelRatio(Math.min(devicePixelRatio,.85));
   renderer.setSize(innerWidth,innerHeight,false);
 
   renderer.shadowMap.autoUpdate=false;
-  fpsSetShadowMapSize(1024);
-  renderer.shadowMap.needsUpdate=true;
+  renderer.shadowMap.enabled=false;
+  renderer.shadowMap.needsUpdate=false;
   fpsShadowFrame=0;
 
   fpsBuildV120TreeBatch();
   fpsDisableLargeInstancedShadows();
   fpsRefreshSpriteCache();
 
-  // Exterior forest geometry remains hidden in FPS walk. V170 primarily optimizes
-  // overview/detail rendering; FPS already avoids exterior InstancedMesh cost.
-  if(v78ExteriorGroup&&!fpsExteriorTreeVisibility){
+  if(v78ExteriorGroup&&fpsSavedExteriorRootVisibility===null){
+    fpsSavedExteriorRootVisibility=v78ExteriorGroup.visible;
+    v78ExteriorGroup.visible=false;
     fpsExteriorTreeVisibility=[];
-    v78ExteriorGroup.traverse(o=>{
-      if(!o.isInstancedMesh)return;
-      fpsExteriorTreeVisibility.push([o,o.visible]);
-      o.visible=false;
-    });
+  }
+
+  if(!fpsSavedAmbientState){
+    fpsSavedAmbientState={
+      atmosphere:atmosphereV106?.group?.visible??false,
+      fish:pondFishV82?.group?.visible??false,
+      pedestrians:pedestrianController?.group?.visible??false,
+      landscape:landscapeV95?.group?.visible??false,
+      lotus:lotusPondV81?.group?.visible??false
+    };
+    atmosphereV106?.setEnabled?.(false);
+    pondFishV82?.setEnabled?.(false);
+    pedestrianController?.setEnabled?.(false);
+    landscapeV95?.setVisible?.(false);
+    if(lotusPondV81?.group)lotusPondV81.group.visible=false;
   }
 }
 
@@ -3974,15 +3999,29 @@ function restoreFpsRenderProfile(){
   }
 
   renderer.shadowMap.autoUpdate=fpsSavedShadowAutoUpdate;
+  if(fpsSavedShadowEnabled!==null){
+    renderer.shadowMap.enabled=fpsSavedShadowEnabled;
+    fpsSavedShadowEnabled=null;
+  }
   if(fpsSavedShadowMapSize!==null){
     fpsSetShadowMapSize(fpsSavedShadowMapSize);
     fpsSavedShadowMapSize=null;
   }
   renderer.shadowMap.needsUpdate=true;
 
-  if(fpsExteriorTreeVisibility){
-    for(const [o,visible] of fpsExteriorTreeVisibility)o.visible=visible;
-    fpsExteriorTreeVisibility=null;
+  if(v78ExteriorGroup&&fpsSavedExteriorRootVisibility!==null){
+    v78ExteriorGroup.visible=fpsSavedExteriorRootVisibility;
+    fpsSavedExteriorRootVisibility=null;
+  }
+  fpsExteriorTreeVisibility=null;
+
+  if(fpsSavedAmbientState){
+    atmosphereV106?.setEnabled?.(!!fpsSavedAmbientState.atmosphere);
+    pondFishV82?.setEnabled?.(!!fpsSavedAmbientState.fish);
+    pedestrianController?.setEnabled?.(!!fpsSavedAmbientState.pedestrians);
+    landscapeV95?.setVisible?.(!!fpsSavedAmbientState.landscape);
+    if(lotusPondV81?.group)lotusPondV81.group.visible=!!fpsSavedAmbientState.lotus;
+    fpsSavedAmbientState=null;
   }
 
   if(fpsV120TreeVisibility){
@@ -3996,6 +4035,8 @@ function restoreFpsRenderProfile(){
     fpsVegetationShadowState=null;
   }
 
+  fpsTrafficAccum=0;
+  fpsTrafficFrame=0;
   fpsRefreshSpriteCache();
 }
 
@@ -5854,7 +5895,7 @@ const fpsApiV139={
   get pixelRatio(){return renderer.getPixelRatio();},
   get exteriorTreeBatchesHidden(){return fpsExteriorTreeVisibility?.length||0;},
   get performanceProfile(){return {
-    version:169,
+    version:172,
     shadowMapSize:sun?.shadow?.mapSize?.width||0,
     shadowUpdateEvery:fpsVehicleMode?3:4,
     sourceV120Trees:world.children.filter(o=>o.userData?.lushTreeV120===true).length,
@@ -5862,7 +5903,9 @@ const fpsApiV139={
     originalV120TreesHidden:fpsV120TreeVisibility?.length||0,
     largeInstancedShadowBatchesDisabled:fpsVegetationShadowState?.length||0,
     spriteCacheCount:fpsSpriteCache.length,
-    secondaryAnimationRate:fpsMode?'~30 Hz':'full-rate',
+    secondaryAnimationRate:fpsMode?'ambient off / traffic ~30 Hz':'full-rate',
+    fpsShadowPass:fpsMode?'off':'on',
+    fpsPixelRatio:fpsMode?renderer.getPixelRatio():null,
     factoryDetailFactories:factoryDetailV147?.stats?.factories||0,
     factoryDetailMeshes:factoryDetailV147?.stats?.detailMeshes||0,
     solarTwoStoreyFactories:solarRoofV94?.twoStoreyFactoryCount||0
@@ -5941,13 +5984,13 @@ function updatePerfHud(now){
   const forest=v78ExteriorResult;
   const mode=forest?.forestMode||forestQueryMode;
   const trees=forest?.treeCount??0;
-  const canopy=(forest?.canopyClusterCount||0)+(forest?.horizonClusterCount||0);
+  const canopy=forest?.canopyBlanketPatchCount||0;
   perfHud.textContent=
     'FPS '+perfHudFps.toFixed(0)+
     ' · calls '+renderer.info.render.calls+
     ' · tri '+formatPerfCount(renderer.info.render.triangles)+
-    ' · Forest '+(mode==='legacy'?'Legacy 14K':'Hybrid')+
-    (forest?' · real '+trees+' · mass '+canopy:' · loading');
+    ' · Forest '+(mode==='legacy'?'Legacy 14K':'Light V172')+
+    (forest?' · real '+trees+' · canopy '+canopy:' · loading');
 }
 let lastFrameTime=performance.now();
 (function animate(now){
@@ -5956,10 +5999,22 @@ let lastFrameTime=performance.now();
   const dt=Math.min(.05,Math.max(0,(t-lastFrameTime)/1000));
   lastFrameTime=t;
 
-  // Traffic stays full-rate because driving/collision depends on it.
-  trafficController?.update?.(dt);
+  // V172: expensive 50-agent traffic AI runs at ~30 Hz while walking.
+  // When driving a vehicle it stays full-rate for responsive collision/control.
+  if(fpsMode&&!fpsVehicleMode){
+    fpsTrafficFrame++;
+    fpsTrafficAccum+=dt;
+    if((fpsTrafficFrame&1)===0){
+      trafficController?.update?.(Math.min(.05,fpsTrafficAccum));
+      fpsTrafficAccum=0;
+    }
+  }else{
+    fpsTrafficFrame=0;
+    fpsTrafficAccum=0;
+    trafficController?.update?.(dt);
+  }
 
-  // V146: non-critical ambient simulations run at ~30 Hz only in FPS.
+  // V146/V172: non-critical ambient simulations run at ~30 Hz only in FPS.
   // Their accumulated dt is preserved, so animation speed does not slow down.
   if(fpsMode){
     fpsPerfFrame++;
@@ -6024,6 +6079,7 @@ let lastFrameTime=performance.now();
     :(fpsMode&&fpsViewMode==='third'?fpsThirdPersonCamera:camera);
   visualQualityV102.setRenderCamera?.(activeRenderCamera);
   fpsUpdateSpriteVisibility(activeRenderCamera);
+  fpsUpdateTreeChunkVisibility(activeRenderCamera);
   visualQualityV102.render();
   updatePerfHud(t);
 
