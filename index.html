@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V176-remove-exterior-trees">
+<meta name="daloc-build" content="V177-performance-isolation-toggles">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,7 +59,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V176 REMOVE EXTERIOR TREES</small>
+  <small>GitHub → Netlify · BUILD V177 PERFORMANCE ISOLATION TOGGLES</small>
   <h1>Đa Lộc Industrial Zone</h1>
   <p>Giữ nguyên CAD/bố cục/traffic; cây dọc đường bên trong CCN vẫn được tối ưu bằng batching/InstancedMesh. Toàn bộ cây/rừng bên ngoài ranh dự án đã được loại bỏ.</p>
 </div>
@@ -69,6 +69,8 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   <button id="fps">FPS Walk</button>
   <button id="multiplayer">2P Multiplayer: Off</button>
   <button id="bp">Blueprint Off</button>
+  <button id="roadTreesToggle" class="active">Road Trees: On</button>
+  <button id="factoryDetailsToggle" class="active">Factory Details: On</button>
   <button id="reset">Reset</button>
 </div>
 <div class="ui info">
@@ -83,7 +85,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS --</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V176: Exterior trees removed · internal roadside trees retained · P2P V171 preserved</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS --</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V177: A/B Road Trees + Factory Details · P2P V171 preserved</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -1433,6 +1435,107 @@ let factoryDetailV147={
   setVisible(){}
 };
 let factoryCutawayOn=false;
+
+// V177 performance isolation switches. These deliberately affect ONLY the two
+// suspected bottlenecks so same-camera A/B measurements stay meaningful.
+let roadTreesOn=true;
+let factoryDetailsOn=true;
+const roadTreesToggle=document.getElementById('roadTreesToggle');
+const factoryDetailsToggle=document.getElementById('factoryDetailsToggle');
+
+function roadTreeEligible(g){
+  return !!g &&
+    !g.userData?.hiddenByCadAccess &&
+    !g.userData?.hiddenByGateV93 &&
+    !g.userData?.hiddenByMainGateV92 &&
+    !g.userData?.hiddenByRoadV98 &&
+    !g.userData?.hiddenByFactoryAccessV99;
+}
+
+function currentEnvironmentOn(){
+  const b=document.getElementById('environmentV74');
+  return b?b.classList.contains('active'):true;
+}
+
+function applyRoadTreesDiagnostic(envOverride=null){
+  const envOn=envOverride===null?currentEnvironmentOn():!!envOverride;
+  const enabled=roadTreesOn&&envOn;
+  const overviewDistanceAllows=camera.position.distanceTo(controls.target)<2400;
+
+  // FPS renders exact V120 instanced batches; overview renders source tree groups.
+  if(fpsMode&&fpsV120TreeBatchRoot){
+    fpsV120TreeBatchRoot.visible=enabled;
+    for(const g of world.children){
+      if(g.userData?.lushTreeV120===true)g.visible=false;
+    }
+  }else{
+    if(fpsV120TreeBatchRoot)fpsV120TreeBatchRoot.visible=false;
+    for(const g of world.children){
+      if(g.userData?.lushTreeV120!==true)continue;
+      g.visible=enabled&&overviewDistanceAllows&&roadTreeEligible(g);
+    }
+  }
+
+  roadTreesToggle?.classList.toggle('active',roadTreesOn);
+  if(roadTreesToggle){
+    roadTreesToggle.textContent='Road Trees: '+(roadTreesOn?'On':'Off');
+    roadTreesToggle.title='A/B: 286 internal V120 roadside/greenbelt trees only';
+  }
+}
+
+const factoryDiagnosticMaterials=new Set([
+  facadePanelMat,windowMat,dockDoorMat,dockCanopyMat,concreteYardMat,
+  asphaltYardMat,curb2Mat,roofUnitMat,ventDarkMat,safetyYellowMat,lineWhiteMat,
+  baseSkirtMat,ribMat,skylightMat,gutterMat,pipeMat,bumperMat,crateMat,safetyRedMat
+]);
+
+function materialInFactoryDiagnosticSet(material){
+  if(Array.isArray(material))return material.some(m=>factoryDiagnosticMaterials.has(m));
+  return factoryDiagnosticMaterials.has(material);
+}
+
+function setLegacyFactoryDetailsVisible(v){
+  // V38/V40 details were authored directly into each building before V84/V147
+  // existed, so isolate them by their dedicated detail materials.
+  factoryDetailGroup.visible=!!v;
+  for(const building of buildings){
+    for(const child of building.children){
+      if(child?.isMesh&&materialInFactoryDiagnosticSet(child.material)){
+        child.visible=!!v;
+      }
+    }
+  }
+}
+
+function applyFactoryDetailsDiagnostic(envOverride=null){
+  const envOn=envOverride===null?currentEnvironmentOn():!!envOverride;
+  const enabled=factoryDetailsOn&&envOn;
+
+  setLegacyFactoryDetailsVisible(enabled);
+  factoryInteriorsV84?.setVisible?.(enabled);
+  factoryDetailV147?.setVisible?.(enabled);
+
+  factoryDetailsToggle?.classList.toggle('active',factoryDetailsOn);
+  if(factoryDetailsToggle){
+    factoryDetailsToggle.textContent='Factory Details: '+(factoryDetailsOn?'On':'Off');
+    const meshes=factoryDetailV147?.stats?.detailMeshes||0;
+    factoryDetailsToggle.title='A/B: V38/V40 facade + V84 machinery + V147 detail ('+meshes+' V147 meshes)';
+  }
+}
+
+if(roadTreesToggle){
+  roadTreesToggle.onclick=()=>{
+    roadTreesOn=!roadTreesOn;
+    applyRoadTreesDiagnostic();
+  };
+}
+if(factoryDetailsToggle){
+  factoryDetailsToggle.onclick=()=>{
+    factoryDetailsOn=!factoryDetailsOn;
+    applyFactoryDetailsDiagnostic();
+  };
+}
+
 const factoryCutawayButton=document.createElement('button');
 factoryCutawayButton.id='factoryCutawayV84';
 factoryCutawayButton.textContent='Factory Cutaway: Loading';
@@ -1579,6 +1682,9 @@ installCirculationV53({
            camera
          });
 
+         // Apply current A/B state after async machinery/detail construction.
+         applyFactoryDetailsDiagnostic();
+
          if(fpsMode)refreshFpsStaticColliders();
          factoryCutawayButton.disabled=false;
          factoryCutawayButton.textContent='Factory Cutaway: Off';
@@ -1713,13 +1819,12 @@ installCirculationV53({
      landscapeV95?.setVisible?.(envOn&&landscapeV95On);
      if(pedestrianController?.group)pedestrianController.group.visible=envOn;
      atmosphereV106?.setEnabled?.(envOn&&skyLifeOn);
-     factoryInteriorsV84?.setVisible?.(envOn);
-     factoryDetailV147?.setVisible?.(envOn);
+     applyFactoryDetailsDiagnostic(envOn);
      const legacyAsphalt=world.getObjectByName('V53_CARRIAGEWAY');
      if(legacyAsphalt)legacyAsphalt.visible=false;
      const legacyRoadFurniture=v54DetailGroup?.getObjectByName('V54_ROAD_FURNITURE');
      if(legacyRoadFurniture)legacyRoadFurniture.visible=false;
-     world.traverse(o=>{if(o.userData?.isTreeGroup)o.visible=envOn&&!o.userData?.hiddenByCadAccess&&!o.userData?.hiddenByGateV93&&!o.userData?.hiddenByMainGateV92&&!o.userData?.hiddenByRoadV98&&!o.userData?.hiddenByFactoryAccessV99;});
+     applyRoadTreesDiagnostic(envOn);
      envButton.classList.toggle('active',envOn);
      envButton.textContent='3D Environment: '+(envOn?'On':'Off');
    };
@@ -3821,7 +3926,9 @@ function fpsBuildV120TreeBatch(){
   // individual Mesh submissions are replaced by spatial InstancedMesh batches.
   // No distance thinning is allowed.
   if(fpsV120TreeVisibility){
-    if(fpsV120TreeBatchRoot)fpsV120TreeBatchRoot.visible=true;
+    if(fpsV120TreeBatchRoot){
+      fpsV120TreeBatchRoot.visible=roadTreesOn&&currentEnvironmentOn();
+    }
     return;
   }
 
@@ -3834,11 +3941,11 @@ function fpsBuildV120TreeBatch(){
     const root=new THREE.Group();
     root.name='FPS_V175_EXACT_V120_TREE_BATCHES';
     root.userData.ignoreFpsCollision=true;
-    root.userData.fullTreeCount=source.filter(g=>g.visible).length;
+    root.userData.fullTreeCount=source.filter(roadTreeEligible).length;
 
     const cells=new Map();
     for(const g of source){
-      if(!g.visible)continue;
+      if(!roadTreeEligible(g))continue;
       g.updateMatrix();
       const key=
         Math.floor(g.position.x/FPS_TREE_BATCH_CELL)+':'+
@@ -3882,9 +3989,9 @@ function fpsBuildV120TreeBatch(){
 
     fpsV120TreeBatchRoot=root;
     world.add(root);
-  }else{
-    fpsV120TreeBatchRoot.visible=true;
   }
+
+  fpsV120TreeBatchRoot.visible=roadTreesOn&&currentEnvironmentOn();
 
   // Originals are hidden only because their exact instances are now rendered in
   // the batch. Tree count, positions, scale and rotation are unchanged.
@@ -3954,9 +4061,8 @@ function fpsUpdateFactoryMachineryVisibility(){
 
 function fpsUpdateTreeChunkVisibility(activeCamera){
   if(!fpsMode||!fpsV120TreeBatchRoot)return;
-  // Full tree set stays enabled. Per-cell InstancedMeshes use normal Three.js
-  // frustum culling only; there is no custom distance culling.
-  fpsV120TreeBatchRoot.visible=true;
+  // Diagnostic switch owns visibility; no custom distance thinning.
+  fpsV120TreeBatchRoot.visible=roadTreesOn&&currentEnvironmentOn();
 }
 
 function fpsUpdateShadowBudget(){
@@ -4045,10 +4151,11 @@ function restoreFpsRenderProfile(){
   fpsSavedAmbientState=null;
 
   if(fpsV120TreeVisibility){
-    for(const [g,visible] of fpsV120TreeVisibility)g.visible=visible;
+    for(const [g] of fpsV120TreeVisibility)g.visible=false;
     fpsV120TreeVisibility=null;
   }
   if(fpsV120TreeBatchRoot)fpsV120TreeBatchRoot.visible=false;
+  applyRoadTreesDiagnostic();
 
   if(fpsVegetationShadowState){
     for(const [o,castShadow] of fpsVegetationShadowState)o.castShadow=castShadow;
@@ -5931,6 +6038,8 @@ const fpsApiV139={
     fpsEnvironmentLite:false,
     fpsTreePolicy:'full-visual-instanced',
     fpsTreeBatchCell:FPS_TREE_BATCH_CELL,
+    roadTreesDiagnosticOn:roadTreesOn,
+    factoryDetailsDiagnosticOn:factoryDetailsOn,
     fpsSkyLifeRetained:true,
     factoryDetailFactories:factoryDetailV147?.stats?.factories||0,
     factoryDetailMeshes:factoryDetailV147?.stats?.detailMeshes||0,
@@ -5964,15 +6073,26 @@ bp.onclick=()=>{bpOn=!bpOn;blueprint.visible=bpOn;ground.visible=!bpOn;bp.classL
 document.getElementById('reset').onclick=()=>{exitFirstPerson(false);bpOn=false;blueprint.visible=false;ground.visible=true;bp.classList.remove('active');bp.textContent='Blueprint Off';factoryCutawayOn=false;factoryInteriorsV84?.setCutaway?.(false);factoryCutawayButton.classList.remove('active');factoryCutawayButton.textContent=factoryInteriorsV84?.ready?'Factory Cutaway: Off':'Factory Cutaway: Loading';window.__DALOC_V72?.setEnabled?.(true);window.__DALOC_V72?.showEdges?.(false);v3.click()};
 
 let treeVisibilityState=true;
-function updateTreeVisibility(){
+function updateTreeVisibility(force=false){
   const d=camera.position.distanceTo(controls.target);
   const show=d<2400;
-  if(show===treeVisibilityState) return;
+  if(!force&&show===treeVisibilityState)return;
   treeVisibilityState=show;
-  world.traverse(obj=>{if(obj.userData?.isTreeGroup)obj.visible=show&&!obj.userData?.hiddenByCadAccess&&!obj.userData?.hiddenByMainGateV92&&!obj.userData?.hiddenByGateV93&&!obj.userData?.hiddenByRoadV98&&!obj.userData?.hiddenByFactoryAccessV99;});
+
+  if(fpsMode){
+    applyRoadTreesDiagnostic();
+    return;
+  }
+
+  const enabled=roadTreesOn&&currentEnvironmentOn()&&show;
+  world.traverse(obj=>{
+    if(obj.userData?.isTreeGroup){
+      obj.visible=enabled&&roadTreeEligible(obj);
+    }
+  });
 }
-controls.addEventListener('change',updateTreeVisibility);
-updateTreeVisibility();
+controls.addEventListener('change',()=>updateTreeVisibility(false));
+updateTreeVisibility(true);
 
 
 window.addEventListener('error',e=>{
@@ -6010,7 +6130,9 @@ function updatePerfHud(now){
   perfHud.textContent=
     'FPS '+perfHudFps.toFixed(0)+
     ' · calls '+renderer.info.render.calls+
-    ' · tri '+formatPerfCount(renderer.info.render.triangles);
+    ' · tri '+formatPerfCount(renderer.info.render.triangles)+
+    ' · Trees '+(roadTreesOn?'ON':'OFF')+
+    ' · Factory '+(factoryDetailsOn?'ON':'OFF');
 }
 let lastFrameTime=performance.now();
 (function animate(now){
