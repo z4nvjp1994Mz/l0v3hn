@@ -20,11 +20,17 @@ export async function installExteriorForestV78({
   }
 
   root.name='EXTERIOR_FOREST_V78';
+  const forestQuery=new URLSearchParams(globalThis.location?.search||'');
+  const forestMode=forestQuery.get('forest')==='legacy'?'legacy':'hybrid';
+
   root.userData={
-    version:79,
+    version:170,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
-    purpose:'dense exterior forest with sparse village houses'
+    forestMode,
+    purpose:forestMode==='legacy'
+      ?'A/B legacy dense exterior forest (14k trees)'
+      :'V170 hybrid exterior forest: near real trees + canopy clusters + horizon masses'
   };
   scene.add(root);
 
@@ -243,79 +249,284 @@ export async function installExteriorForestV78({
     return houseSites.some(h=>Math.hypot(h.x-x,h.z-z)<18*h.scale+pad);
   }
 
-  // Dense woodland. Instancing keeps the exterior highly populated without thousands
-  // of individual draw calls.
-  const targetTrees=14000;
+  // -------------------------------------------------------------------------
+  // V170 A/B FOREST EXPERIMENT
+  // Default "hybrid" dramatically reduces real-tree instances and replaces
+  // medium/far woodland with broad low-poly canopy masses. Add ?forest=legacy
+  // to restore the previous 14,000-tree implementation for same-camera tests.
+  // -------------------------------------------------------------------------
+  const legacyForest=forestMode==='legacy';
+  const targetTrees=legacyForest?14000:2200;
+  const nearMaxDistance=legacyForest?420:112;
   const deciduous=[],conifers=[];
   let guard=0;
-  while(deciduous.length+conifers.length<targetTrees && guard++<360000){
+  while(deciduous.length+conifers.length<targetTrees && guard++<(legacyForest?360000:160000)){
     const x=rr(box.minX,box.maxX),z=rr(box.minZ,box.maxZ);
     if(pointInPolygon(x,z,boundary))continue;
     const d=distanceToBoundary(x,z);
-    if(d<18||d>420)continue;
+    if(d<18||d>nearMaxDistance)continue;
     if(inRoadCorridor(x,z,7))continue;
     if(nearHouse(x,z,4))continue;
 
-    // Slightly denser near the project edge, but still continuous deep into the background.
-    const density=d<180?.93:d<300?.84:.72;
+    const density=legacyForest
+      ?(d<180?.93:d<300?.84:.72)
+      :(d<58?.96:d<90?.90:.78);
     if(rnd()>density)continue;
 
     const item={x,z,scale:rr(.72,1.55),rot:rr(0,Math.PI*2)};
     if(rnd()<.72)deciduous.push(item);else conifers.push(item);
   }
 
-  // V105 REAL ASSETS: use vendored Kenney Nature Kit GLBs, still batched
-  // through InstancedMesh. 14,000 trees do NOT become 14,000 draw calls.
-  let treeAssetMode='kenney-glb-instanced';
+  let treeAssetMode=legacyForest?'kenney-glb-instanced-legacy':'hybrid-v170';
   let treeDrawMeshes=0;
+  let treeChunkCount=0;
+  let canopyClusterCount=0;
+  let canopyLobeCount=0;
+  let canopyChunkCount=0;
+  let horizonClusterCount=0;
+  let horizonLobeCount=0;
+  let horizonChunkCount=0;
+
+  function spatialKey(x,z,size){
+    return Math.floor((x-box.minX)/size)+','+Math.floor((z-box.minZ)/size);
+  }
+
+  function groupedRealTreeChunks(){
+    const chunks=new Map();
+    function add(item,type){
+      const key=spatialKey(item.x,item.z,165);
+      let chunk=chunks.get(key);
+      if(!chunk){
+        chunk={oak:[],pine:[]};
+        chunks.set(key,chunk);
+      }
+      chunk[type].push(item);
+    }
+    deciduous.forEach(p=>add(p,'oak'));
+    conifers.forEach(p=>add(p,'pine'));
+    return chunks;
+  }
+
   try{
     const assets=await loadKenneyTreeAssets();
-    const oakPlacements=deciduous.map(p=>({
-      position:new THREE.Vector3(p.x,-.42,p.z),
-      rotationY:p.rot,
-      scale:p.scale
-    }));
-    const pinePlacements=conifers.map(p=>({
-      position:new THREE.Vector3(p.x,-.42,p.z),
-      rotationY:p.rot,
-      scale:p.scale
-    }));
-    const oakBatch=createStaticInstancedAsset(root,assets.oak,oakPlacements,{
-      name:'V105_KENNEY_OAK_FOREST',castShadow:false,receiveShadow:true
-    });
-    const pineBatch=createStaticInstancedAsset(root,assets.pine,pinePlacements,{
-      name:'V105_KENNEY_PINE_FOREST',castShadow:false,receiveShadow:true
-    });
-    treeDrawMeshes=oakBatch.meshes.length+pineBatch.meshes.length;
+
+    if(legacyForest){
+      // Exact comparison path: preserve the original giant two-species batches.
+      const oakPlacements=deciduous.map(p=>({
+        position:new THREE.Vector3(p.x,-.42,p.z),rotationY:p.rot,scale:p.scale
+      }));
+      const pinePlacements=conifers.map(p=>({
+        position:new THREE.Vector3(p.x,-.42,p.z),rotationY:p.rot,scale:p.scale
+      }));
+      const oakBatch=createStaticInstancedAsset(root,assets.oak,oakPlacements,{
+        name:'V105_KENNEY_OAK_FOREST',castShadow:false,receiveShadow:true
+      });
+      const pineBatch=createStaticInstancedAsset(root,assets.pine,pinePlacements,{
+        name:'V105_KENNEY_PINE_FOREST',castShadow:false,receiveShadow:true
+      });
+      treeDrawMeshes=oakBatch.meshes.length+pineBatch.meshes.length;
+      treeChunkCount=2;
+    }else{
+      // Hybrid path: spatial chunks give each InstancedMesh a small bounding
+      // sphere, so off-screen forest sectors can finally be frustum-culled.
+      const chunks=groupedRealTreeChunks();
+      for(const [key,chunk] of chunks){
+        const chunkGroup=new THREE.Group();
+        chunkGroup.name='V170_NEAR_TREE_CHUNK_'+key;
+        root.add(chunkGroup);
+        treeChunkCount++;
+
+        if(chunk.oak.length){
+          const batch=createStaticInstancedAsset(
+            chunkGroup,
+            assets.oak,
+            chunk.oak.map(p=>({
+              position:new THREE.Vector3(p.x,-.42,p.z),rotationY:p.rot,scale:p.scale
+            })),
+            {name:'V170_NEAR_OAK_'+key,castShadow:false,receiveShadow:false}
+          );
+          treeDrawMeshes+=batch.meshes.length;
+          batch.meshes.forEach(m=>{m.userData.forestLayer='near-real';});
+        }
+        if(chunk.pine.length){
+          const batch=createStaticInstancedAsset(
+            chunkGroup,
+            assets.pine,
+            chunk.pine.map(p=>({
+              position:new THREE.Vector3(p.x,-.42,p.z),rotationY:p.rot,scale:p.scale
+            })),
+            {name:'V170_NEAR_PINE_'+key,castShadow:false,receiveShadow:false}
+          );
+          treeDrawMeshes+=batch.meshes.length;
+          batch.meshes.forEach(m=>{m.userData.forestLayer='near-real';});
+        }
+      }
+    }
   }catch(error){
-    console.error('[DaLoc] V105 real forest asset fallback',error);
-    treeAssetMode='procedural-fallback';
+    console.error('[DaLoc] V170 real forest asset fallback',error);
+    treeAssetMode=legacyForest?'procedural-fallback-legacy':'procedural-fallback-hybrid';
 
     const trunkGeo=new THREE.CylinderGeometry(.18,.38,4.9,8);
     const crownGeo=new THREE.DodecahedronGeometry(1.62,1);
     const coneGeo=new THREE.ConeGeometry(1.82,6.8,10);
-    const trunkMat=new THREE.MeshStandardMaterial({color:0x6a4931,roughness:.96});
-    const leafMat=new THREE.MeshStandardMaterial({color:0x3d824a,roughness:.94});
-    const pineMat=new THREE.MeshStandardMaterial({color:0x2b6940,roughness:.95});
+    const trunkMat=new THREE.MeshLambertMaterial({color:0x6a4931});
+    const leafMat=new THREE.MeshLambertMaterial({color:0x3d824a});
+    const pineMat=new THREE.MeshLambertMaterial({color:0x2b6940});
 
     const fillFallback=(items,type)=>{
+      if(!items.length)return;
       const trunk=new THREE.InstancedMesh(trunkGeo,trunkMat,items.length);
       const crown=new THREE.InstancedMesh(type==='oak'?crownGeo:coneGeo,type==='oak'?leafMat:pineMat,items.length);
       const d=new THREE.Object3D();
       items.forEach((p,i)=>{
-        d.position.set(p.x,2.05*p.scale-.42,p.z);d.rotation.set(0,p.rot,0);d.scale.setScalar(p.scale);d.updateMatrix();trunk.setMatrixAt(i,d.matrix);
-        d.position.set(p.x,type==='oak'?5.15*p.scale-.42:5.45*p.scale-.42,p.z);d.updateMatrix();crown.setMatrixAt(i,d.matrix);
+        d.position.set(p.x,2.05*p.scale-.42,p.z);
+        d.rotation.set(0,p.rot,0);
+        d.scale.setScalar(p.scale);
+        d.updateMatrix();
+        trunk.setMatrixAt(i,d.matrix);
+        d.position.set(p.x,type==='oak'?5.15*p.scale-.42:5.45*p.scale-.42,p.z);
+        d.updateMatrix();
+        crown.setMatrixAt(i,d.matrix);
       });
-      for(const mesh of [trunk,crown]){mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();mesh.receiveShadow=true;root.add(mesh);}
+      for(const mesh of [trunk,crown]){
+        mesh.instanceMatrix.needsUpdate=true;
+        mesh.computeBoundingSphere();
+        mesh.castShadow=false;
+        mesh.receiveShadow=false;
+        mesh.userData.forestLayer='near-fallback';
+        root.add(mesh);
+      }
       treeDrawMeshes+=2;
     };
     fillFallback(deciduous,'oak');
     fillFallback(conifers,'pine');
   }
 
+  function collectForestMassCenters(target,minD,maxD,minSpacing){
+    const out=[];
+    let attempts=0;
+    while(out.length<target&&attempts++<target*900){
+      const x=rr(box.minX+20,box.maxX-20),z=rr(box.minZ+20,box.maxZ-20);
+      if(pointInPolygon(x,z,boundary))continue;
+      const d=distanceToBoundary(x,z);
+      if(d<minD||d>maxD)continue;
+      if(inRoadCorridor(x,z,9))continue;
+      if(nearHouse(x,z,8))continue;
+      if(out.some(p=>Math.hypot(p.x-x,p.z-z)<minSpacing))continue;
+      out.push({x,z,d,rot:rr(0,Math.PI*2)});
+    }
+    return out;
+  }
+
+  function createCanopyMasses(centers,{
+    layer='mid',
+    chunkSize=190,
+    lobesPerCluster=3,
+    horizon=false
+  }={}){
+    if(!centers.length)return {clusters:0,lobes:0,chunks:0,meshes:0};
+    const geometry=horizon
+      ?new THREE.DodecahedronGeometry(1,0)
+      :new THREE.IcosahedronGeometry(1,1);
+    const material=horizon
+      ?new THREE.MeshBasicMaterial({color:0xffffff})
+      :new THREE.MeshLambertMaterial({color:0xffffff});
+    material.toneMapped=!horizon;
+
+    const chunks=new Map();
+    let totalLobes=0;
+    centers.forEach((p,ci)=>{
+      for(let l=0;l<lobesPerCluster;l++){
+        const angle=p.rot+l*(Math.PI*2/lobesPerCluster)+rr(-.36,.36);
+        const radial=horizon?rr(5,16):rr(3.2,9.5);
+        const x=p.x+Math.cos(angle)*radial;
+        const z=p.z+Math.sin(angle)*radial;
+
+        const sx=horizon?rr(24,44):rr(9,17);
+        const sy=horizon?rr(7,12):rr(4.8,8.2);
+        const sz=horizon?rr(22,42):rr(8.5,16.5);
+        const y=(horizon?sy*.72:sy*.88)-.35;
+        const key=spatialKey(p.x,p.z,chunkSize);
+        let list=chunks.get(key);
+        if(!list){list=[];chunks.set(key,list);}
+        list.push({
+          x,y,z,sx,sy,sz,rot:rr(0,Math.PI*2),
+          color:horizon
+            ?[0x315f38,0x386a3e,0x2d5834][(ci+l)%3]
+            :[0x3b7b45,0x4a8a4f,0x32703e,0x568f52][(ci+l)%4]
+        });
+        totalLobes++;
+      }
+    });
+
+    let meshCount=0;
+    const matrix=new THREE.Matrix4();
+    const quat=new THREE.Quaternion();
+    const pos=new THREE.Vector3();
+    const scale=new THREE.Vector3();
+    for(const [key,list] of chunks){
+      const mesh=new THREE.InstancedMesh(geometry,material,list.length);
+      mesh.name='V170_'+layer.toUpperCase()+'_CANOPY_'+key;
+      mesh.castShadow=false;
+      mesh.receiveShadow=false;
+      mesh.frustumCulled=true;
+      mesh.userData={forestLayer:layer,forestChunk:key};
+      list.forEach((p,index)=>{
+        pos.set(p.x,p.y,p.z);
+        quat.setFromEuler(new THREE.Euler(0,p.rot,0));
+        scale.set(p.sx,p.sy,p.sz);
+        matrix.compose(pos,quat,scale);
+        mesh.setMatrixAt(index,matrix);
+        mesh.setColorAt(index,new THREE.Color(p.color));
+      });
+      mesh.instanceMatrix.needsUpdate=true;
+      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+      mesh.computeBoundingSphere();
+      root.add(mesh);
+      meshCount++;
+    }
+
+    return {
+      clusters:centers.length,
+      lobes:totalLobes,
+      chunks:chunks.size,
+      meshes:meshCount
+    };
+  }
+
+  if(!legacyForest){
+    // Medium ring: large overlapping crowns preserve a dense forest silhouette
+    // with only a few hundred very low-poly objects.
+    const canopyCenters=collectForestMassCenters(260,88,300,24);
+    const canopyStats=createCanopyMasses(canopyCenters,{
+      layer:'mid',chunkSize:190,lobesPerCluster:3,horizon:false
+    });
+    canopyClusterCount=canopyStats.clusters;
+    canopyLobeCount=canopyStats.lobes;
+    canopyChunkCount=canopyStats.chunks;
+    treeDrawMeshes+=canopyStats.meshes;
+
+    // Far ring/horizon: huge low-poly masses, unlit and shadow-free.
+    const horizonCenters=collectForestMassCenters(72,255,420,50);
+    const horizonStats=createCanopyMasses(horizonCenters,{
+      layer:'horizon',chunkSize:260,lobesPerCluster:2,horizon:true
+    });
+    horizonClusterCount=horizonStats.clusters;
+    horizonLobeCount=horizonStats.lobes;
+    horizonChunkCount=horizonStats.chunks;
+    treeDrawMeshes+=horizonStats.meshes;
+  }
+
   root.userData.treeCount=deciduous.length+conifers.length;
   root.userData.treeAssetMode=treeAssetMode;
   root.userData.treeDrawMeshes=treeDrawMeshes;
+  root.userData.treeChunkCount=treeChunkCount;
+  root.userData.canopyClusterCount=canopyClusterCount;
+  root.userData.canopyLobeCount=canopyLobeCount;
+  root.userData.canopyChunkCount=canopyChunkCount;
+  root.userData.horizonClusterCount=horizonClusterCount;
+  root.userData.horizonLobeCount=horizonLobeCount;
+  root.userData.horizonChunkCount=horizonChunkCount;
   root.userData.houseCount=houseSites.length;
 
   function setDoorOpen(index,v){
@@ -357,8 +568,16 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:168,group:root,treeAssetMode,
+    ready:true,version:170,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
+    treeChunkCount,
+    canopyClusterCount,
+    canopyLobeCount,
+    canopyChunkCount,
+    horizonClusterCount,
+    horizonLobeCount,
+    horizonChunkCount,
+    treeDrawMeshes,
     houseCount:root.userData.houseCount,
     boundaryPoints:boundary.length,
     doors,
@@ -368,9 +587,18 @@ export async function installExteriorForestV78({
     doorWorldInfo
   };
   window.__DALOC_V79=api;
+  window.__DALOC_FOREST_V170=api;
 
-  console.info('[DaLoc] V168 exterior forest + interactive village doors installed',{
-    trees:root.userData.treeCount,
+  console.info('[DaLoc] V170 exterior forest A/B installed',{
+    mode:forestMode,
+    realTrees:root.userData.treeCount,
+    treeChunks:treeChunkCount,
+    canopyClusters:canopyClusterCount,
+    canopyLobes:canopyLobeCount,
+    canopyChunks:canopyChunkCount,
+    horizonClusters:horizonClusterCount,
+    horizonLobes:horizonLobeCount,
+    horizonChunks:horizonChunkCount,
     assetMode:treeAssetMode,
     treeDrawMeshes,
     houses:root.userData.houseCount,
