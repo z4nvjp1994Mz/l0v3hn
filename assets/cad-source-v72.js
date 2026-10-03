@@ -20,7 +20,7 @@ export async function installCadSourceV72({
   const root=new THREE.Group();
   root.name='CAD_SOURCE_V72';
   root.userData={
-    version:105,
+    version:106,
     source:data.source,
     edgeLayer:data.edgeLayer,
     boundaryLayer:data.boundaryLayer,
@@ -215,10 +215,12 @@ export async function installCadSourceV72({
     source:data.source,roads:surfaceRoads,roadEdges:data.roadEdges,siteBoundaryPx:data.siteBoundaryPx,
     cadAuthoritative:true,
     suppressedSurfaceHandles:[...suppressedSurfaceHandles],
+    roadMaterial:roadMat,
+    roadTopY:.39,
     setEnabled,showEdges
   };
 
-  console.info('[DaLoc] V210 CAD roads installed with only old 774F9 surface suppressed',{
+  console.info('[DaLoc] V211 CAD roads expose shared internal-road material; old 774F9 still suppressed',{
     surfacedRoads:surfaceRoads.map(r=>r.handle),
     cadEdges:data.roadEdges?.length||0,
     siteBoundaryPoints:data.siteBoundaryPx?.length||0,
@@ -227,8 +229,10 @@ export async function installCadSourceV72({
 
   return {
     ready:true,
-    version:105,
+    version:106,
     roads:surfaceRoads.length,
+    roadMaterial:roadMat,
+    roadTopY:.39,
     edges:data.roadEdges?.length||0,
     sourceLocked:true,
     cadAuthoritative:true
