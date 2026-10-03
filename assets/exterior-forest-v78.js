@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V187';
-  const forestMode='scenic-v187';
+  root.name='EXTERIOR_SCENERY_V188';
+  const forestMode='scenic-v188';
 
   root.userData={
-    version:187,
+    version:188,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V187 visible gate fork: three branches rendered above CAD road surface at main gate 77505'
+    purpose:'V188 three-branch fork moved to the entrance actually visible in Top View: first CAD endpoint of 77505'
   };
   scene.add(root);
 
@@ -246,16 +246,25 @@ export async function installExteriorForestV78({
   // V186: ONLY at the real main gate 77505.
   const gateRoad=roadWorldPoints('77505');
   if(gateRoad.length<2)throw new Error('V186 gate road missing');
-  const gateEnd=gateRoad[gateRoad.length-1];
-  const gatePrev=gateRoad[gateRoad.length-2];
+  // V188 correction: use the visible project entrance shown in Top View.
+  // In V93 this is the first CAD endpoint (the detailed FAR/V92 gate), not
+  // road.pointsPx.at(-1), which is the opposite entrance.
+  const gateEnd=gateRoad[0];
+  const gatePrev=gateRoad[1];
   const gateIn=normalize2(gatePrev.x-gateEnd.x,gatePrev.z-gateEnd.z);
 
   const gateCenter={x:gateEnd.x+gateIn.x*14,z:gateEnd.z+gateIn.z*14};
   const forkNode={x:gateCenter.x+gateIn.x*18,z:gateCenter.z+gateIn.z*18};
 
   const centralSpine=circulationWorldPoints('central-spine');
-  const center0=centralSpine[0]||{x:forkNode.x+gateIn.x*24,z:forkNode.z+gateIn.z*24};
-  const center1=centralSpine[1]||{x:center0.x+gateIn.x*55,z:center0.z+gateIn.z*55};
+  const center0=centralSpine[centralSpine.length-1]||{
+    x:forkNode.x+gateIn.x*24,
+    z:forkNode.z+gateIn.z*24
+  };
+  const center1=centralSpine[centralSpine.length-2]||{
+    x:center0.x+gateIn.x*55,
+    z:center0.z+gateIn.z*55
+  };
   const centerJoin={
     x:THREE.MathUtils.lerp(center0.x,center1.x,.34),
     z:THREE.MathUtils.lerp(center0.z,center1.z,.34)
@@ -278,16 +287,16 @@ export async function installExteriorForestV78({
     return spec;
   }
   const referenceForkTrunk=addReferenceForkRoad(
-    'V187_GATE_FORK_TRUNK',[trunkStart,gateEnd,gateCenter,forkNode],20.5,'fork-trunk'
+    'V188_GATE_FORK_TRUNK',[trunkStart,gateEnd,gateCenter,forkNode],20.5,'fork-trunk'
   );
   const referenceForkLeft=addReferenceForkRoad(
-    'V187_GATE_FORK_LEFT',[forkNode,{x:forkNode.x+leftDir.x*28,z:forkNode.z+leftDir.z*28},leftJoin],17.0,'fork'
+    'V188_GATE_FORK_LEFT',[forkNode,{x:forkNode.x+leftDir.x*28,z:forkNode.z+leftDir.z*28},leftJoin],17.0,'fork'
   );
   const referenceForkCenter=addReferenceForkRoad(
-    'V187_GATE_FORK_CENTER',[forkNode,center0,centerJoin],18.5,'fork'
+    'V188_GATE_FORK_CENTER',[forkNode,center0,centerJoin],18.5,'fork'
   );
   const referenceForkRight=addReferenceForkRoad(
-    'V187_GATE_FORK_RIGHT',[forkNode,{x:forkNode.x+rightDir.x*28,z:forkNode.z+rightDir.z*28},rightJoin],17.0,'fork'
+    'V188_GATE_FORK_RIGHT',[forkNode,{x:forkNode.x+rightDir.x*28,z:forkNode.z+rightDir.z*28},rightJoin],17.0,'fork'
   );
 
   function pointAlongPolyline(points,distance){
@@ -333,7 +342,7 @@ export async function installExteriorForestV78({
         a:spec.points[i-1],
         b:spec.points[i],
         radius:spec.width*.5+(isFork?3:(spec.kind==='gateway'?4.5:spec.kind==='ramp'?5:8)),
-        highwayV187:true
+        highwayV188:true
       };
       roadCorridors.push(corridor);
       if(isFork)referenceForkCorridors.push(corridor);
@@ -348,7 +357,7 @@ export async function installExteriorForestV78({
     if(referenceForkCorridors.some(c=>
       distanceToSegment(forkTreeWorld.x,forkTreeWorld.z,c.a,c.b)<=c.radius+1.2
     )){
-      o.userData.hiddenByReferenceForkV187=true;
+      o.userData.hiddenByReferenceForkV188=true;
       o.visible=false;
     }
   });
@@ -540,7 +549,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V187_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V188_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -644,7 +653,7 @@ export async function installExteriorForestV78({
       isFork?forkShoulderMat:highwayShoulderMat
     );
     shoulder.name=spec.name+'_SHOULDER';
-    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV187:true};
+    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV188:true};
     shoulder.castShadow=false;
     shoulder.receiveShadow=false;
     if(isFork)shoulder.renderOrder=120;
@@ -658,7 +667,7 @@ export async function installExteriorForestV78({
     asphalt.userData={
       fpsNonSolid:true,
       walkable:true,
-      highwayV187:true,
+      highwayV188:true,
       layer:'carriageway'
     };
     asphalt.castShadow=false;
@@ -673,7 +682,7 @@ export async function installExteriorForestV78({
         highwayMedianMat
       );
       median.name=spec.name+'_MEDIAN';
-      median.userData={fpsNonSolid:true,highwayV187:true};
+      median.userData={fpsNonSolid:true,highwayV188:true};
       highwayRoot.add(median);
     }
 
@@ -684,7 +693,7 @@ export async function installExteriorForestV78({
         highwayWhiteMat
       );
       edge.name=spec.name+'_EDGE_'+(side<0?'L':'R');
-      edge.userData={fpsNonSolid:true,highwayV187:true};
+      edge.userData={fpsNonSolid:true,highwayV188:true};
       if(isFork)edge.renderOrder=123;
       highwayRoot.add(edge);
     }
@@ -706,7 +715,7 @@ export async function installExteriorForestV78({
         highwayYellowMat
       );
       centerLine.name=spec.name+'_CENTER';
-      centerLine.userData={fpsNonSolid:true,highwayV187:true};
+      centerLine.userData={fpsNonSolid:true,highwayV188:true};
       highwayRoot.add(centerLine);
       highwayMainCount++;
     }
@@ -719,10 +728,10 @@ export async function installExteriorForestV78({
     new THREE.CylinderGeometry(13.5,13.5,.05,40),
     forkAsphaltMat
   );
-  forkHub.name='V187_GATE_FORK_HUB';
+  forkHub.name='V188_GATE_FORK_HUB';
   forkHub.position.set(forkNode.x,.463,forkNode.z);
   forkHub.renderOrder=122;
-  forkHub.userData={fpsNonSolid:true,walkable:true,referenceForkV187:true,layer:'carriageway'};
+  forkHub.userData={fpsNonSolid:true,walkable:true,referenceForkV188:true,layer:'carriageway'};
   highwayRoot.add(forkHub);
 
   // Two landscaped wedge islands between the three branch roads.
@@ -741,10 +750,10 @@ export async function installExteriorForestV78({
       new THREE.ShapeGeometry(forkPolygonShape(poly)),
       forkIslandCurbMat
     );
-    curb.name='V187_FORK_ISLAND_CURB_'+i;
+    curb.name='V188_FORK_ISLAND_CURB_'+i;
     curb.rotation.x=-Math.PI/2;
     curb.position.y=.505;
-    curb.userData={fpsNonSolid:true,referenceForkV187:true};
+    curb.userData={fpsNonSolid:true,referenceForkV188:true};
     highwayRoot.add(curb);
 
     const cx=poly.reduce((s,p)=>s+p.x,0)/poly.length;
@@ -757,22 +766,22 @@ export async function installExteriorForestV78({
       new THREE.ShapeGeometry(forkPolygonShape(inner)),
       forkIslandGreenMat
     );
-    green.name='V187_FORK_ISLAND_GREEN_'+i;
+    green.name='V188_FORK_ISLAND_GREEN_'+i;
     green.rotation.x=-Math.PI/2;
     green.position.y=.518;
-    green.userData={fpsNonSolid:true,referenceForkV187:true};
+    green.userData={fpsNonSolid:true,referenceForkV188:true};
     highwayRoot.add(green);
   });
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V187_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V188_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
     dashBatch.castShadow=false;
     dashBatch.receiveShadow=false;
-    dashBatch.userData={fpsNonSolid:true,highwayV187:true};
+    dashBatch.userData={fpsNonSolid:true,highwayV188:true};
     highwayRoot.add(dashBatch);
   }
 
@@ -1248,7 +1257,7 @@ export async function installExteriorForestV78({
   root.userData.highwayRampCount=highwayRampCount;
   root.userData.referenceForkBranchCount=3;
   root.userData.referenceForkNode={x:forkNode.x,z:forkNode.z};
-  root.userData.referenceForkMode='main-gate-visible-above-cad';
+  root.userData.referenceForkMode='visible-east-gate-first-endpoint';
 
   function setDoorOpen(index,v){
     const d=doors[index];
@@ -1289,7 +1298,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:187,group:root,treeAssetMode,forestMode,
+    ready:true,version:188,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1306,7 +1315,7 @@ export async function installExteriorForestV78({
     highwayRampCount,
     referenceForkBranchCount:3,
     referenceForkNode:{x:forkNode.x,z:forkNode.z},
-    referenceForkMode:'main-gate-visible-above-cad',
+    referenceForkMode:'visible-east-gate-first-endpoint',
     boundaryPoints:boundary.length,
     doors,
     setDoorOpen,
@@ -1327,8 +1336,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V185=api;
   window.__DALOC_EXTERIOR_V186=api;
   window.__DALOC_EXTERIOR_V187=api;
+  window.__DALOC_EXTERIOR_V188=api;
 
-  console.info('[DaLoc] V187 visible three-branch main-gate fork installed',{
+  console.info('[DaLoc] V188 three-branch fork installed at visible east entrance',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
