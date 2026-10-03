@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V196';
-  const forestMode='scenic-v196';
+  root.name='EXTERIOR_SCENERY_V197';
+  const forestMode='scenic-v197';
 
   root.userData={
-    version:196,
+    version:197,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V196 homography-calibrated annotated perspective; exact three-road/four-endpoint world geometry'
+    purpose:'V197 preserve V196 road directions but translate the whole reference junction outside the industrial-site boundary'
   };
   scene.add(root);
 
@@ -226,13 +226,39 @@ export async function installExteriorForestV78({
     return hits[0]?.p||through;
   }
 
-  const referenceJunction={x:330.69,z:-461.86};
+  // V197 clearance correction:
+  // V196 got the road topology/directions close, but the calibrated junction
+  // still sat inside the CAD site polygon and the new highways visibly cut
+  // through industrial land. Translate the ENTIRE reference network together
+  // so all three centerlines stay outside the project boundary while preserving
+  // the measured angles exactly.
+  //
+  // Offline geometry check against cad-source-v72 siteBoundaryPx:
+  //   shift = (+135m, -35m)
+  //   minimum centerline clearance after shift ~= 35.9m
+  //   widest rendered road/shoulder half-width ~= 23m
+  // This leaves the visible road edge outside the project instead of slicing
+  // across the red boundary.
+  const projectClearanceShift={x:135,z:-35};
+  const shiftReferencePoint=p=>({
+    x:p.x+projectClearanceShift.x,
+    z:p.z+projectClearanceShift.z
+  });
 
-  const redMeasured={
+  const referenceJunction=shiftReferencePoint({x:330.69,z:-461.86});
+
+  const redMeasuredRaw={
     top:{x:-153.04,z:-850.66},
     right:{x:593.54,z:-834.09},
     bottomRight:{x:716.82,z:-154.71},
     bottomLeft:{x:448.53,z:80.67}
+  };
+
+  const redMeasured={
+    top:shiftReferencePoint(redMeasuredRaw.top),
+    right:shiftReferencePoint(redMeasuredRaw.right),
+    bottomRight:shiftReferencePoint(redMeasuredRaw.bottomRight),
+    bottomLeft:shiftReferencePoint(redMeasuredRaw.bottomLeft)
   };
 
   const redReference={
@@ -245,7 +271,10 @@ export async function installExteriorForestV78({
       camera:{fovDeg:42,position:[820,620,900],target:[0,0,3],planeY:0}
     },
     nodeAnnotatedPx:{x:679.79,y:278.11},
+    rawNodeWorld:{x:330.69,z:-461.86},
+    clearanceShift:{...projectClearanceShift},
     nodeWorld:{...referenceJunction},
+    rawMeasured:redMeasuredRaw,
     measured:redMeasured,
     extended:{
       top:rayThroughToBoxEdge(referenceJunction,redMeasured.top),
@@ -256,7 +285,7 @@ export async function installExteriorForestV78({
   };
 
   const referenceRoadA=addSmoothHighway(
-    'V196_REFERENCE_ROAD_A_THROUGH',
+    'V197_REFERENCE_ROAD_A_THROUGH',
     [
       redReference.extended.top,
       redMeasured.top,
@@ -270,7 +299,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadB=addSmoothHighway(
-    'V196_REFERENCE_ROAD_B_BOTTOM_LEFT',
+    'V197_REFERENCE_ROAD_B_BOTTOM_LEFT',
     [
       redReference.extended.bottomLeft,
       redMeasured.bottomLeft,
@@ -282,7 +311,7 @@ export async function installExteriorForestV78({
   );
 
   const referenceRoadC=addSmoothHighway(
-    'V196_REFERENCE_ROAD_C_RIGHT',
+    'V197_REFERENCE_ROAD_C_RIGHT',
     [
       referenceJunction,
       redMeasured.right,
@@ -344,7 +373,7 @@ export async function installExteriorForestV78({
   // The gate and all internal circulation remain source-authoritative.
   const forkIslandPolygons=[];
 
-  // All V196 reference-road centerlines clear generated forest/village/fields.
+  // All V197 reference-road centerlines clear generated forest/village/fields.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
@@ -543,7 +572,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V196_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V197_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -615,7 +644,7 @@ export async function installExteriorForestV78({
         const t=s/len;
         const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')
           ?.515
-          :(spec.name.startsWith('V196_REFERENCE_ROAD_')?.405:.262);
+          :(spec.name.startsWith('V197_REFERENCE_ROAD_')?.405:.262);
         dashDummy.position.set(
           THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
           dashY,
@@ -639,7 +668,7 @@ export async function installExteriorForestV78({
     const isRamp=spec.kind==='ramp';
     const isGateway=spec.kind==='gateway';
     const isFork=spec.kind==='fork'||spec.kind==='fork-trunk';
-    const isReference=spec.name.startsWith('V196_REFERENCE_ROAD_');
+    const isReference=spec.name.startsWith('V197_REFERENCE_ROAD_');
 
     const shoulderY=isFork?.425:(isReference?.305:.185);
     const asphaltY=isFork?.455:(isReference?.345:.215);
@@ -724,11 +753,11 @@ export async function installExteriorForestV78({
     highwaySurfaceCount++;
   }
 
-  // V196 homography-calibrated junction uses only road geometry; no synthetic gate hub/islands.
+  // V197 site-clearance-corrected junction uses only road geometry; no synthetic gate hub/islands.
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V196_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V197_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
@@ -1213,7 +1242,7 @@ export async function installExteriorForestV78({
   root.userData.referenceCornerIndex=referenceCornerIndex;
   root.userData.referenceCorner={x:referenceCorner.x,z:referenceCorner.z};
   root.userData.referenceJunctionNode={x:referenceJunction.x,z:referenceJunction.z};
-  root.userData.referenceJunctionMode='homography-calibrated-perspective-three-roads-four-endpoints';
+  root.userData.referenceJunctionMode='v196-directions-shifted-outside-site-boundary';
   root.userData.redReference=redReference;
 
   function setDoorOpen(index,v){
@@ -1255,7 +1284,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:196,group:root,treeAssetMode,forestMode,
+    ready:true,version:197,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1275,7 +1304,7 @@ export async function installExteriorForestV78({
     referenceCornerIndex,
     referenceCorner:{x:referenceCorner.x,z:referenceCorner.z},
     referenceJunctionNode:{x:referenceJunction.x,z:referenceJunction.z},
-    referenceJunctionMode:'homography-calibrated-perspective-three-roads-four-endpoints',
+    referenceJunctionMode:'v196-directions-shifted-outside-site-boundary',
     redReference,
     boundaryPoints:boundary.length,
     doors,
@@ -1306,8 +1335,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V194=api;
   window.__DALOC_EXTERIOR_V195=api;
   window.__DALOC_EXTERIOR_V196=api;
+  window.__DALOC_EXTERIOR_V197=api;
 
-  console.info('[DaLoc] V196 homography-calibrated three-road four-endpoint red-overlay junction installed',{
+  console.info('[DaLoc] V197 site-clearance-corrected three-road four-endpoint red-overlay junction installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
