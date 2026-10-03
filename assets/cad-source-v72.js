@@ -20,7 +20,7 @@ export async function installCadSourceV72({
   const root=new THREE.Group();
   root.name='CAD_SOURCE_V72';
   root.userData={
-    version:104,
+    version:105,
     source:data.source,
     edgeLayer:data.edgeLayer,
     boundaryLayer:data.boundaryLayer,
@@ -29,7 +29,8 @@ export async function installCadSourceV72({
     runtimeInference:false,
     cadAuthoritative:true,
     visualRegistrationVersion:null,
-    registeredRoadHandle:null
+    registeredRoadHandle:null,
+    suppressedSurfaceHandles:['774F9']
   };
   world.add(root);
 
@@ -91,7 +92,11 @@ export async function installCadSourceV72({
 
   // Only the named project road axes are surfaced. Other TIM____NG objects in the
   // DXF include external tie-ins/symbol geometry and remain visible in the edge source view.
-  const surfaceHandles=new Set(['77505','77536','77537','7754C','774F9']);
+  // V210: hide ONLY the old filled CAD road directly underneath the new ROAD A.
+  // The source 774F9 remains in data.roads and raw CAD edge diagnostics; only its
+  // rendered surface is suppressed so the replacement road is not doubled.
+  const suppressedSurfaceHandles=new Set(['774F9']);
+  const surfaceHandles=new Set(['77505','77536','77537','7754C']);
   const surfaceRoads=(data.roads||[]).filter(r=>surfaceHandles.has(r.handle));
 
   function addRoadSurface(road){
@@ -209,10 +214,11 @@ export async function installCadSourceV72({
     ready:true,version:89,group:root,surfaceGroup,edgeGroup,boundaryGroup,
     source:data.source,roads:surfaceRoads,roadEdges:data.roadEdges,siteBoundaryPx:data.siteBoundaryPx,
     cadAuthoritative:true,
+    suppressedSurfaceHandles:[...suppressedSurfaceHandles],
     setEnabled,showEdges
   };
 
-  console.info('[DaLoc] V89 raw CAD authoritative road/edge source installed',{
+  console.info('[DaLoc] V210 CAD roads installed with only old 774F9 surface suppressed',{
     surfacedRoads:surfaceRoads.map(r=>r.handle),
     cadEdges:data.roadEdges?.length||0,
     siteBoundaryPoints:data.siteBoundaryPx?.length||0,
@@ -221,7 +227,7 @@ export async function installCadSourceV72({
 
   return {
     ready:true,
-    version:89,
+    version:105,
     roads:surfaceRoads.length,
     edges:data.roadEdges?.length||0,
     sourceLocked:true,
