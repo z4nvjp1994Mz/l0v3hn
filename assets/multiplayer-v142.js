@@ -310,6 +310,9 @@ function makeRemotePlayer(peerId){
 
   return {
     peerId,root,torso,head,leftArm,rightArm,leftLeg,rightLeg,rifle,gatling,gCluster,axe,axeHeadRoot,tag,
+    axeUpperGripLocal,axeLowerGripLocal,
+    placeArmHandOnAxeGrip:placeRemoteArmHandOnAxeGrip,
+    updateError:null,
     targetPos:new THREE.Vector3(),
     targetYaw:0,
     targetPitch:0,
@@ -906,13 +909,13 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
     }
 
     if(axeActive){
-      placeRemoteArmHandOnAxeGrip(leftArm,-1,axeUpperGripLocal);
-      placeRemoteArmHandOnAxeGrip(rightArm,1,axeLowerGripLocal);
+      remote.placeArmHandOnAxeGrip(remote.leftArm,-1,remote.axeUpperGripLocal);
+      remote.placeArmHandOnAxeGrip(remote.rightArm,1,remote.axeLowerGripLocal);
     }else{
-      leftArm.position.x=-.31;
-      leftArm.position.z=-.02;
-      rightArm.position.x=.31;
-      rightArm.position.z=-.02;
+      remote.leftArm.position.x=-.31;
+      remote.leftArm.position.z=-.02;
+      remote.rightArm.position.x=.31;
+      remote.rightArm.position.z=-.02;
     }
 
     // V143 death pose: remote remains visible but collapses sideways until respawn.
@@ -990,7 +993,18 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
   }
 
   function update(dt){
-    for(const remote of remotes.values())updateRemote(remote,dt);
+    for(const remote of remotes.values()){
+      if(remote.updateError)continue;
+      try{
+        updateRemote(remote,dt);
+      }catch(error){
+        remote.updateError=error instanceof Error?error:new Error(String(error));
+        remote.root.visible=false;
+        lastError=remote.updateError;
+        console.error('[DaLoc] V171 remote-player update isolated',remote.peerId,remote.updateError);
+        status('Lỗi avatar P2P đã được cô lập: '+remote.updateError.message,'error');
+      }
+    }
 
     for(let i=effects.length-1;i>=0;i--){
       const fx=effects[i];
@@ -1008,7 +1022,7 @@ export function installMultiplayerV142({scene,world,onStatus,onDamage}={}){
 
   return {
     ready:true,
-    version:166,
+    version:171,
     get selfId(){return localSelfId;},
     join,
     leave,
