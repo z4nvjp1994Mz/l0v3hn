@@ -20,7 +20,7 @@ export async function installCadSourceV72({
   const root=new THREE.Group();
   root.name='CAD_SOURCE_V72';
   root.userData={
-    version:107,
+    version:108,
     source:data.source,
     edgeLayer:data.edgeLayer,
     boundaryLayer:data.boundaryLayer,
@@ -75,10 +75,12 @@ export async function installCadSourceV72({
     tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
     return tex;
   }
-  // V212: use the original exterior-road material everywhere.
-  // This is the exact visual recipe used by the old exterior network:
-  // MeshLambertMaterial + 0x4a4d4d, with no CAD aggregate/bump texture.
+  // V213: restore the FULL old exterior-road visual style everywhere:
+  // grey shoulder + dark-grey asphalt + off-white dashed centre line.
+  // V212 only copied the asphalt color, which is why roads looked like flat slabs.
+  const roadShoulderMat=new THREE.MeshLambertMaterial({color:0x858985});
   const roadMat=new THREE.MeshLambertMaterial({color:0x4a4d4d});
+  const roadMarkingMat=new THREE.MeshBasicMaterial({color:0xf4f2e5});
   const junctionMat=roadMat;
   const edgeMat=new THREE.LineBasicMaterial({color:0x00d9a1,transparent:true,opacity:.95,depthTest:false});
   const boundaryMat=new THREE.LineBasicMaterial({color:0xe05b5b,transparent:true,opacity:.92,depthTest:false});
@@ -104,10 +106,25 @@ export async function installCadSourceV72({
       const a=pts[i-1],b=pts[i];
       const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
       if(len<.05)continue;
+      const yaw=Math.atan2(dx,dz);
+      const cx=(a.x+b.x)/2,cz=(a.z+b.z)/2;
+
+      // Same grey shoulder used by the original exterior roads.
+      const shoulder=new THREE.Mesh(
+        new THREE.BoxGeometry(width+6,.10,len+.30),
+        roadShoulderMat
+      );
+      shoulder.name=`V213_CAD_ROAD_SHOULDER_${road.handle}_${i-1}`;
+      shoulder.position.set(cx,.335,cz);
+      shoulder.rotation.y=yaw;
+      shoulder.receiveShadow=false;
+      shoulder.userData={source:'DXF',layer:'road-shoulder',handle:road.handle};
+      surfaceGroup.add(shoulder);
+
       const mesh=new THREE.Mesh(new THREE.BoxGeometry(width,.16,len+.18),roadMat);
-      mesh.name=`V72_CAD_ROAD_${road.handle}_${i-1}`;
-      mesh.position.set((a.x+b.x)/2,.31,(a.z+b.z)/2);
-      mesh.rotation.y=Math.atan2(dx,dz);
+      mesh.name=`V213_CAD_ROAD_ASPHALT_${road.handle}_${i-1}`;
+      mesh.position.set(cx,.31,cz);
+      mesh.rotation.y=yaw;
       mesh.receiveShadow=true;
       mesh.userData={
         source:'DXF',
@@ -119,12 +136,43 @@ export async function installCadSourceV72({
         cadAuthoritative:true
       };
       surfaceGroup.add(mesh);
+
+      // Original exterior look: one dashed centre divider.
+      const dashLength=4.8,dashSpacing=11.0;
+      const tx=dx/len,tz=dz/len;
+      for(let s=dashLength*.5;s<len-dashLength*.25;s+=dashSpacing){
+        const dash=new THREE.Mesh(
+          new THREE.BoxGeometry(.24,.026,Math.min(dashLength,len-s+.2)),
+          roadMarkingMat
+        );
+        dash.name=`V213_CAD_CENTER_DASH_${road.handle}_${i-1}_${Math.round(s*10)}`;
+        dash.position.set(
+          a.x+tx*s,
+          .405,
+          a.z+tz*s
+        );
+        dash.rotation.y=yaw;
+        dash.userData={fpsNonSolid:true,source:'old-exterior-road-style',handle:road.handle};
+        surfaceGroup.add(dash);
+      }
     }
     for(let i=1;i<pts.length-1;i++){
       const p=pts[i];
-      const join=new THREE.Mesh(new THREE.CylinderGeometry(width*.5,width*.5,.165,32),roadMat);
+
+      const shoulderJoin=new THREE.Mesh(
+        new THREE.CylinderGeometry((width+6)*.5,(width+6)*.5,.10,32),
+        roadShoulderMat
+      );
+      shoulderJoin.position.set(p.x,.335,p.z);
+      shoulderJoin.name=`V213_CAD_SHOULDER_JOIN_${road.handle}_${i}`;
+      surfaceGroup.add(shoulderJoin);
+
+      const join=new THREE.Mesh(
+        new THREE.CylinderGeometry(width*.5,width*.5,.165,32),
+        roadMat
+      );
       join.position.set(p.x,.315,p.z);
-      join.name=`V72_CAD_JOIN_${road.handle}_${i}`;
+      join.name=`V213_CAD_ASPHALT_JOIN_${road.handle}_${i}`;
       surfaceGroup.add(join);
     }
   }
@@ -214,11 +262,15 @@ export async function installCadSourceV72({
     cadAuthoritative:true,
     suppressedSurfaceHandles:[...suppressedSurfaceHandles],
     roadMaterial:roadMat,
+    roadShoulderMaterial:roadShoulderMat,
+    roadMarkingMaterial:roadMarkingMat,
     roadTopY:.39,
+    roadShoulderY:.385,
+    roadMarkingY:.405,
     setEnabled,showEdges
   };
 
-  console.info('[DaLoc] V212 CAD/internal roads now use the original exterior-road material; old 774F9 still suppressed',{
+  console.info('[DaLoc] V213 CAD/internal roads now use full old exterior style: shoulder + asphalt + dashed centre; old 774F9 still suppressed',{
     surfacedRoads:surfaceRoads.map(r=>r.handle),
     cadEdges:data.roadEdges?.length||0,
     siteBoundaryPoints:data.siteBoundaryPx?.length||0,
@@ -227,10 +279,14 @@ export async function installCadSourceV72({
 
   return {
     ready:true,
-    version:107,
+    version:108,
     roads:surfaceRoads.length,
     roadMaterial:roadMat,
+    roadShoulderMaterial:roadShoulderMat,
+    roadMarkingMaterial:roadMarkingMat,
     roadTopY:.39,
+    roadShoulderY:.385,
+    roadMarkingY:.405,
     edges:data.roadEdges?.length||0,
     sourceLocked:true,
     cadAuthoritative:true
