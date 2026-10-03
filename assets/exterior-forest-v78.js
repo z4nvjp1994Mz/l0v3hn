@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V195';
-  const forestMode='scenic-v195';
+  root.name='EXTERIOR_SCENERY_V196';
+  const forestMode='scenic-v196';
 
   root.userData={
-    version:195,
+    version:196,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V195 annotated Top View pixels unprojected to y=0; exact three-road/four-endpoint reference geometry'
+    purpose:'V196 homography-calibrated annotated perspective; exact three-road/four-endpoint world geometry'
   };
   scene.add(root);
 
@@ -159,35 +159,38 @@ export async function installExteriorForestV78({
   }
 
   // ---------------------------------------------------------------------------
-  // V195 PIXEL-UNPROJECTED RED REFERENCE
+  // V196 HOMOGRAPHY-CALIBRATED RED REFERENCE
   //
-  // Source of truth: the user's annotated Top View screenshot uploaded
-  // 2026-10-03. The 1209x812 image is a crop of the same 1916x923 viewport:
-  // crop offset = (+582,+105). That offset was verified against two fixed DOM
-  // overlays (Project overview + bottom hint), not guessed from CAD corners.
+  // V195 was wrong because it treated the annotated 1209x812 screenshot as a
+  // literal crop of Top View. It is actually a rotated/zoomed 3D Perspective
+  // view. V196 calibrates that image against the clean 1916x923 V194 default
+  // perspective screenshot using planar feature matching:
   //
-  // Top View camera in index.html:
+  //   58 RANSAC inliers
+  //   median reprojection error ~= 1.21 px
+  //
+  // Then the matched pixels are ray-cast through the REAL default camera:
   //   PerspectiveCamera fov = 42 deg
-  //   camera = (0,2200,0.1)
-  //   target = (0,0,0)
+  //   camera = (820,620,900)
+  //   OrbitControls target ~= (0,0,3)
+  //   intersect plane y=0
   //
-  // Red centerlines were measured in the cropped screenshot, converted back to
-  // viewport pixels, then unprojected through the real PerspectiveCamera onto
-  // plane y=0. This deliberately replaces the V194 maxX/referenceCorner
-  // heuristic.
+  // The fitted common junction in the annotated screenshot is:
+  //   pixel ~= (679.79,278.11)
+  //   world ~= (330.69,-461.86)
   //
-  // Measured red node:
-  //   crop pixel     ~= (678.02,276.73)
-  //   viewport pixel ~= (1260.02,381.73)
-  //   world X/Z      ~= (552.66,-145.97)
+  // Four red endpoints map to:
+  //   TOP          pixel (439,12)   -> world (-153.04,-850.66)
+  //   RIGHT        pixel (1206,209) -> world (593.54,-834.09)
+  //   BOTTOM-RIGHT pixel (1156,798) -> world (716.82,-154.71)
+  //   BOTTOM-LEFT  pixel (351,804)  -> world (448.53,80.67)
   //
-  // The annotated stroke shows three roads / four endpoints:
-  //   ROAD A: top-left <-> node <-> lower-right (the near-collinear through road)
-  //   ROAD B: lower-left <-> node
-  //   ROAD C: node <-> right
+  // Top <-> node <-> bottom-right is nearly perfectly collinear (~179.7 deg),
+  // so that is ROAD A, the through road. Bottom-left is ROAD B. Right is ROAD C.
   //
-  // Keep the CAD-derived corner only as diagnostics/metadata. It no longer
-  // drives reference-road placement.
+  // The measured endpoint directions are authoritative. Rendering extends those
+  // rays to the exterior scene box so no road ends as a fake stub in open field.
+
   let referenceCornerIndex=0;
   let referenceCornerScore=-Infinity;
   for(let i=0;i<boundary.length;i++){
@@ -200,66 +203,91 @@ export async function installExteriorForestV78({
   }
   const referenceCorner=boundary[referenceCornerIndex];
 
-  const redReference={
-    source:'annotated-top-view-2026-10-03',
-    viewportPx:{width:1916,height:923},
-    cropPx:{width:1209,height:812,offsetX:582,offsetY:105},
-    camera:{fovDeg:42,position:[0,2200,.1],target:[0,0,0],planeY:0},
-    nodeCropPx:{x:678.02,y:276.73},
-    nodeViewportPx:{x:1260.02,y:381.73},
-    nodeWorld:{x:552.66,z:-145.97},
-    roadA:[
-      {x:125.35,z:-652.37},
-      {x:236.06,z:-505.97},
-      {x:366.90,z:-359.58},
-      {x:482.18,z:-231.48},
-      {x:552.66,z:-145.97},
-      {x:681.64,z:-11.89},
-      {x:927.76,z:262.59},
-      {x:1173.87,z:537.07},
-      {x:1413.58,z:811.55},
-      {x:1418.15,z:831.68}
-    ],
-    roadB:[
-      {x:-19.21,z:831.68},
-      {x:90.58,z:628.56},
-      {x:198.54,z:445.58},
-      {x:308.34,z:262.59},
-      {x:394.34,z:116.20},
-      {x:463.88,z:-11.89},
-      {x:552.66,z:-145.97}
-    ],
-    roadC:[
-      {x:552.66,z:-145.97},
-      {x:775.88,z:-162.86},
-      {x:958.87,z:-180.25},
-      {x:1141.87,z:-197.63},
-      {x:1324.86,z:-215.01},
-      {x:1522.49,z:-234.23}
-    ]
+  function rayThroughToBoxEdge(origin,through){
+    const d=normalize2(through.x-origin.x,through.z-origin.z);
+    const hits=[];
+    if(Math.abs(d.x)>1e-7){
+      for(const xe of [box.minX,box.maxX]){
+        const t=(xe-origin.x)/d.x;
+        if(t<=0)continue;
+        const z=origin.z+d.z*t;
+        if(z>=box.minZ-1&&z<=box.maxZ+1)hits.push({t,p:{x:xe,z}});
+      }
+    }
+    if(Math.abs(d.z)>1e-7){
+      for(const ze of [box.minZ,box.maxZ]){
+        const t=(ze-origin.z)/d.z;
+        if(t<=0)continue;
+        const x=origin.x+d.x*t;
+        if(x>=box.minX-1&&x<=box.maxX+1)hits.push({t,p:{x,z:ze}});
+      }
+    }
+    hits.sort((a,b)=>a.t-b.t);
+    return hits[0]?.p||through;
+  }
+
+  const referenceJunction={x:330.69,z:-461.86};
+
+  const redMeasured={
+    top:{x:-153.04,z:-850.66},
+    right:{x:593.54,z:-834.09},
+    bottomRight:{x:716.82,z:-154.71},
+    bottomLeft:{x:448.53,z:80.67}
   };
 
-  const referenceJunction={...redReference.nodeWorld};
+  const redReference={
+    source:'annotated-perspective-2026-10-03',
+    calibration:{
+      annotatedPx:{width:1209,height:812},
+      cleanPerspectivePx:{width:1916,height:923},
+      featureMatchInliers:58,
+      medianReprojectionErrorPx:1.21,
+      camera:{fovDeg:42,position:[820,620,900],target:[0,0,3],planeY:0}
+    },
+    nodeAnnotatedPx:{x:679.79,y:278.11},
+    nodeWorld:{...referenceJunction},
+    measured:redMeasured,
+    extended:{
+      top:rayThroughToBoxEdge(referenceJunction,redMeasured.top),
+      right:rayThroughToBoxEdge(referenceJunction,redMeasured.right),
+      bottomRight:rayThroughToBoxEdge(referenceJunction,redMeasured.bottomRight),
+      bottomLeft:rayThroughToBoxEdge(referenceJunction,redMeasured.bottomLeft)
+    }
+  };
 
   const referenceRoadA=addSmoothHighway(
-    'V195_REFERENCE_ROAD_A_DIAGONAL_THROUGH',
-    redReference.roadA,
+    'V196_REFERENCE_ROAD_A_THROUGH',
+    [
+      redReference.extended.top,
+      redMeasured.top,
+      referenceJunction,
+      redMeasured.bottomRight,
+      redReference.extended.bottomRight
+    ],
     40,
     'main',
     30
   );
 
   const referenceRoadB=addSmoothHighway(
-    'V195_REFERENCE_ROAD_B_LOWER_LEFT',
-    redReference.roadB,
+    'V196_REFERENCE_ROAD_B_BOTTOM_LEFT',
+    [
+      redReference.extended.bottomLeft,
+      redMeasured.bottomLeft,
+      referenceJunction
+    ],
     38,
     'main',
     28
   );
 
   const referenceRoadC=addSmoothHighway(
-    'V195_REFERENCE_ROAD_C_RIGHT',
-    redReference.roadC,
+    'V196_REFERENCE_ROAD_C_RIGHT',
+    [
+      referenceJunction,
+      redMeasured.right,
+      redReference.extended.right
+    ],
     38,
     'main',
     28
@@ -316,7 +344,7 @@ export async function installExteriorForestV78({
   // The gate and all internal circulation remain source-authoritative.
   const forkIslandPolygons=[];
 
-  // All V195 reference-road centerlines clear generated forest/village/fields.
+  // All V196 reference-road centerlines clear generated forest/village/fields.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
@@ -515,7 +543,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V195_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V196_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -587,7 +615,7 @@ export async function installExteriorForestV78({
         const t=s/len;
         const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')
           ?.515
-          :(spec.name.startsWith('V195_REFERENCE_ROAD_')?.405:.262);
+          :(spec.name.startsWith('V196_REFERENCE_ROAD_')?.405:.262);
         dashDummy.position.set(
           THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
           dashY,
@@ -611,7 +639,7 @@ export async function installExteriorForestV78({
     const isRamp=spec.kind==='ramp';
     const isGateway=spec.kind==='gateway';
     const isFork=spec.kind==='fork'||spec.kind==='fork-trunk';
-    const isReference=spec.name.startsWith('V195_REFERENCE_ROAD_');
+    const isReference=spec.name.startsWith('V196_REFERENCE_ROAD_');
 
     const shoulderY=isFork?.425:(isReference?.305:.185);
     const asphaltY=isFork?.455:(isReference?.345:.215);
@@ -696,11 +724,11 @@ export async function installExteriorForestV78({
     highwaySurfaceCount++;
   }
 
-  // V195 pixel-unprojected junction uses only road geometry; no synthetic gate hub/islands.
+  // V196 homography-calibrated junction uses only road geometry; no synthetic gate hub/islands.
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V195_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V196_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
@@ -1185,7 +1213,7 @@ export async function installExteriorForestV78({
   root.userData.referenceCornerIndex=referenceCornerIndex;
   root.userData.referenceCorner={x:referenceCorner.x,z:referenceCorner.z};
   root.userData.referenceJunctionNode={x:referenceJunction.x,z:referenceJunction.z};
-  root.userData.referenceJunctionMode='pixel-unprojected-diagonal-through-three-roads-four-endpoints';
+  root.userData.referenceJunctionMode='homography-calibrated-perspective-three-roads-four-endpoints';
   root.userData.redReference=redReference;
 
   function setDoorOpen(index,v){
@@ -1227,7 +1255,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:195,group:root,treeAssetMode,forestMode,
+    ready:true,version:196,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1247,7 +1275,7 @@ export async function installExteriorForestV78({
     referenceCornerIndex,
     referenceCorner:{x:referenceCorner.x,z:referenceCorner.z},
     referenceJunctionNode:{x:referenceJunction.x,z:referenceJunction.z},
-    referenceJunctionMode:'pixel-unprojected-diagonal-through-three-roads-four-endpoints',
+    referenceJunctionMode:'homography-calibrated-perspective-three-roads-four-endpoints',
     redReference,
     boundaryPoints:boundary.length,
     doors,
@@ -1277,8 +1305,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V193=api;
   window.__DALOC_EXTERIOR_V194=api;
   window.__DALOC_EXTERIOR_V195=api;
+  window.__DALOC_EXTERIOR_V196=api;
 
-  console.info('[DaLoc] V195 pixel-unprojected three-road four-endpoint red-overlay junction installed',{
+  console.info('[DaLoc] V196 homography-calibrated three-road four-endpoint red-overlay junction installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
