@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V194';
-  const forestMode='scenic-v194';
+  root.name='EXTERIOR_SCENERY_V195';
+  const forestMode='scenic-v195';
 
   root.userData={
-    version:194,
+    version:195,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V194 exact red geometry: three roads meet at one node; road A passes through, producing four physical endpoints'
+    purpose:'V195 annotated Top View pixels unprojected to y=0; exact three-road/four-endpoint reference geometry'
   };
   scene.add(root);
 
@@ -159,39 +159,35 @@ export async function installExteriorForestV78({
   }
 
   // ---------------------------------------------------------------------------
-  // V190 REFERENCE OUTER 3-ROAD JUNCTION
+  // V195 PIXEL-UNPROJECTED RED REFERENCE
   //
-  // IMPORTANT: the user's red markup is NOT an internal gate fork.
-  // It is one large OUTER junction beside the south-east project corner:
-  //   ROAD A = one through arterial (north <-> south)
-  //   ROAD B = west approach that terminates at the junction
-  //   ROAD C = diagonal south-east branch that starts at the junction
+  // Source of truth: the user's annotated Top View screenshot uploaded
+  // 2026-10-03. The 1209x812 image is a crop of the same 1916x923 viewport:
+  // crop offset = (+582,+105). That offset was verified against two fixed DOM
+  // overlays (Project overview + bottom hint), not guessed from CAD corners.
   //
-  // Therefore there are 3 roads, with ROAD A physically continuing through the
-  // node. All arms run to the scene edge, as requested in V181.
-  // V194 — COPY THE RED MARKUP GEOMETRY, NOT A GENERIC Y.
+  // Top View camera in index.html:
+  //   PerspectiveCamera fov = 42 deg
+  //   camera = (0,2200,0.1)
+  //   target = (0,0,0)
   //
-  // The annotated image has THREE ROADS but FOUR endpoints:
+  // Red centerlines were measured in the cropped screenshot, converted back to
+  // viewport pixels, then unprojected through the real PerspectiveCamera onto
+  // plane y=0. This deliberately replaces the V194 maxX/referenceCorner
+  // heuristic.
   //
-  //     A-top-left
-  //          \
-  //           \
-  //            ●----------- B-right
-  //           / \
-  //          /   \
-  // A-bottom-left  C-bottom-right
+  // Measured red node:
+  //   crop pixel     ~= (678.02,276.73)
+  //   viewport pixel ~= (1260.02,381.73)
+  //   world X/Z      ~= (552.66,-145.97)
   //
-  // Road A is ONE continuous bent road passing through the junction.
-  // Road B starts at the node and runs almost horizontally to the right.
-  // Road C starts at the same node and runs diagonally lower-right.
+  // The annotated stroke shows three roads / four endpoints:
+  //   ROAD A: top-left <-> node <-> lower-right (the near-collinear through road)
+  //   ROAD B: lower-left <-> node
+  //   ROAD C: node <-> right
   //
-  // Direction ratios are taken directly from the user's red overlay
-  // (screen-space ~= world X/Z in Top View):
-  // A-top    (-245,-268)
-  // A-bottom (-333,+519)
-  // B-right  (+516,-76)
-  // C-right  (+461,+515)
-
+  // Keep the CAD-derived corner only as diagnostics/metadata. It no longer
+  // drives reference-road placement.
   let referenceCornerIndex=0;
   let referenceCornerScore=-Infinity;
   for(let i=0;i<boundary.length;i++){
@@ -204,95 +200,66 @@ export async function installExteriorForestV78({
   }
   const referenceCorner=boundary[referenceCornerIndex];
 
-  // Keep the common node outside the east/lower-right project corner.
-  const referenceJunction={
-    x:maxX+118,
-    z:referenceCorner.z+105
+  const redReference={
+    source:'annotated-top-view-2026-10-03',
+    viewportPx:{width:1916,height:923},
+    cropPx:{width:1209,height:812,offsetX:582,offsetY:105},
+    camera:{fovDeg:42,position:[0,2200,.1],target:[0,0,0],planeY:0},
+    nodeCropPx:{x:678.02,y:276.73},
+    nodeViewportPx:{x:1260.02,y:381.73},
+    nodeWorld:{x:552.66,z:-145.97},
+    roadA:[
+      {x:125.35,z:-652.37},
+      {x:236.06,z:-505.97},
+      {x:366.90,z:-359.58},
+      {x:482.18,z:-231.48},
+      {x:552.66,z:-145.97},
+      {x:681.64,z:-11.89},
+      {x:927.76,z:262.59},
+      {x:1173.87,z:537.07},
+      {x:1413.58,z:811.55},
+      {x:1418.15,z:831.68}
+    ],
+    roadB:[
+      {x:-19.21,z:831.68},
+      {x:90.58,z:628.56},
+      {x:198.54,z:445.58},
+      {x:308.34,z:262.59},
+      {x:394.34,z:116.20},
+      {x:463.88,z:-11.89},
+      {x:552.66,z:-145.97}
+    ],
+    roadC:[
+      {x:552.66,z:-145.97},
+      {x:775.88,z:-162.86},
+      {x:958.87,z:-180.25},
+      {x:1141.87,z:-197.63},
+      {x:1324.86,z:-215.01},
+      {x:1522.49,z:-234.23}
+    ]
   };
 
-  function rayToBoxEdge(origin,dir){
-    const d=normalize2(dir.x,dir.z);
-    const hits=[];
-    if(Math.abs(d.x)>1e-7){
-      for(const xe of [box.minX,box.maxX]){
-        const t=(xe-origin.x)/d.x;
-        if(t<=0)continue;
-        const z=origin.z+d.z*t;
-        if(z>=box.minZ-1&&z<=box.maxZ+1)hits.push({t,p:{x:xe,z}});
-      }
-    }
-    if(Math.abs(d.z)>1e-7){
-      for(const ze of [box.minZ,box.maxZ]){
-        const t=(ze-origin.z)/d.z;
-        if(t<=0)continue;
-        const x=origin.x+d.x*t;
-        if(x>=box.minX-1&&x<=box.maxX+1)hits.push({t,p:{x,z:ze}});
-      }
-    }
-    hits.sort((a,b)=>a.t-b.t);
-    return hits[0]?.p||{
-      x:THREE.MathUtils.clamp(origin.x+d.x*900,box.minX,box.maxX),
-      z:THREE.MathUtils.clamp(origin.z+d.z*900,box.minZ,box.maxZ)
-    };
-  }
+  const referenceJunction={...redReference.nodeWorld};
 
-  const redDirATop=normalize2(-245,-268);
-  const redDirABottom=normalize2(-333,519);
-  const redDirBRight=normalize2(516,-76);
-  const redDirCRight=normalize2(461,515);
-
-  const armATopEnd=rayToBoxEdge(referenceJunction,redDirATop);
-  const armABottomEnd=rayToBoxEdge(referenceJunction,redDirABottom);
-  const armBRightEnd=rayToBoxEdge(referenceJunction,redDirBRight);
-  const armCRightEnd=rayToBoxEdge(referenceJunction,redDirCRight);
-
-  function pointFrom(origin,dir,distance){
-    return {
-      x:origin.x+dir.x*distance,
-      z:origin.z+dir.z*distance
-    };
-  }
-
-  // ROAD A — one continuous road from top-left to bottom-left, bending at node.
   const referenceRoadA=addSmoothHighway(
-    'V194_REFERENCE_ROAD_A_THROUGH_BENT',
-    [
-      armATopEnd,
-      pointFrom(referenceJunction,redDirATop,150),
-      pointFrom(referenceJunction,redDirATop,58),
-      referenceJunction,
-      pointFrom(referenceJunction,redDirABottom,62),
-      pointFrom(referenceJunction,redDirABottom,165),
-      armABottomEnd
-    ],
+    'V195_REFERENCE_ROAD_A_DIAGONAL_THROUGH',
+    redReference.roadA,
     40,
     'main',
     30
   );
 
-  // ROAD B — nearly horizontal to the right, with a tiny upward tilt.
   const referenceRoadB=addSmoothHighway(
-    'V194_REFERENCE_ROAD_B_RIGHT',
-    [
-      referenceJunction,
-      pointFrom(referenceJunction,redDirBRight,120),
-      pointFrom(referenceJunction,redDirBRight,280),
-      armBRightEnd
-    ],
+    'V195_REFERENCE_ROAD_B_LOWER_LEFT',
+    redReference.roadB,
     38,
     'main',
     28
   );
 
-  // ROAD C — lower-right diagonal from the same exact node.
   const referenceRoadC=addSmoothHighway(
-    'V194_REFERENCE_ROAD_C_LOWER_RIGHT',
-    [
-      referenceJunction,
-      pointFrom(referenceJunction,redDirCRight,120),
-      pointFrom(referenceJunction,redDirCRight,300),
-      armCRightEnd
-    ],
+    'V195_REFERENCE_ROAD_C_RIGHT',
+    redReference.roadC,
     38,
     'main',
     28
@@ -349,7 +316,7 @@ export async function installExteriorForestV78({
   // The gate and all internal circulation remain source-authoritative.
   const forkIslandPolygons=[];
 
-  // All V194 outer-road centerlines clear generated forest/village/fields.
+  // All V195 reference-road centerlines clear generated forest/village/fields.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
@@ -548,7 +515,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V194_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V195_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -620,7 +587,7 @@ export async function installExteriorForestV78({
         const t=s/len;
         const dashY=(spec.kind==='fork'||spec.kind==='fork-trunk')
           ?.515
-          :(spec.name.startsWith('V194_REFERENCE_ROAD_')?.405:.262);
+          :(spec.name.startsWith('V195_REFERENCE_ROAD_')?.405:.262);
         dashDummy.position.set(
           THREE.MathUtils.lerp(a.x,b.x,t)+nx*offset,
           dashY,
@@ -644,7 +611,7 @@ export async function installExteriorForestV78({
     const isRamp=spec.kind==='ramp';
     const isGateway=spec.kind==='gateway';
     const isFork=spec.kind==='fork'||spec.kind==='fork-trunk';
-    const isReference=spec.name.startsWith('V194_REFERENCE_ROAD_');
+    const isReference=spec.name.startsWith('V195_REFERENCE_ROAD_');
 
     const shoulderY=isFork?.425:(isReference?.305:.185);
     const asphaltY=isFork?.455:(isReference?.345:.215);
@@ -729,11 +696,11 @@ export async function installExteriorForestV78({
     highwaySurfaceCount++;
   }
 
-  // V194 red-overlay junction uses only road geometry; no synthetic gate hub/islands.
+  // V195 pixel-unprojected junction uses only road geometry; no synthetic gate hub/islands.
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V194_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V195_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
@@ -1218,7 +1185,8 @@ export async function installExteriorForestV78({
   root.userData.referenceCornerIndex=referenceCornerIndex;
   root.userData.referenceCorner={x:referenceCorner.x,z:referenceCorner.z};
   root.userData.referenceJunctionNode={x:referenceJunction.x,z:referenceJunction.z};
-  root.userData.referenceJunctionMode='three-roads-four-endpoints-red-overlay';
+  root.userData.referenceJunctionMode='pixel-unprojected-diagonal-through-three-roads-four-endpoints';
+  root.userData.redReference=redReference;
 
   function setDoorOpen(index,v){
     const d=doors[index];
@@ -1259,7 +1227,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:194,group:root,treeAssetMode,forestMode,
+    ready:true,version:195,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1279,7 +1247,8 @@ export async function installExteriorForestV78({
     referenceCornerIndex,
     referenceCorner:{x:referenceCorner.x,z:referenceCorner.z},
     referenceJunctionNode:{x:referenceJunction.x,z:referenceJunction.z},
-    referenceJunctionMode:'three-roads-four-endpoints-red-overlay',
+    referenceJunctionMode:'pixel-unprojected-diagonal-through-three-roads-four-endpoints',
+    redReference,
     boundaryPoints:boundary.length,
     doors,
     setDoorOpen,
@@ -1307,8 +1276,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V192=api;
   window.__DALOC_EXTERIOR_V193=api;
   window.__DALOC_EXTERIOR_V194=api;
+  window.__DALOC_EXTERIOR_V195=api;
 
-  console.info('[DaLoc] V194 exact three-road four-endpoint red-overlay junction installed',{
+  console.info('[DaLoc] V195 pixel-unprojected three-road four-endpoint red-overlay junction installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
