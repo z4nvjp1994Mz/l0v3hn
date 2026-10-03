@@ -3,10 +3,17 @@ import * as THREE from 'three';
 export async function installExteriorForestV78({
   scene,mapPx,metersPerPixel,frameSignature,renderer
 }){
-  const response=await fetch(new URL('./cad-source-v72.json',import.meta.url));
+  const [response,circulationResponse]=await Promise.all([
+    fetch(new URL('./cad-source-v72.json',import.meta.url)),
+    fetch(new URL('./circulation-v53.json',import.meta.url))
+  ]);
   if(!response.ok)throw new Error('V89 exterior source HTTP '+response.status);
+  if(!circulationResponse.ok)throw new Error('V183 circulation source HTTP '+circulationResponse.status);
   const data=await response.json();
-  if(data.frameSignature!==frameSignature)throw new Error('V89 coordinate frame mismatch');
+  const circulation=await circulationResponse.json();
+  if(data.frameSignature!==frameSignature||circulation.frameSignature!==frameSignature){
+    throw new Error('V183 coordinate frame mismatch');
+  }
 
   const root=new THREE.Group();
   const doors=[];
@@ -18,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V182';
-  const forestMode='scenic-v182';
+  root.name='EXTERIOR_SCENERY_V183';
+  const forestMode='scenic-v183';
 
   root.userData={
-    version:182,
+    version:183,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V182 scenic exterior: curved highways + three-branch east gateway inspired by reference masterplan'
+    purpose:'V183 reference-style east edge: nearby arterial + three authored internal branches + north/south through roads'
   };
   scene.add(root);
 
@@ -77,10 +84,13 @@ export async function installExteriorForestV78({
   const expansion=430;
   const box={minX:minX-expansion,maxX:maxX+expansion,minZ:minZ-expansion,maxZ:maxZ+expansion};
 
-  // V181 CURVED EXPRESSWAY NETWORK
-  // No closed polygon ring. Main corridors are smooth edge-to-edge routes that
-  // inherit real CAD tie-in geometry, while industrial-road exits merge via
-  // tangential curved ramps.
+  // V183 REFERENCE-STYLE ROAD NETWORK
+  // The east side now follows the supplied reference image:
+  // 1) one major north-south arterial immediately outside the project,
+  // 2) three project access branches at clearly separated vertical levels,
+  // 3) a southern through boulevard crossing the arterial,
+  // 4) no diagonal expressway slicing across the three-gateway area.
+
   function roadWorldPoints(handle){
     const road=(data.roads||[]).find(r=>r.handle===handle);
     if(!road)return [];
@@ -90,48 +100,18 @@ export async function installExteriorForestV78({
     });
   }
 
-  function cadRoadWidth(handle,fallback=24){
-    const road=(data.roads||[]).find(r=>r.handle===handle);
-    if(!road)return fallback;
-    const raw=(road.widthCad||12)*(data.pxPerCadUnit||1.20434303125)*metersPerPixel;
-    return Math.max(16,Math.min(38,raw));
+  function circulationWorldPoints(id){
+    const path=(circulation.paths||[]).find(p=>p.id===id);
+    if(!path)return [];
+    return (path.pointsPx||[]).map(([x,y])=>{
+      const p=mapPx(x,y);
+      return {x:p.x,z:p.z};
+    });
   }
 
   function normalize2(x,z){
     const l=Math.hypot(x,z)||1;
     return {x:x/l,z:z/l};
-  }
-
-  function extendRayToBoxEdge(p,neighbor){
-    const d=normalize2(p.x-neighbor.x,p.z-neighbor.z);
-    const candidates=[];
-
-    if(Math.abs(d.x)>1e-7){
-      for(const xEdge of [box.minX,box.maxX]){
-        const t=(xEdge-p.x)/d.x;
-        if(t<=0)continue;
-        const z=p.z+d.z*t;
-        if(z>=box.minZ-1e-5&&z<=box.maxZ+1e-5){
-          candidates.push({t,p:{x:xEdge,z}});
-        }
-      }
-    }
-    if(Math.abs(d.z)>1e-7){
-      for(const zEdge of [box.minZ,box.maxZ]){
-        const t=(zEdge-p.z)/d.z;
-        if(t<=0)continue;
-        const x=p.x+d.x*t;
-        if(x>=box.minX-1e-5&&x<=box.maxX+1e-5){
-          candidates.push({t,p:{x,z:zEdge}});
-        }
-      }
-    }
-
-    candidates.sort((a,b)=>a.t-b.t);
-    return candidates[0]?.p||{
-      x:THREE.MathUtils.clamp(p.x+d.x*500,box.minX,box.maxX),
-      z:THREE.MathUtils.clamp(p.z+d.z*500,box.minZ,box.maxZ)
-    };
   }
 
   function smoothPath(controlPoints,density=18){
@@ -141,14 +121,14 @@ export async function installExteriorForestV78({
       pts.map(p=>new THREE.Vector3(p.x,0,p.z)),
       false,
       'centripetal',
-      .35
+      .32
     );
-    const segments=Math.max(30,(pts.length-1)*density);
+    const segments=Math.max(28,(pts.length-1)*density);
     return curve.getPoints(segments).map(v=>({x:v.x,z:v.z}));
   }
 
   function closestPointOnPolyline(p,line){
-    let bestPoint=null,bestD=Infinity,bestTangent={x:1,z:0},bestIndex=0;
+    let bestPoint=null,bestD=Infinity,bestTangent={x:1,z:0};
     for(let i=1;i<line.length;i++){
       const a=line[i-1],b=line[i];
       const vx=b.x-a.x,vz=b.z-a.z;
@@ -161,10 +141,9 @@ export async function installExteriorForestV78({
         bestD=d;
         bestPoint=q;
         bestTangent=normalize2(vx,vz);
-        bestIndex=i-1;
       }
     }
-    return {point:bestPoint,distance:bestD,tangent:bestTangent,index:bestIndex};
+    return {point:bestPoint,distance:bestD,tangent:bestTangent};
   }
 
   const highwaySpecs=[];
@@ -179,214 +158,184 @@ export async function installExteriorForestV78({
     return spec;
   }
 
-  // ----- Primary 1: WEST RADIAL -----
-  // Preserve the actual 774EC -> 774EA CAD chain, but continue its natural
-  // alignment to the physical edge of the total 3D map in both directions.
-  const ec=roadWorldPoints('774EC');
-  const ea=roadWorldPoints('774EA');
-  if(ec.length>=2&&ea.length>=2){
-    const westOuter=ec[1];
-    const westJoin=ec[0];
-    const westUpper=ea[0];
-    const westStart=extendRayToBoxEdge(westOuter,westJoin);
-    const westEnd=extendRayToBoxEdge(westUpper,westJoin);
-
-    addSmoothHighway(
-      'V181_WEST_RADIAL',
-      [
-        westStart,
-        {
-          x:THREE.MathUtils.lerp(westStart.x,westOuter.x,.48)-28,
-          z:THREE.MathUtils.lerp(westStart.z,westOuter.z,.48)+18
-        },
-        westOuter,
-        westJoin,
-        westUpper,
-        {
-          x:THREE.MathUtils.lerp(westUpper.x,westEnd.x,.48)+22,
-          z:THREE.MathUtils.lerp(westUpper.z,westEnd.z,.48)-10
-        },
-        westEnd
-      ],
-      30,
-      'main',
-      20
-    );
-  }
-
-  // ----- Primary 2: NORTH-EAST EXPRESSWAY -----
-  // Follows the wide F5/F7/F8 CAD family, then exits through opposite map edges.
-  const f5=roadWorldPoints('774F5');
-  const f7=roadWorldPoints('774F7');
-  const f8=roadWorldPoints('774F8');
-  if(f5.length>=2&&f7.length>=2&&f8.length>=2){
-    const n0=f5[0];
-    const n1=f5[1];
-    const n2={
-      x:(f7[1].x+f8[0].x)*.5,
-      z:(f7[1].z+f8[0].z)*.5
-    };
-    const n3=f8[1];
-    const northStart=extendRayToBoxEdge(n0,n1);
-    const eastEnd=extendRayToBoxEdge(n3,n2);
-
-    addSmoothHighway(
-      'V181_NORTHEAST_EXPRESSWAY',
-      [
-        northStart,
-        {
-          x:THREE.MathUtils.lerp(northStart.x,n0.x,.52)-12,
-          z:THREE.MathUtils.lerp(northStart.z,n0.z,.52)+30
-        },
-        n0,
-        n1,
-        n2,
-        n3,
-        {
-          x:THREE.MathUtils.lerp(n3.x,eastEnd.x,.52)+16,
-          z:THREE.MathUtils.lerp(n3.z,eastEnd.z,.52)+26
-        },
-        eastEnd
-      ],
-      32,
-      'main',
-      20
-    );
-  }
-
-  // ----- Primary 3: SOUTH BYPASS -----
-  // A long natural arc, not a ring. Both ends terminate exactly at the total
-  // map boundary so the road visually continues beyond the scene.
-  addSmoothHighway(
-    'V181_SOUTH_BYPASS',
+  // ---------------------------------------------------------------------------
+  // EAST ARTERIAL — placed close to the right project edge like the reference.
+  // ---------------------------------------------------------------------------
+  const eastArterialX=maxX+64;
+  const eastArterial=addSmoothHighway(
+    'V183_EAST_ARTERIAL',
     [
-      {x:box.minX,z:maxZ+205},
-      {x:minX-185,z:maxZ+150},
-      {x:minX+120,z:maxZ+175},
-      {x:(minX+maxX)*.48,z:maxZ+215},
-      {x:maxX-90,z:maxZ+170},
-      {x:maxX+180,z:maxZ+115},
-      {x:box.maxX,z:maxZ+155}
+      {x:eastArterialX+10,z:box.minZ},
+      {x:eastArterialX-3,z:minZ-260},
+      {x:eastArterialX+2,z:minZ-70},
+      {x:eastArterialX-2,z:-350},
+      {x:eastArterialX+1,z:-120},
+      {x:eastArterialX-1,z:120},
+      {x:eastArterialX+3,z:maxZ+210},
+      {x:eastArterialX+8,z:box.maxZ}
+    ],
+    34,
+    'main',
+    22
+  );
+
+  // ---------------------------------------------------------------------------
+  // NORTH THROUGH ROAD — stays well north of the three-gateway zone.
+  // This replaces the old V181 diagonal road that visibly cut across the project.
+  // ---------------------------------------------------------------------------
+  addSmoothHighway(
+    'V183_NORTH_BYPASS',
+    [
+      {x:box.minX,z:minZ-205},
+      {x:minX-190,z:minZ-175},
+      {x:minX+90,z:minZ-205},
+      {x:(minX+maxX)*.48,z:minZ-225},
+      {x:maxX+115,z:minZ-205},
+      {x:box.maxX,z:minZ-160}
     ],
     28,
     'bypass',
     20
   );
 
-  // ----- EAST GATEWAY ARTERIAL + THREE PROJECT BRANCHES -----
-  // Reference-layout logic: one continuous north-south external arterial and
-  // exactly three independent project connections, arranged top/middle/bottom.
-  // This replaces the V181 U-loop appearance at the right/east side.
-  const eastArterialX=maxX+118;
-
-  const eastGatewayArterial=addSmoothHighway(
-    'V182_EAST_GATEWAY_ARTERIAL',
+  // ---------------------------------------------------------------------------
+  // SOUTH THROUGH BOULEVARD — visually mirrors the broad road along the bottom
+  // of the reference image and crosses the east arterial cleanly.
+  // ---------------------------------------------------------------------------
+  addSmoothHighway(
+    'V183_SOUTH_BOULEVARD',
     [
-      {x:eastArterialX+18,z:box.minZ},
-      {x:eastArterialX-8,z:minZ-245},
-      {x:eastArterialX+4,z:minZ-70},
-      {x:eastArterialX-3,z:-245},
-      {x:eastArterialX+5,z:-95},
-      {x:eastArterialX-5,z:75},
-      {x:eastArterialX+8,z:maxZ+220},
-      {x:eastArterialX+14,z:box.maxZ}
+      {x:box.minX,z:maxZ+185},
+      {x:minX-170,z:maxZ+165},
+      {x:minX+120,z:maxZ+178},
+      {x:(minX+maxX)*.48,z:maxZ+195},
+      {x:eastArterialX,z:maxZ+175},
+      {x:maxX+255,z:maxZ+155},
+      {x:box.maxX,z:maxZ+135}
     ],
     32,
     'main',
-    22
+    20
   );
 
-  function addEastGatewayBranch(name,start,targetZ,width,biasZ=0){
-    if(!start||!eastGatewayArterial)return null;
-    const targetHit=closestPointOnPolyline(
-      {x:eastArterialX,z:targetZ},
-      eastGatewayArterial.points
-    );
-    if(!targetHit?.point)return null;
-
-    const target=targetHit.point;
-    const span=Math.max(70,target.x-start.x);
-    const c1={
-      x:start.x+Math.min(58,span*.34),
-      z:start.z+biasZ*.35
-    };
-    const c2={
-      x:target.x-Math.min(62,span*.32),
-      z:target.z-biasZ*.20
-    };
-
-    return addSmoothHighway(
-      name,
-      [start,c1,c2,target],
-      width,
-      'gateway',
-      26
+  // Keep the west CAD-authored radial because it already follows real source
+  // geometry and does not interfere with the east reference layout.
+  const ec=roadWorldPoints('774EC');
+  const ea=roadWorldPoints('774EA');
+  if(ec.length>=2&&ea.length>=2){
+    const a0=ec[1],a1=ec[0],a2=ea[0],a3=ea[1];
+    const dir0=normalize2(a0.x-a1.x,a0.z-a1.z);
+    const dir3=normalize2(a3.x-a2.x,a3.z-a2.z);
+    addSmoothHighway(
+      'V183_WEST_RADIAL',
+      [
+        {x:box.minX,z:THREE.MathUtils.clamp(a0.z+dir0.z*210,box.minZ,box.maxZ)},
+        a0,a1,a2,a3,
+        {
+          x:THREE.MathUtils.clamp(a3.x+dir3.x*260,box.minX,box.maxX),
+          z:THREE.MathUtils.clamp(a3.z+dir3.z*260,box.minZ,box.maxZ)
+        }
+      ],
+      29,
+      'main',
+      20
     );
   }
 
-  const east77505=roadWorldPoints('77505');
-  const east774F9=roadWorldPoints('774F9');
-  const east77537=roadWorldPoints('77537');
+  // ---------------------------------------------------------------------------
+  // THREE EAST PROJECT BRANCHES FROM AUTHORED INTERNAL CIRCULATION.
+  // These are intentionally far more separated than V182.
+  // ---------------------------------------------------------------------------
+  const northEastLocal=circulationWorldPoints('north-east-local');
+  const centralSpine=circulationWorldPoints('central-spine');
+  const northCross=circulationWorldPoints('north-cross');
 
-  const eastBranchTopStart=east77505[0]||null;
-  const eastBranchMidStart=east774F9[0]||null;
-  const eastBranchBottomStart=east77537[0]||null;
+  const gatewayStarts=[
+    {
+      name:'V183_EAST_BRANCH_TOP',
+      source:'north-east-local',
+      point:northEastLocal[0]||null,
+      width:15.5
+    },
+    {
+      name:'V183_EAST_BRANCH_MIDDLE',
+      source:'central-spine',
+      point:centralSpine[centralSpine.length-1]||null,
+      width:19.5
+    },
+    {
+      name:'V183_EAST_BRANCH_BOTTOM',
+      source:'north-cross',
+      point:northCross[northCross.length-1]||null,
+      width:18.0
+    }
+  ];
 
-  const eastGatewayBranches=[
-    addEastGatewayBranch(
-      'V182_EAST_BRANCH_TOP',
-      eastBranchTopStart,
-      eastBranchTopStart?.z??-225,
-      22,
-      -8
-    ),
-    addEastGatewayBranch(
-      'V182_EAST_BRANCH_MIDDLE',
-      eastBranchMidStart,
-      eastBranchMidStart?.z??-145,
-      20,
-      4
-    ),
-    addEastGatewayBranch(
-      'V182_EAST_BRANCH_BOTTOM',
-      eastBranchBottomStart,
-      eastBranchBottomStart?.z??-10,
-      20,
-      9
-    )
-  ].filter(Boolean);
+  const eastGatewayBranches=[];
 
-  // Select a primary highway and merge target for an outbound industrial road.
-  function nearestPrimary(p){
+  function addReferenceGatewayBranch(def,index){
+    if(!def.point||!eastArterial)return null;
+    const start=def.point;
+    const hit=closestPointOnPolyline(
+      {x:eastArterialX,z:start.z},
+      eastArterial.points
+    );
+    if(!hit?.point)return null;
+    const target=hit.point;
+    const span=Math.max(50,target.x-start.x);
+
+    // Reference geometry: mostly perpendicular to the highway, with broad
+    // rounded approach curves rather than motorway-style loops.
+    const c1={
+      x:start.x+Math.min(55,span*.34),
+      z:start.z+(index-1)*2.5
+    };
+    const c2={
+      x:target.x-Math.min(48,span*.30),
+      z:target.z-(index-1)*1.5
+    };
+
+    const spec=addSmoothHighway(
+      def.name,
+      [start,c1,c2,target],
+      def.width,
+      'gateway',
+      24
+    );
+    if(spec){
+      spec.gatewaySource=def.source;
+      eastGatewayBranches.push(spec);
+    }
+    return spec;
+  }
+
+  gatewayStarts.forEach(addReferenceGatewayBranch);
+
+  // ---------------------------------------------------------------------------
+  // Small west-side merge only. No generic east ramps are allowed in V183,
+  // preventing U-loops and duplicate connections around the reference gateway.
+  // ---------------------------------------------------------------------------
+  function nearestPrimaryExcludingEast(p){
     let best=null;
     for(const spec of primaryHighways){
+      if(spec.name==='V183_EAST_ARTERIAL')continue;
       const hit=closestPointOnPolyline(p,spec.points);
       if(!best||hit.distance<best.hit.distance)best={spec,hit};
     }
     return best;
   }
 
-  function endpointOutDirection(pts,index){
-    if(index===0){
-      return normalize2(pts[0].x-pts[1].x,pts[0].z-pts[1].z);
-    }
-    return normalize2(
-      pts[pts.length-1].x-pts[pts.length-2].x,
-      pts[pts.length-1].z-pts[pts.length-2].z
-    );
-  }
-
-  function addMergeRamp(handle,endpointIndex,width){
+  function addWestMerge(handle,endpointIndex,width){
     const pts=roadWorldPoints(handle);
     if(pts.length<2)return;
     const p=endpointIndex===0?pts[0]:pts[pts.length-1];
     if(pointInPolygon(p.x,p.z,boundary))return;
 
-    const nearest=nearestPrimary(p);
-    if(!nearest||!nearest.hit.point)return;
-    if(nearest.hit.distance<18||nearest.hit.distance>520)return;
+    const nearest=nearestPrimaryExcludingEast(p);
+    if(!nearest||!nearest.hit.point||nearest.hit.distance>430)return;
 
-    const out=endpointOutDirection(pts,endpointIndex);
+    const neighbor=endpointIndex===0?pts[1]:pts[pts.length-2];
+    const out=normalize2(p.x-neighbor.x,p.z-neighbor.z);
     let tangent=nearest.hit.tangent;
     const toward={
       x:nearest.hit.point.x-p.x,
@@ -397,65 +346,34 @@ export async function installExteriorForestV78({
     }
 
     const d=nearest.hit.distance;
-    const outLen=Math.min(92,Math.max(42,d*.34));
-    const mergeLen=Math.min(90,Math.max(48,d*.28));
-
-    const c1={
-      x:p.x+out.x*outLen,
-      z:p.z+out.z*outLen
-    };
-    const c2={
-      x:nearest.hit.point.x-tangent.x*mergeLen,
-      z:nearest.hit.point.z-tangent.z*mergeLen
-    };
-
     addSmoothHighway(
-      'V181_RAMP_'+handle+'_'+endpointIndex,
-      [p,c1,c2,nearest.hit.point],
+      'V183_WEST_MERGE_'+handle,
+      [
+        p,
+        {x:p.x+out.x*Math.min(72,d*.32),z:p.z+out.z*Math.min(72,d*.32)},
+        {
+          x:nearest.hit.point.x-tangent.x*Math.min(70,d*.28),
+          z:nearest.hit.point.z-tangent.z*Math.min(70,d*.28)
+        },
+        nearest.hit.point
+      ],
       width,
       'ramp',
-      24
+      22
     );
   }
 
-  // V182: east endpoint of 77505 is now handled by the explicit 3-branch
-  // gateway above. Keep only its opposite/west-side highway connection.
-  addMergeRamp('77505',1,19);
+  // Preserve only the opposite/west endpoint of the principal through-road.
+  addWestMerge('77505',1,18);
 
-  // Other large project roads receive one outward merge where their CAD geometry
-  // actually exits the site.
-  const oneExitHandles=['77536','7754C'];
-  for(const handle of oneExitHandles){
-    const pts=roadWorldPoints(handle);
-    if(pts.length<2)continue;
-    const outside=[];
-    if(!pointInPolygon(pts[0].x,pts[0].z,boundary))outside.push(0);
-    if(!pointInPolygon(pts[pts.length-1].x,pts[pts.length-1].z,boundary))outside.push(1);
-    if(!outside.length)continue;
-
-    // If both ends are technically outside an irregular CAD polygon, only build
-    // the endpoint nearest a primary road; this prevents random spoke networks.
-    let bestIndex=outside[0],bestDistance=Infinity;
-    for(const ei of outside){
-      const p=ei===0?pts[0]:pts[pts.length-1];
-      const nearest=nearestPrimary(p);
-      if(nearest&&nearest.hit.distance<bestDistance){
-        bestDistance=nearest.hit.distance;
-        bestIndex=ei;
-      }
-    }
-    addMergeRamp(handle,bestIndex,handle==='774F9'?18:17);
-  }
-
-  // Smooth road centerlines are also the authoritative procedural-clearance
-  // corridors: trees/houses/fields cannot spawn across them.
+  // All road centerlines clear generated forest/village/fields.
   for(const spec of highwaySpecs){
     for(let i=1;i<spec.points.length;i++){
       roadCorridors.push({
         a:spec.points[i-1],
         b:spec.points[i],
-        radius:spec.width*.5+(spec.kind==='ramp'?5:8),
-        highwayV181:true
+        radius:spec.width*.5+(spec.kind==='gateway'?4.5:spec.kind==='ramp'?5:8),
+        highwayV183:true
       });
     }
   }
@@ -647,7 +565,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V181_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V183_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -743,7 +661,7 @@ export async function installExteriorForestV78({
       highwayShoulderMat
     );
     shoulder.name=spec.name+'_SHOULDER';
-    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV181:true};
+    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV183:true};
     shoulder.castShadow=false;
     shoulder.receiveShadow=false;
     highwayRoot.add(shoulder);
@@ -756,7 +674,7 @@ export async function installExteriorForestV78({
     asphalt.userData={
       fpsNonSolid:true,
       walkable:true,
-      highwayV181:true,
+      highwayV183:true,
       layer:'carriageway'
     };
     asphalt.castShadow=false;
@@ -764,13 +682,13 @@ export async function installExteriorForestV78({
     highwayRoot.add(asphalt);
 
     if(!isRamp){
-      const medianWidth=isGateway?2.2:(spec.width>=30?3.8:3.0);
+      const medianWidth=isGateway?1.6:(spec.width>=30?3.8:3.0);
       const median=new THREE.Mesh(
         makeRoadRibbon(spec.points,medianWidth,.238),
         highwayMedianMat
       );
       median.name=spec.name+'_MEDIAN';
-      median.userData={fpsNonSolid:true,highwayV181:true};
+      median.userData={fpsNonSolid:true,highwayV183:true};
       highwayRoot.add(median);
     }
 
@@ -781,7 +699,7 @@ export async function installExteriorForestV78({
         highwayWhiteMat
       );
       edge.name=spec.name+'_EDGE_'+(side<0?'L':'R');
-      edge.userData={fpsNonSolid:true,highwayV181:true};
+      edge.userData={fpsNonSolid:true,highwayV183:true};
       highwayRoot.add(edge);
     }
 
@@ -800,7 +718,7 @@ export async function installExteriorForestV78({
         highwayYellowMat
       );
       centerLine.name=spec.name+'_CENTER';
-      centerLine.userData={fpsNonSolid:true,highwayV181:true};
+      centerLine.userData={fpsNonSolid:true,highwayV183:true};
       highwayRoot.add(centerLine);
       highwayMainCount++;
     }
@@ -810,13 +728,13 @@ export async function installExteriorForestV78({
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V181_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V183_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
     dashBatch.castShadow=false;
     dashBatch.receiveShadow=false;
-    dashBatch.userData={fpsNonSolid:true,highwayV181:true};
+    dashBatch.userData={fpsNonSolid:true,highwayV183:true};
     highwayRoot.add(dashBatch);
   }
 
@@ -1291,6 +1209,7 @@ export async function installExteriorForestV78({
   root.userData.highwayMainCount=highwayMainCount;
   root.userData.highwayRampCount=highwayRampCount;
   root.userData.eastGatewayBranchCount=eastGatewayBranches.length;
+  root.userData.eastGatewaySources=gatewayStarts.map(g=>g.source);
 
   function setDoorOpen(index,v){
     const d=doors[index];
@@ -1331,7 +1250,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:182,group:root,treeAssetMode,forestMode,
+    ready:true,version:183,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1347,6 +1266,7 @@ export async function installExteriorForestV78({
     highwayMainCount,
     highwayRampCount,
     eastGatewayBranchCount:eastGatewayBranches.length,
+    eastGatewaySources:gatewayStarts.map(g=>g.source),
     boundaryPoints:boundary.length,
     doors,
     setDoorOpen,
@@ -1362,8 +1282,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V180=api;
   window.__DALOC_EXTERIOR_V181=api;
   window.__DALOC_EXTERIOR_V182=api;
+  window.__DALOC_EXTERIOR_V183=api;
 
-  console.info('[DaLoc] V182 curved highways + three-branch east gateway installed',{
+  console.info('[DaLoc] V183 reference-style east arterial + three circulation branches installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
