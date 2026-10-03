@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Đa Lộc 3D — Rebuilt From 2D Masterplan</title>
-<meta name="daloc-build" content="V184-reference-one-to-three-fork">
+<meta name="daloc-build" content="V185-compact-reference-three-branch-junction">
 <style>
 :root{--glass:rgba(7,18,12,.84);--line:rgba(255,255,255,.12);--text:#f6faf7;--muted:#a9b8af}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9db889;font-family:Inter,Arial,sans-serif;color:var(--text)}
@@ -59,9 +59,9 @@ body.fps-aiming #fpsScopeOverlay{display:block}
 <body>
 <div id="canvas"></div>
 <div class="ui brand">
-  <small>GitHub → Netlify · BUILD V184 REFERENCE 1→3 ROAD FORK</small>
+  <small>GitHub → Netlify · BUILD V185 COMPACT 3-BRANCH REFERENCE JUNCTION</small>
   <h1>Đa Lộc Industrial Zone</h1>
-  <p>V184 sửa đúng topology ảnh tham chiếu: một boulevard từ phía dưới/hồ đi vào một nút chung rồi xòe thành 3 nhánh nội khu, lấy trực tiếp từ north-cross, north-east-local và central-spine; giữa các nhánh có 2 đảo cảnh quan hình nêm. Ba cổng song song phía Đông của V183 đã bỏ. Factory Details giữ nút A/B riêng.</p>
+  <p>V185 sửa lại theo đúng hình học cục bộ của ảnh tham chiếu: không kéo 3 nhánh đi xuyên toàn khu nữa. Tại nút cạnh hồ, một boulevard ngắn đi từ dưới lên rồi tách rõ LEFT / CENTER / RIGHT trong phạm vi khoảng 80–130 m, sau đó nhập ngay vào đường nội khu hiện hữu; hai đảo cảnh quan tam giác chỉ nằm giữa ba nhánh. Factory Details giữ nút A/B riêng.</p>
 </div>
 <div class="ui controls">
   <button id="v3" class="active">3D Perspective</button>
@@ -85,7 +85,7 @@ body.fps-aiming #fpsScopeOverlay{display:block}
   </div>
 </div>
 <div class="hint">Kéo để xoay · Cuộn để zoom · Top View để so trực tiếp với bản 2D</div>
-<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS --</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V184: one incoming boulevard splits into 3 internal branches beside pond · P2P V171 preserved</div>
+<div id="fpsCrosshair"></div><div id="fpsHud">FPS WALK · 1 Sniper · 2 Gatling · 3 Axe · Axe LMB 40 / RMB 80 · Tap Shift reload · Hold Shift sprint · E tương tác/xe · ESC thoát</div><div id="fpsInteractPrompt"></div><div id="fpsScopeOverlay"><div id="fpsScopeLens"><div id="fpsScopeDot"></div><div id="fpsScopeStatus">SNIPER SCOPE</div></div></div><div id="fpsHitMarker"></div><div id="fpsHealthHud"><div class="fpsHealthRow"><div class="fpsHealthHead"><span>YOU</span><span id="fpsLocalHpText">100 HP</span></div><div class="fpsHealthTrack"><div id="fpsLocalHpFill" class="fpsHealthFill"></div></div></div><div id="fpsRemoteHealthRow" class="fpsHealthRow"><div class="fpsHealthHead"><span>P2</span><span id="fpsRemoteHpText">-- HP</span></div><div class="fpsHealthTrack"><div id="fpsRemoteHpFill" class="fpsHealthFill" style="width:0%"></div></div></div></div><div id="fpsAmmoHud"><div id="fpsAmmoWeapon">SNIPER</div><div id="fpsAmmoCount">10 / 10</div><div id="fpsAmmoHint">Tap Shift · Reload</div></div><div id="fpsDamageFlash"></div><div id="perfHud" style="position:fixed;left:16px;bottom:90px;z-index:7;padding:7px 10px;border-radius:9px;background:rgba(5,16,10,.82);border:1px solid rgba(255,255,255,.12);font:800 11px/1.35 Arial;color:#d8f5df;pointer-events:none">FPS --</div><div id="fpsDeathOverlay"><b>YOU DIED</b><span id="fpsRespawnText">Respawn in 3.0s</span></div><div id="verifiedBadge" style="position:fixed;left:16px;bottom:52px;z-index:6;padding:7px 10px;border-radius:9px;background:rgba(7,18,12,.78);border:1px solid rgba(255,255,255,.1);font:700 10px Arial;color:#bfe7cd">V185: compact LEFT/CENTER/RIGHT split beside pond · P2P V171 preserved</div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
@@ -100,7 +100,7 @@ import { installSiteDetailV54 } from './assets/site-detail-v54.js?v=139';
 import { installSupportStructuresV55 } from './assets/support-structures-v55.js?v=168';
 import { installRoadNameSignsV169 } from './assets/road-name-signs-v169.js?v=1695';
 import { installCadSourceV72 } from './assets/cad-source-v72.js?v=1041';
-import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=184';
+import { installExteriorForestV78 } from './assets/exterior-forest-v78.js?v=185';
 import { installTrafficAIV91 } from './assets/traffic-ai-v91.js?v=1451';
 import { installLotusPondV81 } from './assets/lotus-pond-v81.js?v=81';
 import { installPondFishV82 } from './assets/pond-fish-v82.js?v=95';
@@ -1450,7 +1450,7 @@ function roadTreeEligible(g){
     !g.userData?.hiddenByMainGateV92 &&
     !g.userData?.hiddenByRoadV98 &&
     !g.userData?.hiddenByFactoryAccessV99 &&
-    !g.userData?.hiddenByReferenceForkV184;
+    !g.userData?.hiddenByReferenceForkV185;
 }
 
 function currentEnvironmentOn(){

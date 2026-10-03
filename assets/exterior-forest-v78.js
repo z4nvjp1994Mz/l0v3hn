@@ -25,15 +25,15 @@ export async function installExteriorForestV78({
     return building.localToWorld(doorTmpWorld.clone());
   }
 
-  root.name='EXTERIOR_SCENERY_V184';
-  const forestMode='scenic-v184';
+  root.name='EXTERIOR_SCENERY_V185';
+  const forestMode='scenic-v185';
 
   root.userData={
-    version:184,
+    version:185,
     source:data.source,
     boundaryLayer:data.boundaryLayer,
     forestMode,
-    purpose:'V184 reference fork: one incoming boulevard splits into three internal branches beside the pond'
+    purpose:'V185 compact reference junction: one incoming road splits locally into left, center and right branches'
   };
   scene.add(root);
 
@@ -243,15 +243,21 @@ export async function installExteriorForestV78({
   }
 
   // ---------------------------------------------------------------------------
-  // V184 REFERENCE 1 -> 3 INTERNAL FORK
-  // One incoming boulevard approaches beside the pond, reaches one common node,
-  // then fans into THREE authored internal road arms. This is the topology in
-  // the supplied reference image; it is not three parallel east-side exits.
-  // ---------------------------------------------------------------------------
+  // V185 COMPACT REFERENCE 1 -> 3 FORK
+  //
+  // Reference topology:
+  //   incoming boulevard from the lower side
+  //                |
+  //              JUNCTION
+  //            /     |     \
+  //         LEFT   CENTER   RIGHT
+  //
+  // V184 was wrong because it redrew long circulation routes. V185 draws only
+  // the local 80–130 m transition around the junction and hands back to the
+  // existing V53 road network immediately after the split.
   const northCross=circulationWorldPoints('north-cross');
   const northEastLocal=circulationWorldPoints('north-east-local');
   const centralSpine=circulationWorldPoints('central-spine');
-  const southCross=circulationWorldPoints('south-cross');
   const pondCenter=mapPx(1053.34,850.71);
 
   function nearestIndexToPoint(points,p){
@@ -281,57 +287,80 @@ export async function installExteriorForestV78({
     )/3
   };
 
-  function prependForkNode(points){
-    if(!points.length)return [{...forkNode}];
-    return [{...forkNode},...points.filter((p,i)=>
-      i>0||Math.hypot(p.x-forkNode.x,p.z-forkNode.z)>1.5
-    )];
+  function pickJoin(points,startIndex,step,minD=82,maxD=132){
+    let fallback=null;
+    for(let i=startIndex+step;i>=0&&i<points.length;i+=step){
+      const p=points[i];
+      const d=Math.hypot(p.x-forkNode.x,p.z-forkNode.z);
+      if(d<minD){fallback=p;continue;}
+      if(d<=maxD)return p;
+      return fallback||p;
+    }
+    return fallback||forkNode;
   }
 
-  // Three outgoing arms use the authored circulation itself.
-  const forkLeftControls=prependForkNode(
-    northCross.slice(0,idxNC+1).reverse()
-  );
-  const forkMiddleControls=prependForkNode(
-    northEastLocal.slice(0,idxNE+1).reverse()
-  );
-  const forkRightControls=prependForkNode(
-    centralSpine.slice(idxCS)
-  );
+  // Explicitly choose three DIFFERENT authored directions around the local node.
+  // LEFT   -> central-spine toward the western factory rows.
+  // CENTER -> north-east-local toward the long central boulevard.
+  // RIGHT  -> north-cross toward the eastern warehouse edge.
+  const leftJoin=pickJoin(centralSpine,idxCS,-1,88,128);
+  const centerJoin=pickJoin(northEastLocal,idxNE,-1,96,138);
+  const rightJoin=pickJoin(northCross,idxNC,+1,88,132);
 
-  // Incoming trunk curves along the EAST side of the pond, like the reference.
-  const southStart=southCross[southCross.length-1]||{
-    x:pondCenter.x-120,z:pondCenter.z+250
+  function branchControls(join,sideBias=0){
+    const dx=join.x-forkNode.x,dz=join.z-forkNode.z;
+    const len=Math.hypot(dx,dz)||1;
+    const nx=-dz/len,nz=dx/len;
+    return [
+      {...forkNode},
+      {
+        x:THREE.MathUtils.lerp(forkNode.x,join.x,.28)+nx*sideBias,
+        z:THREE.MathUtils.lerp(forkNode.z,join.z,.28)+nz*sideBias
+      },
+      {
+        x:THREE.MathUtils.lerp(forkNode.x,join.x,.68)+nx*sideBias*.42,
+        z:THREE.MathUtils.lerp(forkNode.z,join.z,.68)+nz*sideBias*.42
+      },
+      {...join}
+    ];
+  }
+
+  const forkLeftControls=branchControls(leftJoin,-3.0);
+  const forkCenterControls=branchControls(centerJoin,0);
+  const forkRightControls=branchControls(rightJoin,3.0);
+
+  // Main incoming boulevard: short, clean and local. It passes on the RIGHT side
+  // of the pond before reaching the common fork, matching the supplied reference.
+  const trunkStart={
+    x:pondCenter.x+56,
+    z:pondCenter.z+148
   };
   const forkTrunkControls=[
-    southStart,
-    {
-      x:THREE.MathUtils.lerp(southStart.x,pondCenter.x+52,.42),
-      z:THREE.MathUtils.lerp(southStart.z,pondCenter.z+100,.42)
-    },
-    {x:pondCenter.x+52,z:pondCenter.z+38},
-    {x:pondCenter.x+40,z:pondCenter.z-20},
-    forkNode
+    trunkStart,
+    {x:pondCenter.x+58,z:pondCenter.z+92},
+    {x:pondCenter.x+55,z:pondCenter.z+38},
+    {x:pondCenter.x+38,z:pondCenter.z-18},
+    {...forkNode}
   ];
 
   const referenceForkSpecs=[];
   function addReferenceForkRoad(name,controls,width,kind){
-    const spec=addSmoothHighway(name,controls,width,kind,24);
+    const spec=addSmoothHighway(name,controls,width,kind,26);
     if(spec)referenceForkSpecs.push(spec);
     return spec;
   }
 
   const referenceForkTrunk=addReferenceForkRoad(
-    'V184_REFERENCE_FORK_TRUNK',forkTrunkControls,20.5,'fork-trunk'
+    'V185_REFERENCE_FORK_TRUNK',forkTrunkControls,21.0,'fork-trunk'
   );
   const referenceForkLeft=addReferenceForkRoad(
-    'V184_REFERENCE_FORK_LEFT',forkLeftControls,16.5,'fork'
+    'V185_REFERENCE_FORK_LEFT',forkLeftControls,16.8,'fork'
   );
-  const referenceForkMiddle=addReferenceForkRoad(
-    'V184_REFERENCE_FORK_MIDDLE',forkMiddleControls,17.5,'fork'
+  const referenceForkCenter=addReferenceForkRoad(
+    'V185_REFERENCE_FORK_CENTER',forkCenterControls,18.2,'fork'
   );
   const referenceForkRight=addReferenceForkRoad(
-    'V184_REFERENCE_FORK_RIGHT',forkRightControls,18.5,'fork'
+    'V185_REFERENCE_FORK_RIGHT',forkRightControls,17.2,'fork'
   );
 
   function pointAlongPolyline(points,distance){
@@ -352,25 +381,40 @@ export async function installExteriorForestV78({
     return points[points.length-1]||forkNode;
   }
 
-  // Two green wedge islands visually separate the three branches.
+  // Two compact triangular islands, one between LEFT/CENTER and one between
+  // CENTER/RIGHT. They are intentionally local: no giant wedges across factories.
   const forkIslandPolygons=[];
   function addForkIsland(specA,specB){
     if(!specA||!specB)return;
-    const aNear=pointAlongPolyline(specA.points,27);
-    const bNear=pointAlongPolyline(specB.points,27);
-    const aFar=pointAlongPolyline(specA.points,78);
-    const bFar=pointAlongPolyline(specB.points,78);
+    const aNear=pointAlongPolyline(specA.points,18);
+    const bNear=pointAlongPolyline(specB.points,18);
+    const aFar=pointAlongPolyline(specA.points,54);
+    const bFar=pointAlongPolyline(specB.points,54);
     const nearMid={x:(aNear.x+bNear.x)/2,z:(aNear.z+bNear.z)/2};
     const farMid={x:(aFar.x+bFar.x)/2,z:(aFar.z+bFar.z)/2};
+
     forkIslandPolygons.push([
-      {x:THREE.MathUtils.lerp(aNear.x,nearMid.x,.42),z:THREE.MathUtils.lerp(aNear.z,nearMid.z,.42)},
-      {x:THREE.MathUtils.lerp(aFar.x,farMid.x,.34),z:THREE.MathUtils.lerp(aFar.z,farMid.z,.34)},
-      {x:THREE.MathUtils.lerp(bFar.x,farMid.x,.34),z:THREE.MathUtils.lerp(bFar.z,farMid.z,.34)},
-      {x:THREE.MathUtils.lerp(bNear.x,nearMid.x,.42),z:THREE.MathUtils.lerp(bNear.z,nearMid.z,.42)}
+      {
+        x:THREE.MathUtils.lerp(aNear.x,nearMid.x,.50),
+        z:THREE.MathUtils.lerp(aNear.z,nearMid.z,.50)
+      },
+      {
+        x:THREE.MathUtils.lerp(aFar.x,farMid.x,.38),
+        z:THREE.MathUtils.lerp(aFar.z,farMid.z,.38)
+      },
+      {
+        x:THREE.MathUtils.lerp(bFar.x,farMid.x,.38),
+        z:THREE.MathUtils.lerp(bFar.z,farMid.z,.38)
+      },
+      {
+        x:THREE.MathUtils.lerp(bNear.x,nearMid.x,.50),
+        z:THREE.MathUtils.lerp(bNear.z,nearMid.z,.50)
+      }
     ]);
   }
-  addForkIsland(referenceForkLeft,referenceForkMiddle);
-  addForkIsland(referenceForkMiddle,referenceForkRight);
+
+  addForkIsland(referenceForkLeft,referenceForkCenter);
+  addForkIsland(referenceForkCenter,referenceForkRight);
 
   // ---------------------------------------------------------------------------
   // Small west-side merge only. No generic east ramps are allowed in V183,
@@ -436,7 +480,7 @@ export async function installExteriorForestV78({
         a:spec.points[i-1],
         b:spec.points[i],
         radius:spec.width*.5+(isFork?3:(spec.kind==='gateway'?4.5:spec.kind==='ramp'?5:8)),
-        highwayV184:true
+        highwayV185:true
       };
       roadCorridors.push(corridor);
       if(isFork)referenceForkCorridors.push(corridor);
@@ -451,7 +495,7 @@ export async function installExteriorForestV78({
     if(referenceForkCorridors.some(c=>
       distanceToSegment(forkTreeWorld.x,forkTreeWorld.z,c.a,c.b)<=c.radius+1.2
     )){
-      o.userData.hiddenByReferenceForkV184=true;
+      o.userData.hiddenByReferenceForkV185=true;
       o.visible=false;
     }
   });
@@ -643,7 +687,7 @@ export async function installExteriorForestV78({
   sceneryRoot.add(waterRoot);
 
   const highwayRoot=new THREE.Group();
-  highwayRoot.name='V184_EXPRESSWAY_NETWORK';
+  highwayRoot.name='V185_EXPRESSWAY_NETWORK';
   highwayRoot.userData={fpsNonSolid:true,walkable:true};
   sceneryRoot.add(highwayRoot);
 
@@ -740,7 +784,7 @@ export async function installExteriorForestV78({
       highwayShoulderMat
     );
     shoulder.name=spec.name+'_SHOULDER';
-    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV184:true};
+    shoulder.userData={fpsNonSolid:true,walkable:true,highwayV185:true};
     shoulder.castShadow=false;
     shoulder.receiveShadow=false;
     highwayRoot.add(shoulder);
@@ -753,7 +797,7 @@ export async function installExteriorForestV78({
     asphalt.userData={
       fpsNonSolid:true,
       walkable:true,
-      highwayV184:true,
+      highwayV185:true,
       layer:'carriageway'
     };
     asphalt.castShadow=false;
@@ -767,7 +811,7 @@ export async function installExteriorForestV78({
         highwayMedianMat
       );
       median.name=spec.name+'_MEDIAN';
-      median.userData={fpsNonSolid:true,highwayV184:true};
+      median.userData={fpsNonSolid:true,highwayV185:true};
       highwayRoot.add(median);
     }
 
@@ -778,7 +822,7 @@ export async function installExteriorForestV78({
         highwayWhiteMat
       );
       edge.name=spec.name+'_EDGE_'+(side<0?'L':'R');
-      edge.userData={fpsNonSolid:true,highwayV184:true};
+      edge.userData={fpsNonSolid:true,highwayV185:true};
       highwayRoot.add(edge);
     }
 
@@ -799,7 +843,7 @@ export async function installExteriorForestV78({
         highwayYellowMat
       );
       centerLine.name=spec.name+'_CENTER';
-      centerLine.userData={fpsNonSolid:true,highwayV184:true};
+      centerLine.userData={fpsNonSolid:true,highwayV185:true};
       highwayRoot.add(centerLine);
       highwayMainCount++;
     }
@@ -823,10 +867,10 @@ export async function installExteriorForestV78({
       new THREE.ShapeGeometry(forkPolygonShape(poly)),
       forkIslandCurbMat
     );
-    curb.name='V184_FORK_ISLAND_CURB_'+i;
+    curb.name='V185_FORK_ISLAND_CURB_'+i;
     curb.rotation.x=-Math.PI/2;
     curb.position.y=.268;
-    curb.userData={fpsNonSolid:true,referenceForkV184:true};
+    curb.userData={fpsNonSolid:true,referenceForkV185:true};
     highwayRoot.add(curb);
 
     const cx=poly.reduce((s,p)=>s+p.x,0)/poly.length;
@@ -839,22 +883,22 @@ export async function installExteriorForestV78({
       new THREE.ShapeGeometry(forkPolygonShape(inner)),
       forkIslandGreenMat
     );
-    green.name='V184_FORK_ISLAND_GREEN_'+i;
+    green.name='V185_FORK_ISLAND_GREEN_'+i;
     green.rotation.x=-Math.PI/2;
     green.position.y=.279;
-    green.userData={fpsNonSolid:true,referenceForkV184:true};
+    green.userData={fpsNonSolid:true,referenceForkV185:true};
     highwayRoot.add(green);
   });
 
   if(dashMatrices.length){
     const dashBatch=new THREE.InstancedMesh(dashGeo,highwayWhiteMat,dashMatrices.length);
-    dashBatch.name='V184_HIGHWAY_LANE_DASHES';
+    dashBatch.name='V185_HIGHWAY_LANE_DASHES';
     dashMatrices.forEach((m,i)=>dashBatch.setMatrixAt(i,m));
     dashBatch.instanceMatrix.needsUpdate=true;
     dashBatch.computeBoundingSphere();
     dashBatch.castShadow=false;
     dashBatch.receiveShadow=false;
-    dashBatch.userData={fpsNonSolid:true,highwayV184:true};
+    dashBatch.userData={fpsNonSolid:true,highwayV185:true};
     highwayRoot.add(dashBatch);
   }
 
@@ -1330,6 +1374,7 @@ export async function installExteriorForestV78({
   root.userData.highwayRampCount=highwayRampCount;
   root.userData.referenceForkBranchCount=3;
   root.userData.referenceForkNode={x:forkNode.x,z:forkNode.z};
+  root.userData.referenceForkMode='compact-local-80-130m';
 
   function setDoorOpen(index,v){
     const d=doors[index];
@@ -1370,7 +1415,7 @@ export async function installExteriorForestV78({
   }
 
   const api={
-    ready:true,version:184,group:root,treeAssetMode,forestMode,
+    ready:true,version:185,group:root,treeAssetMode,forestMode,
     treeCount:root.userData.treeCount,
     treeChunkCount,
     canopyBlanketPatchCount,
@@ -1387,6 +1432,7 @@ export async function installExteriorForestV78({
     highwayRampCount,
     referenceForkBranchCount:3,
     referenceForkNode:{x:forkNode.x,z:forkNode.z},
+    referenceForkMode:'compact-local-80-130m',
     boundaryPoints:boundary.length,
     doors,
     setDoorOpen,
@@ -1404,8 +1450,9 @@ export async function installExteriorForestV78({
   window.__DALOC_EXTERIOR_V182=api;
   window.__DALOC_EXTERIOR_V183=api;
   window.__DALOC_EXTERIOR_V184=api;
+  window.__DALOC_EXTERIOR_V185=api;
 
-  console.info('[DaLoc] V184 one-to-three internal reference fork installed',{
+  console.info('[DaLoc] V185 compact left-center-right reference fork installed',{
     mode:forestMode,
     realTrees:root.userData.treeCount,
     treeChunks:treeChunkCount,
